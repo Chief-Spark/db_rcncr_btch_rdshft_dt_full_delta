@@ -1,0 +1,217 @@
+{
+  "generated": "2026-09-04",
+  "universo": {
+    "personas": 407351,
+    "rpus": 591166,
+    "rpuxp": 1.45
+  },
+  "filas": [
+    {
+      "regla": "UNIVERSO",
+      "codigo": "TEMA",
+      "escenario": "Entrada total",
+      "busca": "Todas las personas y todos sus reportes de dirección, antes de aplicar cualquier regla.",
+      "personas": 407351,
+      "rpus": 591166,
+      "rpuxp": 1.45
+    },
+    {
+      "regla": "UNIVERSO",
+      "codigo": "POST-R2",
+      "escenario": "Activos después de regla 2",
+      "busca": "Lo que queda activo después de que la regla 2 absorbe reportes duplicados.",
+      "personas": 407351,
+      "rpus": 515748,
+      "rpuxp": 1.27
+    },
+    {
+      "regla": "R1",
+      "codigo": "INSUMO",
+      "escenario": "Datos de origen",
+      "busca": "Cómo viene marcada cada dirección en los datos de origen: casa, trabajo, correspondencia o token.",
+      "personas": 407351,
+      "rpus": 591166,
+      "rpuxp": 1.45
+    },
+    {
+      "regla": "R1",
+      "codigo": "PRE-R1",
+      "escenario": "Entran a regla 1",
+      "busca": "Personas que en la misma calle y ciudad tienen al menos dos usos distintos (por ejemplo casa y trabajo, o casa y correspondencia).",
+      "personas": 156,
+      "rpus": 2441,
+      "rpuxp": 15.65
+    },
+    {
+      "regla": "R1",
+      "codigo": "PRE-R1-FUERA",
+      "escenario": "No entran a regla 1",
+      "busca": "Personas con un solo uso en esa calle, o con casa y trabajo en calles diferentes.",
+      "personas": 407195,
+      "rpus": 588725,
+      "rpuxp": 1.45
+    },
+    {
+      "regla": "R1",
+      "codigo": "ESC1",
+      "escenario": "ESC1",
+      "busca": "Si la persona tiene actividad de comercio, gana trabajo o correspondencia frente a casa.",
+      "personas": 0,
+      "rpus": 0,
+      "rpuxp": null
+    },
+    {
+      "regla": "R1",
+      "codigo": "ESC2",
+      "escenario": "ESC2",
+      "busca": "Si tiene actividad de servicios, gana casa o correspondencia frente a los demás usos.",
+      "personas": 0,
+      "rpus": 0,
+      "rpuxp": null
+    },
+    {
+      "regla": "R1",
+      "codigo": "ESC3",
+      "escenario": "ESC3",
+      "busca": "En cualquier otra actividad, gana el uso que más entidades distintas reportaron.",
+      "personas": 154,
+      "rpus": 2441,
+      "rpuxp": 15.85
+    },
+    {
+      "regla": "R1",
+      "codigo": "EMPATE",
+      "escenario": "Empate — nadie gana",
+      "busca": "Dos o más usos (casa, trabajo, correspondencia) quedaron con el mismo puntaje: no se elige ganador y no se unifica.",
+      "personas": 154,
+      "rpus": 2441,
+      "rpuxp": 15.85
+    },
+    {
+      "regla": "R1",
+      "codigo": "SALIDA",
+      "escenario": "Salida unificaciones",
+      "busca": "Reportes que la regla 1 habría absorbido si hubiera un ganador claro.",
+      "personas": 0,
+      "rpus": 0,
+      "rpuxp": null
+    },
+    {
+      "regla": "R2",
+      "codigo": "INSUMO",
+      "escenario": "Datos de origen",
+      "busca": "Direcciones de correspondencia «token» (código 8) donde el detalle extra viaja en el token.",
+      "personas": 407181,
+      "rpus": 585732,
+      "rpuxp": 1.44
+    },
+    {
+      "regla": "R2",
+      "codigo": "ESC1",
+      "escenario": "ESC1",
+      "busca": "Misma persona, misma calle y mismo uso: una fila trae apto u oficina y la otra no — gana la que tiene el detalle.",
+      "personas": 72445,
+      "rpus": 72448,
+      "rpuxp": 1.0
+    },
+    {
+      "regla": "R2",
+      "codigo": "ESC2",
+      "escenario": "ESC2",
+      "busca": "Un detalle contiene al otro (ejemplo: «LOCAL 5 PISO 2» contiene «LOCAL 5»).",
+      "personas": 0,
+      "rpus": 0,
+      "rpuxp": null
+    },
+    {
+      "regla": "R2",
+      "codigo": "ESC3",
+      "escenario": "ESC3",
+      "busca": "Misma palabra de catálogo pero número distinto (LOCAL 5 vs LOCAL 6); solo personas, no empresas.",
+      "personas": 0,
+      "rpus": 0,
+      "rpuxp": null
+    },
+    {
+      "regla": "R2",
+      "codigo": "ESC4",
+      "escenario": "ESC4",
+      "busca": "Gana el detalle que más veces aparece en el diccionario, si hay un solo ganador.",
+      "personas": 0,
+      "rpus": 0,
+      "rpuxp": null
+    },
+    {
+      "regla": "R2",
+      "codigo": "ESC5",
+      "escenario": "ESC5",
+      "busca": "Gana el detalle de nivel más alto (edificio por encima de apartamento).",
+      "personas": 0,
+      "rpus": 0,
+      "rpuxp": null
+    },
+    {
+      "regla": "R2",
+      "codigo": "ESC6",
+      "escenario": "ESC6",
+      "busca": "Último desempate: el detalle más frecuente en todo el diccionario.",
+      "personas": 0,
+      "rpus": 0,
+      "rpuxp": null
+    },
+    {
+      "regla": "R2",
+      "codigo": "MOTOR",
+      "escenario": "Motor empresas (NIT)",
+      "busca": "Para empresas (NIT): junta complementos en un reporte enriquecido; solo paso intermedio, no es la salida principal en DEV.",
+      "personas": 0,
+      "rpus": 0,
+      "rpuxp": null
+    },
+    {
+      "regla": "R2",
+      "codigo": "SIN PAR",
+      "escenario": "Sin pareja en regla 2",
+      "busca": "Personas y reportes que no encontraron duplicado por detalle en la regla 2.",
+      "personas": 407351,
+      "rpus": 515748,
+      "rpuxp": 1.27
+    },
+    {
+      "regla": "R2",
+      "codigo": "SALIDA",
+      "escenario": "Salida unificaciones",
+      "busca": "Reportes absorbidos por la regla 2 (el hijo pasa a vivir bajo el padre).",
+      "personas": 72445,
+      "rpus": 72448,
+      "rpuxp": 1.0
+    },
+    {
+      "regla": "R3",
+      "codigo": "PRE-R3",
+      "escenario": "Con coordenadas en mapa",
+      "busca": "Direcciones que traen latitud y longitud — sin mapa no corre la regla 3.",
+      "personas": 0,
+      "rpus": 0,
+      "rpuxp": null
+    },
+    {
+      "regla": "R3",
+      "codigo": "ESC1",
+      "escenario": "ESC1",
+      "busca": "Misma persona y municipio: calles muy parecidas en el mapa; gana quien más reporta.",
+      "personas": 0,
+      "rpus": 0,
+      "rpuxp": null
+    },
+    {
+      "regla": "R3",
+      "codigo": "SALIDA",
+      "escenario": "Salida unificaciones",
+      "busca": "Reportes que la regla 3 habría unificado usando el mapa.",
+      "personas": 0,
+      "rpus": 0,
+      "rpuxp": null
+    }
+  ]
+}

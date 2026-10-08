@@ -1,0 +1,266 @@
+<mxfile host="Electron" agent="Cursor" pages="2">
+  <diagram id="page1-flujo" name="1. Flujo Data Sharing (tecnico)">
+    <mxGraphModel dx="2049" dy="1034" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1150" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=22;fontStyle=1;fontColor=#232F3E;" value="Arquitectura Reconocer Batch — Data Sharing (v3)" vertex="1">
+          <mxGeometry height="40" width="1400" x="200" y="15" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontColor=#545B64;" value="Flujo tecnico corregido: IAM a nivel cuenta · VPC solo como contexto de Redshift · Data Share = servicio logico (NO requiere VPC peering)" vertex="1">
+          <mxGeometry height="30" width="1600" x="100" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="env_dev" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1D8102;fontColor=#ffffff;strokeColor=#145A01;fontSize=13;align=center;" value="&lt;b&gt;DEV&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ds_reconocer_procesosbatch_dev&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="400" x="60" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="env_qa" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0073BB;fontColor=#ffffff;strokeColor=#005A94;fontSize=13;align=center;" value="&lt;b&gt;QA&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ds_reconocer_qa&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="400" x="480" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="env_demo" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FF9900;fontColor=#232F3E;strokeColor=#EC7211;fontSize=13;align=center;" value="&lt;b&gt;DEMO&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ds_reconocer_demo&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="400" x="900" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="env_prod" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D13212;fontColor=#ffffff;strokeColor=#A02010;fontSize=13;align=center;" value="&lt;b&gt;PROD&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ds_reconocer_pdn&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="400" x="1320" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="env_promo" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontColor=#545B64;fontStyle=2;" value="Promocion SQL: Bitbucket → Jenkins → Jira (STRCT / PGM / DT) · Ejemplo detallado: ambiente DEV" vertex="1">
+          <mxGeometry height="20" width="1660" x="60" y="152" as="geometry" />
+        </mxCell>
+        <mxCell id="acc_prod" parent="1" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud_alt;strokeColor=#232F3E;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;" value="" vertex="1">
+          <mxGeometry height="735" width="800" x="40" y="185" as="geometry" />
+        </mxCell>
+        <mxCell id="acc_prod_lbl" parent="acc_prod" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=13;fontStyle=1;fontColor=#232F3E;" value="&lt;b&gt;Cuenta AWS — Procesos Batch&lt;/b&gt; (Productor)&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;651706752126 · procesosbatch-dev-redshift · dba_batch&lt;/font&gt;" vertex="1">
+          <mxGeometry height="40" width="400" x="30" y="8" as="geometry" />
+        </mxCell>
+        <mxCell id="iam_prod" parent="acc_prod" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=#ffffff;fillColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.identity_and_access_management;" value="AWS IAM — Rol productor&lt;br&gt;CREATE DATASHARE · GRANT USAGE&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#545B64&quot;&gt;(nivel cuenta, no dentro del VPC)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="68" width="68" x="660" y="8" as="geometry" />
+        </mxCell>
+        <mxCell id="vpc_prod" parent="acc_prod" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=11;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc;strokeColor=#248814;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#248814;dashed=1;" value="" vertex="1">
+          <mxGeometry height="320" width="500" x="30" y="95" as="geometry" />
+        </mxCell>
+        <mxCell id="vpc_prod_lbl" parent="vpc_prod" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontStyle=1;fontColor=#248814;" value="Amazon VPC — contexto de despliegue&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Redshift en subnets privadas · Acceso operativo vía SG/VPN&lt;/font&gt;" vertex="1">
+          <mxGeometry height="35" width="340" y="5" as="geometry" />
+        </mxCell>
+        <mxCell id="rs_prod_icon" parent="vpc_prod" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=#ffffff;fillColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.redshift;" value="Amazon Redshift&lt;br&gt;&lt;b&gt;Procesos Batch DEV&lt;/b&gt;" vertex="1">
+          <mxGeometry height="68" width="68" x="20" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="schema_prod" parent="vpc_prod" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E6;strokeColor=#F0C14B;fontSize=11;align=left;spacingLeft=10;" value="&lt;b&gt;Schema: edf_views&lt;/b&gt; (34 tablas DEV — fuente datashare)&lt;br&gt;&lt;br&gt;• xpm y tablas EDF&lt;br&gt;• ifr_data NO publicado (Spectrum/KMS)" vertex="1">
+          <mxGeometry height="120" width="260" x="110" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="vpc_note_prod" parent="vpc_prod" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0FFF4;strokeColor=#248814;fontSize=10;align=center;fontStyle=2;" value="El VPC aísla el endpoint de Redshift.&lt;br&gt;NO es el mecanismo del Data Share." vertex="1">
+          <mxGeometry height="45" width="170" x="310" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="ds_box" parent="acc_prod" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3EEFF;strokeColor=#8C4FFF;fontSize=11;align=center;" value="&lt;b&gt;Redshift Data Share&lt;/b&gt;&lt;br&gt;ds_reconocer_procesosbatch_dev · ACTIVE&lt;br&gt;Publica edf_views · Sin copia permanente&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#545B64&quot;&gt;(objeto logico Redshift — fuera del VPC)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="480" x="30" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_schema_ds" edge="1" parent="acc_prod" source="schema_prod" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=2;strokeColor=#8C4FFF;" target="ds_box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_schema_ds_lbl" connectable="0" parent="arr_schema_ds" style="edgeLabel;html=1;fontSize=9;" value="Publica tablas" vertex="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="acc_cons" parent="1" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud_alt;strokeColor=#232F3E;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;" value="" vertex="1">
+          <mxGeometry height="735" width="840" x="960" y="185" as="geometry" />
+        </mxCell>
+        <mxCell id="acc_cons_lbl" parent="acc_cons" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=13;fontStyle=1;fontColor=#232F3E;" value="&lt;b&gt;Cuenta AWS — Reconocer Batch&lt;/b&gt; (Consumidor)&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;647096294147 · reconocerbatch-dev-redshift · dba_rncr_batch&lt;/font&gt;" vertex="1">
+          <mxGeometry height="40" width="420" x="30" y="8" as="geometry" />
+        </mxCell>
+        <mxCell id="iam_cons" parent="acc_cons" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=#ffffff;fillColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.identity_and_access_management;" value="AWS IAM — Rol consumidor&lt;br&gt;ASSOCIATE DATASHARE · GRANT SELECT&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#545B64&quot;&gt;(nivel cuenta, no dentro del VPC)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="68" width="68" x="610" y="8" as="geometry" />
+        </mxCell>
+        <mxCell id="vpc_cons" parent="acc_cons" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=11;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc;strokeColor=#248814;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#248814;dashed=1;" value="" vertex="1">
+          <mxGeometry height="480" width="720" x="30" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="vpc_cons_lbl" parent="vpc_cons" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontStyle=1;fontColor=#248814;" value="Amazon VPC — contexto de despliegue&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Redshift en subnets privadas · Acceso operativo vía SG/VPN&lt;/font&gt;" vertex="1">
+          <mxGeometry height="35" width="340" x="50" as="geometry" />
+        </mxCell>
+        <mxCell id="rs_cons_icon" parent="vpc_cons" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;strokeColor=#ffffff;fillColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.redshift;" value="Amazon Redshift&lt;br&gt;&lt;b&gt;Reconocer Batch DEV&lt;/b&gt;" vertex="1">
+          <mxGeometry height="68" width="68" x="30" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="db_share" parent="vpc_cons" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EEF3FF;strokeColor=#527FFF;fontSize=10;align=center;" value="&lt;b&gt;ds_dba_rncr_batch&lt;/b&gt; (from datashare)&lt;br&gt;edf_views.* → SOLO LECTURA" vertex="1">
+          <mxGeometry height="65" width="200" x="110" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="staging" parent="vpc_cons" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E6;strokeColor=#F0C14B;fontSize=10;align=center;" value="&lt;b&gt;bdm_tempo&lt;/b&gt; (staging local)&lt;br&gt;Materializacion CTAS R1/R2/R3" vertex="1">
+          <mxGeometry height="65" width="200" x="380" y="51.5" as="geometry" />
+        </mxCell>
+        <mxCell id="unif" parent="vpc_cons" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEAEA;strokeColor=#FF6B6B;fontSize=10;align=center;" value="&lt;b&gt;UNIFICACION&lt;/b&gt;&lt;br&gt;R1 → R2 → Motor → R3" vertex="1">
+          <mxGeometry height="55" width="200" x="380" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="orden" parent="vpc_cons" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E6F7F4;strokeColor=#01A88D;fontSize=10;align=center;" value="&lt;b&gt;ORDENAMIENTO&lt;/b&gt;&lt;br&gt;Scoring contactabilidad" vertex="1">
+          <mxGeometry height="55" width="200" x="380" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="result" parent="vpc_cons" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#1D8102;strokeWidth=2;fontSize=10;align=center;" value="&lt;b&gt;RESULTADOS LOCALES DEV&lt;/b&gt;&lt;br&gt;bdm_datos.unificacion_direccion · ordenamiento_*&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;NO regresan al productor&lt;/font&gt;" vertex="1">
+          <mxGeometry height="65" width="420" x="270" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="vpc_note_cons" parent="vpc_cons" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0FFF4;strokeColor=#248814;fontSize=10;align=center;fontStyle=2;" value="Procesamiento y persistencia ocurren&lt;br&gt;enteramente en el Redshift local DEV." vertex="1">
+          <mxGeometry height="40" width="420" x="270" y="430" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_read_stg" edge="1" parent="vpc_cons" source="db_share" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=2;strokeColor=#527FFF;" target="staging">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_stg_unif" edge="1" parent="vpc_cons" source="staging" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=2;strokeColor=#FF6B6B;" target="unif">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_unif_ord" edge="1" parent="vpc_cons" source="unif" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=2;strokeColor=#01A88D;" target="orden">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arr_ord_res" edge="1" parent="vpc_cons" source="orden" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=2;strokeColor=#1D8102;" target="result">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cicd" parent="acc_cons" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2F3F3;strokeColor=#545B64;fontSize=11;align=center;" value="&lt;b&gt;CI/CD Experian&lt;/b&gt;&lt;br&gt;Bitbucket (STRCT · PGM · DT) → Jenkins → Jira&lt;br&gt;Promocion codigo SQL: DEV → QA → DEMO → PDN" vertex="1">
+          <mxGeometry height="55" width="720" x="30" y="665" as="geometry" />
+        </mxCell>
+        <mxCell id="ds_arrow" edge="1" parent="1" source="ds_box" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=4;strokeColor=#FF9900;dashed=1;dashPattern=8 8;" target="db_share">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ds_arrow_lbl" connectable="0" parent="ds_arrow" style="edgeLabel;html=1;fontSize=11;fontColor=#FF9900;fontStyle=1;" value="REDSHIFT DATA SHARING&lt;br&gt;Cross-Account · Servicio logico&lt;br&gt;NO requiere VPC peering" vertex="1">
+          <mxGeometry relative="1" x="-0.1" y="-15" as="geometry">
+            <mxPoint x="-357" y="-15" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="scope_note" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EBF8FF;strokeColor=#0073BB;fontSize=11;align=center;" value="&lt;b&gt;Alcance v3:&lt;/b&gt; Redshift · Data Share · IAM cross-account · Unificacion · Ordenamiento · CI/CD · VPC solo como contexto de despliegue" vertex="1">
+          <mxGeometry height="35" width="1760" x="40" y="940" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_txt" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2F3F3;strokeColor=#D5DBDB;fontSize=12;align=left;spacingLeft=16;spacingTop=8;" value="&lt;b&gt;Flujo DEV:&lt;/b&gt; ① Lectura cross-account vía Data Share → ② Materializacion bdm_tempo → ③ Unificacion R1-R3 → ④ Ordenamiento → ⑤ Persistencia local&lt;br&gt;&lt;b&gt;Clave tecnica:&lt;/b&gt; IAM habilita el share entre cuentas. VPC solo ubica Redshift; el Data Share NO transita por la red VPC ni requiere peering entre cuentas." vertex="1">
+          <mxGeometry height="55" width="1700" x="40" y="990" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="page2-aislamiento" name="2. Aislamiento por Ambiente">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="p2-0" />
+        <mxCell id="p2-1" parent="p2-0" />
+        <mxCell id="p2-title" value="Data Sharing — Aislamiento por Ambiente (v3)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=22;fontStyle=1;fontColor=#232F3E;" vertex="1" parent="p2-1">
+          <mxGeometry x="200" y="20" width="1200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-subtitle" value="Cada Reconocer Batch lee SOLO del Procesos Batch del mismo ambiente · Sin lectura cruzada entre DEV, QA, DEMO ni PROD" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=13;fontColor=#545B64;" vertex="1" parent="p2-1">
+          <mxGeometry x="100" y="55" width="1400" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-h_prod" value="Redshift Procesos Batch (Productor)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#545B64;" vertex="1" parent="p2-1">
+          <mxGeometry x="160" y="95" width="400" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-h_ds" value="Data Share" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#545B64;" vertex="1" parent="p2-1">
+          <mxGeometry x="580" y="95" width="160" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-h_cons" value="Redshift Reconocer Batch (Consumidor)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#545B64;" vertex="1" parent="p2-1">
+          <mxGeometry x="760" y="95" width="400" height="25" as="geometry" />
+        </mxCell>
+        <!-- DEV -->
+        <mxCell id="p2-dev_lbl" value="DEV" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1D8102;fontColor=#ffffff;strokeColor=#145A01;fontSize=16;fontStyle=1;align=center;" vertex="1" parent="p2-1">
+          <mxGeometry x="40" y="130" width="90" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-dev_prod" value="&lt;b&gt;Procesos Batch — DEV&lt;/b&gt;&lt;br&gt;&lt;br&gt;bdm_datos.* · database: dev" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1D8102;strokeWidth=2;fontSize=12;align=left;spacingLeft=12;" vertex="1" parent="p2-1">
+          <mxGeometry x="160" y="130" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-dev_ds" value="&lt;b&gt;ds_reconocer_dev&lt;/b&gt;&lt;br&gt;Data Sharing DEV only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#FF9900;fontSize=11;align=center;" vertex="1" parent="p2-1">
+          <mxGeometry x="580" y="145" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-dev_cons" value="&lt;b&gt;Reconocer Batch — DEV&lt;/b&gt;&lt;br&gt;&lt;br&gt;Lee SOLO datos DEV&lt;br&gt;Unificacion + Ordenamiento&lt;br&gt;Resultados locales DEV" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#1D8102;strokeWidth=2;fontSize=12;align=left;spacingLeft=12;" vertex="1" parent="p2-1">
+          <mxGeometry x="760" y="130" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-dev_arr1" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=3;strokeColor=#1D8102;" edge="1" parent="p2-1" source="p2-dev_prod" target="p2-dev_ds">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-dev_arr2" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=3;strokeColor=#1D8102;" edge="1" parent="p2-1" source="p2-dev_ds" target="p2-dev_cons">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-bar1" value="— — — SIN LECTURA CRUZADA — — —" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#C0392B;fontStyle=3;" vertex="1" parent="p2-1">
+          <mxGeometry x="160" y="240" width="1000" height="20" as="geometry" />
+        </mxCell>
+        <!-- QA -->
+        <mxCell id="p2-qa_lbl" value="QA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0073BB;fontColor=#ffffff;strokeColor=#005A94;fontSize=16;fontStyle=1;align=center;" vertex="1" parent="p2-1">
+          <mxGeometry x="40" y="270" width="90" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-qa_prod" value="&lt;b&gt;Procesos Batch — QA&lt;/b&gt;&lt;br&gt;&lt;br&gt;bdm_datos.* · database: qa" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0073BB;strokeWidth=2;fontSize=12;align=left;spacingLeft=12;" vertex="1" parent="p2-1">
+          <mxGeometry x="160" y="270" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-qa_ds" value="&lt;b&gt;ds_reconocer_qa&lt;/b&gt;&lt;br&gt;Data Sharing QA only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#FF9900;fontSize=11;align=center;" vertex="1" parent="p2-1">
+          <mxGeometry x="580" y="285" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-qa_cons" value="&lt;b&gt;Reconocer Batch — QA&lt;/b&gt;&lt;br&gt;&lt;br&gt;Lee SOLO datos QA&lt;br&gt;Unificacion + Ordenamiento&lt;br&gt;Resultados locales QA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0073BB;strokeWidth=2;fontSize=12;align=left;spacingLeft=12;" vertex="1" parent="p2-1">
+          <mxGeometry x="760" y="270" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-qa_arr1" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=3;strokeColor=#0073BB;" edge="1" parent="p2-1" source="p2-qa_prod" target="p2-qa_ds">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-qa_arr2" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=3;strokeColor=#0073BB;" edge="1" parent="p2-1" source="p2-qa_ds" target="p2-qa_cons">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-bar2" value="— — — SIN LECTURA CRUZADA — — —" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#C0392B;fontStyle=3;" vertex="1" parent="p2-1">
+          <mxGeometry x="160" y="380" width="1000" height="20" as="geometry" />
+        </mxCell>
+        <!-- DEMO -->
+        <mxCell id="p2-demo_lbl" value="DEMO" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FF9900;fontColor=#232F3E;strokeColor=#EC7211;fontSize=16;fontStyle=1;align=center;" vertex="1" parent="p2-1">
+          <mxGeometry x="40" y="410" width="90" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-demo_prod" value="&lt;b&gt;Procesos Batch — DEMO&lt;/b&gt;&lt;br&gt;&lt;br&gt;bdm_datos.* · database: demo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#FF9900;strokeWidth=2;fontSize=12;align=left;spacingLeft=12;" vertex="1" parent="p2-1">
+          <mxGeometry x="160" y="410" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-demo_ds" value="&lt;b&gt;ds_reconocer_demo&lt;/b&gt;&lt;br&gt;Data Sharing DEMO only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#FF9900;fontSize=11;align=center;" vertex="1" parent="p2-1">
+          <mxGeometry x="580" y="425" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-demo_cons" value="&lt;b&gt;Reconocer Batch — DEMO&lt;/b&gt;&lt;br&gt;&lt;br&gt;Lee SOLO datos DEMO&lt;br&gt;Unificacion + Ordenamiento&lt;br&gt;Resultados locales DEMO" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#FF9900;strokeWidth=2;fontSize=12;align=left;spacingLeft=12;" vertex="1" parent="p2-1">
+          <mxGeometry x="760" y="410" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-demo_arr1" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=3;strokeColor=#FF9900;" edge="1" parent="p2-1" source="p2-demo_prod" target="p2-demo_ds">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-demo_arr2" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=3;strokeColor=#FF9900;" edge="1" parent="p2-1" source="p2-demo_ds" target="p2-demo_cons">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-bar3" value="— — — SIN LECTURA CRUZADA — — —" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#C0392B;fontStyle=3;" vertex="1" parent="p2-1">
+          <mxGeometry x="160" y="520" width="1000" height="20" as="geometry" />
+        </mxCell>
+        <!-- PROD -->
+        <mxCell id="p2-prod_lbl" value="PROD" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D13212;fontColor=#ffffff;strokeColor=#A02010;fontSize=16;fontStyle=1;align=center;" vertex="1" parent="p2-1">
+          <mxGeometry x="40" y="550" width="90" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-prod_prod" value="&lt;b&gt;Procesos Batch — PROD&lt;/b&gt;&lt;br&gt;&lt;br&gt;bdm_datos.* · database: pdn" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#D13212;strokeWidth=2;fontSize=12;align=left;spacingLeft=12;" vertex="1" parent="p2-1">
+          <mxGeometry x="160" y="550" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-prod_ds" value="&lt;b&gt;ds_reconocer_pdn&lt;/b&gt;&lt;br&gt;Data Sharing PROD only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#FF9900;fontSize=11;align=center;" vertex="1" parent="p2-1">
+          <mxGeometry x="580" y="565" width="160" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-prod_cons" value="&lt;b&gt;Reconocer Batch — PROD&lt;/b&gt;&lt;br&gt;&lt;br&gt;Lee SOLO datos PROD&lt;br&gt;Unificacion + Ordenamiento&lt;br&gt;Resultados locales PROD" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#D13212;strokeWidth=2;fontSize=12;align=left;spacingLeft=12;" vertex="1" parent="p2-1">
+          <mxGeometry x="760" y="550" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-prod_arr1" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=3;strokeColor=#D13212;" edge="1" parent="p2-1" source="p2-prod_prod" target="p2-prod_ds">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-prod_arr2" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=3;strokeColor=#D13212;" edge="1" parent="p2-1" source="p2-prod_ds" target="p2-prod_cons">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- Forbidden -->
+        <mxCell id="p2-forbid_title" value="Lecturas NO permitidas" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=13;fontStyle=1;fontColor=#C0392B;" vertex="1" parent="p2-1">
+          <mxGeometry x="160" y="680" width="200" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-forbid_box" value="Reconocer DEV NO lee Procesos QA/DEMO/PROD · Reconocer QA NO lee DEV/DEMO/PROD · Reconocer DEMO NO lee DEV/QA/PROD · Reconocer PROD NO lee DEV/QA/DEMO" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDF2F2;strokeColor=#E74C3C;fontSize=12;align=center;" vertex="1" parent="p2-1">
+          <mxGeometry x="160" y="710" width="1000" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-forbid_arr" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;strokeWidth=2;strokeColor=#C0392B;dashed=1;dashPattern=6 6;" edge="1" parent="p2-1" source="p2-dev_cons" target="p2-qa_prod">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1200" y="180" />
+              <mxPoint x="1200" y="320" />
+              <mxPoint x="560" y="320" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p2-forbid_lbl" connectable="0" parent="p2-forbid_arr" style="edgeLabel;html=1;fontSize=10;fontColor=#C0392B;fontStyle=1;" value="PROHIBIDO" vertex="1">
+          <mxGeometry relative="1" x="0.3" as="geometry">
+            <mxPoint y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p2-footer" value="Codigo SQL promueve DEV → QA → DEMO → PROD (Bitbucket/Jenkins/Jira). Los datos permanecen aislados: cada par Procesos ↔ Reconocer del mismo ambiente." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2F3F3;strokeColor=#D5DBDB;fontSize=12;align=center;" vertex="1" parent="p2-1">
+          <mxGeometry x="160" y="790" width="1000" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="p2-start_dev" value="Punto de partida recomendado: DEV — encender cluster, gestionar accesos, validar flujo antes de promover." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#1D8102;fontSize=11;align=center;" vertex="1" parent="p2-1">
+          <mxGeometry x="160" y="850" width="1000" height="40" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

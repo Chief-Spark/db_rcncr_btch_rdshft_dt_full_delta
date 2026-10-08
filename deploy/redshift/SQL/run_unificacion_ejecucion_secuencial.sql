@@ -1,0 +1,30 @@
+-- ============================================================
+-- run_unificacion_ejecucion_secuencial.sql
+-- Script CALL de la MALLA de Unificacion (repo dt / db_rcncr_btch_rdshft_dt).
+-- Spec: unificacion-full-delta (Task 10.1)
+--
+-- Cambio FULL/DELTA (design.md "Encaje en la malla de Unificacion"):
+--   El control pasa al orquestador maestro bdm_datos.sp_unificacion_ciclo, que
+--   resuelve el Modo_Corrida / Lote_Corrida / Fecha_Proceso desde los 6
+--   parametros del Framework_Batch, abre la fila de control, ejecuta el
+--   TRUNCATE SOLO si el modo efectivo es FULL/Bootstrap (Req 5.3, 10.2),
+--   encadena R1 -> R2 -> GEO -> R3 con traza, avanza el Watermark y cierra la
+--   corrida. Por eso ya NO se hace TRUNCATE incondicional aqui ni se llaman las
+--   reglas por separado.
+--
+-- Contrato Framework_Batch (6 params VARCHAR, firma exacta — leccion #11):
+--   sp_unificacion_ciclo(in_solicitud, in_nit_suscriptor, in_path_archivo,
+--                        in_nemotecnico, in_id_facturacion, in_fecha_ejecucion)
+--     in_nemotecnico    -> MODO  (FULL | DELTA | '' -> default FULL, Req 1.2)
+--     in_id_facturacion -> LOTE  (entero externo ${lote}; ausente -> aborta, Req 6.4)
+--     in_fecha_ejecucion-> FECHA (YYYY-MM-DD | '' -> default CURRENT_DATE, Req 14.2)
+--   Los slots in_solicitud / in_nit_suscriptor / in_path_archivo no participan
+--   en la seleccion de modo/lote/fecha; se pasan vacios. La orquestacion
+--   sustituye los tokens :MODO, :LOTE y :FECHA al lanzar la corrida.
+--
+-- CALL NONATOMIC consistente con toda la cadena (mezclar modos de transaccion
+-- produce P0001, Req 12.3). UTF-8 sin BOM.
+-- Requisitos: 5.3, 10.2, 12.1, 12.3
+-- ============================================================
+
+CALL bdm_datos.sp_unificacion_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('FULL' AS VARCHAR(256)), CAST('1356001' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));

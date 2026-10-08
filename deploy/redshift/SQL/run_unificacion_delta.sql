@@ -1,0 +1,24 @@
+-- ============================================================
+-- run_unificacion_delta.sql
+-- Script CALL de PRUEBA - corrida DELTA de la Unificacion (repo dt).
+-- Spec: unificacion-full-delta (Task 10.1)
+--
+-- Ejecuta una corrida en Modo_Delta: el orquestador maestro
+-- bdm_datos.sp_unificacion_ciclo NO hace TRUNCATE; procesa solo la ventana
+-- delta (fecha_relacion_persona_ubicaci >= Watermark, frontera inclusiva, mas
+-- los nulos) y persiste por UPSERT sobre la Clave_Unificacion (Req 3.1, 3.2, 5.1).
+-- Si no existe Watermark previo 'completado', el orquestador FUERZA Bootstrap
+-- FULL aunque aqui se pida DELTA (Req 2.1, 2.3).
+--
+-- Contrato Framework_Batch (6 params VARCHAR, firma exacta - leccion #11):
+--   in_nemotecnico    = 'DELTA' -> Modo_Corrida DELTA
+--   in_id_facturacion = '1356001' -> Lote_Corrida (entero externo; ausente -> aborta, Req 6.4)
+--   in_fecha_ejecucion= ''-> Fecha_Proceso (YYYY-MM-DD | '' -> CURRENT_DATE, Req 14.2)
+--   in_solicitud / in_nit_suscriptor / in_path_archivo no se usan (vacios).
+--   La orquestacion sustituye :LOTE y :FECHA al lanzar la corrida.
+--
+-- CALL NONATOMIC consistente con la cadena (Req 12.3). UTF-8 sin BOM.
+-- Requisitos: 5.3, 10.2, 12.1, 12.3
+-- ============================================================
+
+CALL bdm_datos.sp_unificacion_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('DELTA' AS VARCHAR(256)), CAST('1356001' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));

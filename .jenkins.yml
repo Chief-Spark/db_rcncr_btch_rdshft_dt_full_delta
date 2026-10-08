@@ -1,0 +1,9 @@
+# DATABASE-REDSHIFT - Unificacion+Ordenamiento DT (runs/validaciones)
+version: 1.0.0
+global:
+  application: dba_rncr_batch
+  type: data
+  tech: database
+  language: redshift
+  jdk: 8
+  order: 3

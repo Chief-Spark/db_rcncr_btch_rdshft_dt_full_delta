@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<title>Guía de ordenamiento — ejemplos básicos</title>
+<style>
+@page { margin: 18mm 14mm; }
+body {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.5;
+  color: #1a1a1a;
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 12mm 10mm;
+}
+h1 {
+  font-size: 22pt;
+  color: #1558b0;
+  border-bottom: 2px solid #1558b0;
+  padding-bottom: 6px;
+}
+h2 {
+  font-size: 14pt;
+  color: #1558b0;
+  margin-top: 20px;
+  page-break-after: avoid;
+}
+h3 {
+  font-size: 11.5pt;
+  color: #333;
+  margin-top: 14px;
+  page-break-after: avoid;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 10px 0 14px;
+  font-size: 9.5pt;
+}
+th, td {
+  border: 1px solid #c5cdd8;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+th { background: #eef2f7; font-weight: 700; }
+code {
+  font-family: Consolas, monospace;
+  font-size: 9pt;
+  background: #f4f6f8;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+pre {
+  font-family: Consolas, monospace;
+  font-size: 8.5pt;
+  background: #f4f6f8;
+  border: 1px solid #d8dee6;
+  border-radius: 6px;
+  padding: 10px;
+  white-space: pre-wrap;
+}
+pre code { background: transparent; padding: 0; }
+blockquote {
+  border-left: 4px solid #1558b0;
+  margin: 10px 0;
+  padding: 6px 14px;
+  background: #f8fafc;
+}
+hr { border: none; border-top: 1px solid #d8dee6; margin: 16px 0; }
+@media print {
+  body { padding: 0; }
+  h2, h3 { page-break-after: avoid; }
+  table, pre { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body><h1>Guía de ordenamiento — ejemplos básicos y validación DEV</h1>
+<p><strong>Para quién:</strong> negocio, QA, DBA y cualquier persona que deba explicar <em>qué hace el ordenamiento</em> sin entrar al SQL.<br />
+<strong>Fecha:</strong> 2026-09-11 · <strong>Entorno validado:</strong> DEV Reconocer (<code>dba_rncr_batch</code>) con datos reales <code>edf_views</code>.</p>
+<blockquote>
+<p><strong>Documento principal para explicar fases:</strong> <a href="FASES_ORDENAMIENTO_EXPLICADAS.md"><code>FASES_ORDENAMIENTO_EXPLICADAS.md</code></a><br />
+(1 SP = 1 paso · ejemplos smoke 20001–20009 · guión 90 s)</p>
+</blockquote>
+<hr />
+<h2>1. La idea en una frase</h2>
+<blockquote>
+<p><strong>Unificación</strong> responde: <em>“¿estas dos direcciones son la misma?”</em><br />
+<strong>Ordenamiento</strong> responde: <em>“si tengo varias direcciones o contactos, ¿cuál intento primero?”</em></p>
+</blockquote>
+<p>No mezcla personas. No mezcla canales (teléfono no compite con email). Solo ordena <strong>dentro de cada canal</strong> para cada persona.</p>
+<hr />
+<h2>2. Analogía del día a día</h2>
+<p>Imagina a <strong>María</strong> en el buró:</p>
+<table>
+<thead>
+<tr>
+<th>Lo que tiene María</th>
+<th>Canal</th>
+<th>Pregunta del ordenamiento</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Casa en Suba + oficina en Chapinero</td>
+<td><strong>DIR</strong></td>
+<td>¿Llamo primero a la casa o a la oficina?</td>
+</tr>
+<tr>
+<td>Fijo de la casa + fijo del trabajo</td>
+<td><strong>TEL</strong></td>
+<td>¿Cuál fijo uso primero?</td>
+</tr>
+<tr>
+<td>Celular Claro + celular Movistar</td>
+<td><strong>CEL</strong></td>
+<td>¿Cuál celular priorizo?</td>
+</tr>
+<tr>
+<td>Gmail personal + correo del trabajo</td>
+<td><strong>EMA</strong></td>
+<td>¿Cuál email contacto primero?</td>
+</tr>
+</tbody>
+</table>
+<p>El sistema asigna un <strong>score</strong> (0 a 1, aprox.) a cada opción y un <strong>lugar</strong>: 1 = el mejor, 2 = el segundo, etc.</p>
+<p>Solo el canal <strong>DIR</strong> escribe el campo final <code>orden_prioridad</code> en el RPU (reporte de persona-ubicación). Los demás canales guardan su ranking aparte.</p>
+<hr />
+<h2>3. Antes de ordenar: ganadoras vs hijas</h2>
+<p>Esto viene de la <strong>unificación</strong> (R1, R2, R3). Ordenamiento <strong>no redefine</strong> quién es padre o hija; solo consume el resultado.</p>
+<h3>Ejemplo simple — tres RPUs de la misma persona</h3>
+<table>
+<thead>
+<tr>
+<th>RPU</th>
+<th>Dirección</th>
+<th><code>ind_unificacion</code></th>
+<th>¿Entra al ordenamiento?</th>
+<th>Por qué</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10001</td>
+<td>Calle 10 #20</td>
+<td>NULL (ganadora)</td>
+<td><strong>Sí</strong></td>
+<td>Dirección vigente</td>
+</tr>
+<tr>
+<td>10002</td>
+<td>Calle 10 #20 apto 3</td>
+<td><strong>1</strong> (hija)</td>
+<td><strong>No</strong></td>
+<td>Absorbida por RPU 10001 en R2</td>
+</tr>
+<tr>
+<td>10003</td>
+<td>Carrera 5 #1</td>
+<td>NULL (ganadora)</td>
+<td><strong>Sí</strong></td>
+<td>Otra calle distinta; compite con 10001</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Regla F3-02 (documento v2.0):</strong> las hijas <strong>nunca</strong> reciben score ni <code>orden_prioridad</code>. Solo quedan en <code>unificacion_direccion</code> para trazabilidad.</p>
+<h3>Números reales DEV (2026-09-04)</h3>
+<table>
+<thead>
+<tr>
+<th>Concepto</th>
+<th style="text-align: right;">Cantidad</th>
+<th style="text-align: center;">¿Correcto?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RPUs ganadoras (compiten)</td>
+<td style="text-align: right;">518.718</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>RPUs hijas (excluidas)</td>
+<td style="text-align: right;">72.448</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Hijas con orden incorrecto</td>
+<td style="text-align: right;"><strong>0</strong></td>
+<td style="text-align: center;">✓ <strong>gate crítico</strong></td>
+</tr>
+<tr>
+<td>Personas con al menos una ganadora</td>
+<td style="text-align: right;">407.351</td>
+<td style="text-align: center;">✓</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>4. Las fases del proceso (pipeline DEV)</h2>
+<p>En DEV corre la <strong>Opción A</strong>: lectura directa desde <code>edf_views</code> (datasharing), sin copia permanente de XPM.</p>
+<p><strong>Flujo:</strong> Unificación previa → Fase 1 Insumos → Fase 2 Scoring (4 canales) → Salida Consolidación → Limpieza staging</p>
+<table>
+<thead>
+<tr>
+<th>Fase</th>
+<th>Qué hace (lenguaje simple)</th>
+<th>Entrada</th>
+<th>Salida</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>0 — Precondición</strong></td>
+<td>Ya corrió unificación R1→R2→R3</td>
+<td>RPUs + <code>unificacion_direccion</code></td>
+<td><code>ind_unificacion</code> por RPU</td>
+</tr>
+<tr>
+<td><strong>1 — Insumos</strong></td>
+<td>Lee contactos de XPM, filtra ganadoras, arma tablas temporales</td>
+<td><code>edf_views</code> + unificación</td>
+<td><code>stg_insumo_dir</code>, <code>tel</code>, <code>cel</code>, <code>ema</code></td>
+</tr>
+<tr>
+<td><strong>2 — Scoring</strong></td>
+<td>Calcula score y <code>lugar</code> por canal</td>
+<td>Insumos + betas</td>
+<td><code>score_ordenamiento</code></td>
+</tr>
+<tr>
+<td><strong>3 — Salida</strong></td>
+<td>Persiste el mejor orden de dirección por RPU</td>
+<td>Scores DIR + RPUs ganadoras</td>
+<td><code>rpu_orden_prioridad</code></td>
+</tr>
+<tr>
+<td><strong>4 — Limpieza</strong></td>
+<td>Borra tablas temporales de la corrida</td>
+<td><code>stg_*</code></td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Comando de corrida completa:</strong></p>
+<pre><code class="language-sql">CALL bdm_datos.sp_ordenamiento_ejecucion_edf(TRUE);
+</code></pre>
+<p><strong>Tiempos DEV reales:</strong> preparar ~78 s · scoring ~20 s · <strong>1.223.998</strong> scores totales.</p>
+<hr />
+<h2>5. Los cuatro canales — qué pregunta responde cada uno</h2>
+<table>
+<thead>
+<tr>
+<th>Canal</th>
+<th>Pregunta de negocio</th>
+<th>Agrupa por</th>
+<th style="text-align: center;">Escribe <code>orden_prioridad</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>DIR</strong></td>
+<td>¿Qué <strong>dirección</strong> contactar primero?</td>
+<td>Persona + calle física</td>
+<td style="text-align: center;"><strong>Sí</strong></td>
+</tr>
+<tr>
+<td><strong>TEL</strong></td>
+<td>¿Qué <strong>teléfono fijo</strong> primero?</td>
+<td>Persona + número</td>
+<td style="text-align: center;">No</td>
+</tr>
+<tr>
+<td><strong>CEL</strong></td>
+<td>¿Qué <strong>celular</strong> primero?</td>
+<td>Persona + número</td>
+<td style="text-align: center;">No</td>
+</tr>
+<tr>
+<td><strong>EMA</strong></td>
+<td>¿Qué <strong>email</strong> primero?</td>
+<td>Persona + correo</td>
+<td style="text-align: center;">No</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Regla transversal:</strong> TEL, CEL y EMA solo aplican si la persona tiene <strong>al menos una dirección ganadora</strong>.</p>
+<h3>Mapeo contactType → canal (XPM / edf_views)</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">contactType</th>
+<th style="text-align: center;">Canal</th>
+<th>Ejemplo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">1, 2, 3, 7, 8</td>
+<td style="text-align: center;">DIR</td>
+<td>Residencia, laboral, correspondencia</td>
+</tr>
+<tr>
+<td style="text-align: center;">4, 5, 8</td>
+<td style="text-align: center;">TEL</td>
+<td>Fijo casa, fijo trabajo</td>
+</tr>
+<tr>
+<td style="text-align: center;">9</td>
+<td style="text-align: center;">CEL</td>
+<td>Celular</td>
+</tr>
+<tr>
+<td style="text-align: center;">10</td>
+<td style="text-align: center;">EMA</td>
+<td>Email (debe tener <code>@</code>)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>6. Cómo se calcula el score (explicación simple)</h2>
+<p>Todos los canales siguen la misma lógica:</p>
+<pre><code>1. Agrupar reportes por persona + contacto (ej. persona + calle, o persona + teléfono)
+2. Calcular métricas (meses de antigüedad, cantidad de reportes, sector financiero, etc.)
+3. Meter cada métrica en una “categoría” (bin 1, 2, 3…) según umbrales fijos del documento
+4. Score = Σ (categoría / máximo_de_esa_categoría) × Beta
+5. lugar = posición al ordenar de mayor a menor score dentro de la misma persona
+</code></pre>
+<h3>Mini-ejemplo numérico (DIR, simplificado)</h3>
+<p>Supón que para la dirección <strong>Calle 10 #20</strong> solo miramos 2 características:</p>
+<table>
+<thead>
+<tr>
+<th>Característica</th>
+<th>Valor real</th>
+<th>Categoría (1–4)</th>
+<th>Beta</th>
+<th>Aporte al score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Meses con reportes recientes</td>
+<td>Alto</td>
+<td>4 / 4</td>
+<td>0.15</td>
+<td>0.15</td>
+</tr>
+<tr>
+<td>% sector financiero</td>
+<td>Medio</td>
+<td>2 / 3</td>
+<td>0.20</td>
+<td>0.13</td>
+</tr>
+<tr>
+<td><strong>Total score</strong></td>
+<td></td>
+<td></td>
+<td></td>
+<td><strong>≈ 0.28</strong> <em>(+ otras 10 vars)</em></td>
+</tr>
+</tbody>
+</table>
+<p>La dirección <strong>Carrera 5 #1</strong> con menos historial podría quedar en <strong>0.21</strong> → <code>lugar = 2</code>.</p>
+<p>En DEV real el score DIR va de <strong>0.6113</strong> a <strong>0.8430</strong> (12 características, todas en la suma).</p>
+<hr />
+<h2>7. Ejemplos básicos por persona (smoke test — 9 personas)</h2>
+<p>Estos datos están en <code>sql/ordenamiento_mock/06_smoke_mock_9_personas.sql</code>. Sirven para demo en reunión porque son <strong>pequeños y legibles</strong>.</p>
+<h3>Persona 20001 — dos direcciones compiten (DIR)</h3>
+<table>
+<thead>
+<tr>
+<th>Dirección</th>
+<th>Tipo</th>
+<th>Reportes</th>
+<th>Qué pasa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CL 22 27 45 AP 101</td>
+<td>RES (casa)</td>
+<td>3</td>
+<td>Compite → <code>lugar</code> 1 o 2</td>
+</tr>
+<tr>
+<td>KR 15 80 22 OF 301</td>
+<td>LAB (oficina)</td>
+<td>2</td>
+<td>Compite → la otra posición</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Qué explicar:</strong> misma persona, dos calles distintas. La que tenga mejor historial de reportes gana <code>lugar = 1</code>.</p>
+<hr />
+<h3>Persona 20002 — una sola dirección (caso más simple)</h3>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Valor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dirección</td>
+<td>TV 70 114 55, barrio Suba, tipo RES</td>
+</tr>
+<tr>
+<td>Reportes</td>
+<td>8 (2022–2025)</td>
+</tr>
+<tr>
+<td>Resultado</td>
+<td><strong>1 score DIR</strong>, <code>lugar = 1</code>, <code>orden_prioridad = 1</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Qué explicar:</strong> cuando solo hay una dirección ganadora, el ranking es trivial: siempre lugar 1.</p>
+<hr />
+<h3>Persona 20003 — tres direcciones (ranking completo)</h3>
+<table>
+<thead>
+<tr>
+<th>Dirección</th>
+<th>Tipo</th>
+<th>Reportes aprox.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DG 50 30 10 TO 3</td>
+<td>CRR</td>
+<td>3</td>
+</tr>
+<tr>
+<td>KR 7 45 12 AP 504</td>
+<td>RES</td>
+<td>1</td>
+</tr>
+<tr>
+<td>AC 40 12 08 ED GALICIA</td>
+<td>LAB</td>
+<td>4</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Qué explicar:</strong> tres scores DIR, <code>lugar</code> 1, 2 y 3. La oficina con más reportes suele subir; el sistema no elimina ninguna (todas son ganadoras).</p>
+<hr />
+<h3>Persona 20004 — teléfono válido vs no válido (TEL)</h3>
+<table>
+<thead>
+<tr>
+<th>Teléfono</th>
+<th>Dirección vinculada</th>
+<th>Estado</th>
+<th>¿Compite igual?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fijo en CL 10 20 30</td>
+<td>Casa</td>
+<td>VALIDA</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>Fijo en KR 20 55 18</td>
+<td>Otra</td>
+<td><strong>NO VALIDA</strong></td>
+<td>Penalizado / filtrado en agregación</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Qué explicar:</strong> datos sucios no rankean igual que los válidos. Es el espíritu de F3-01 (NO VÁLIDO).</p>
+<hr />
+<h3>Persona 20006 — dos celulares, operadores distintos (CEL)</h3>
+<table>
+<thead>
+<tr>
+<th>Celular</th>
+<th>Prefijo</th>
+<th>Operador (catálogo)</th>
+<th>Tipo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3101234567</td>
+<td>310</td>
+<td>Claro (62.0 en catálogo)</td>
+<td>Prepago</td>
+</tr>
+<tr>
+<td>3209876543</td>
+<td>320</td>
+<td>Otro operador</td>
+<td>Pospago</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Qué explicar:</strong> el prefijo alimenta la variable CEL018. Si no hay operador en catálogo → default <strong>0.22</strong> (regla CEL-02).</p>
+<hr />
+<h3>Persona 20008 — dos emails (EMA)</h3>
+<table>
+<thead>
+<tr>
+<th>Email</th>
+<th>Dominio</th>
+<th>Tipo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>user1@gmail.com</td>
+<td>gmail (popular)</td>
+<td>Personal</td>
+</tr>
+<tr>
+<td>work@empresa.co</td>
+<td>empresa.co</td>
+<td>Corporativo</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Qué explicar:</strong> dominio popular vs corporativo mueve variables distintas (EMA014, EMA024). El ranking EMA es independiente del DIR.</p>
+<hr />
+<h3>Persona 20005 — un solo fijo (TEL simple)</h3>
+<p>Un teléfono VALIDA → <strong>lugar = 1</strong>. Caso trivial para mostrar ranking TEL independiente.</p>
+<hr />
+<h3>Persona 20007 — un solo celular (CEL simple)</h3>
+<p>Un celular → <strong>lugar = 1</strong>.</p>
+<hr />
+<h3>Persona 20009 — un solo email (EMA simple)</h3>
+<p><code>otro@hotmail.com</code> → <strong>lugar = 1</strong>.</p>
+<hr />
+<h3>Resumen smoke (corrida 2026-08-26)</h3>
+<table>
+<thead>
+<tr>
+<th>Métrica</th>
+<th style="text-align: right;">Resultado</th>
+<th style="text-align: center;">¿OK?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scores DIR</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Scores TEL</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Scores CEL</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Scores EMA</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td style="text-align: right;"><strong>15</strong></td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>RPUs con <code>orden_prioridad</code></td>
+<td style="text-align: right;">15</td>
+<td style="text-align: center;">✓</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>8. Casos especiales — ya corregidos y explicados</h2>
+<h3>F3-02 — Hija de unificación</h3>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Hija</th>
+<th>Padre ganador</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ind_unificacion</code></td>
+<td>1</td>
+<td>NULL</td>
+</tr>
+<tr>
+<td><code>score_ordenamiento</code></td>
+<td>No existe</td>
+<td>Sí (ej. 0.72)</td>
+</tr>
+<tr>
+<td><code>orden_prioridad</code></td>
+<td>NULL</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>DEV:</strong> 72.448 hijas, <strong>0</strong> con orden incorrecto.</p>
+<hr />
+<h3>TEL-02 — Variable geo calculada pero fuera del score</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th style="text-align: center;">¿Se calcula?</th>
+<th style="text-align: center;">¿Suma al score?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TEL010 (sector financiero)</td>
+<td style="text-align: center;">Sí</td>
+<td style="text-align: center;">Sí</td>
+</tr>
+<tr>
+<td><strong>TEL020</strong> (coincidencia geográfica)</td>
+<td style="text-align: center;">Sí</td>
+<td style="text-align: center;"><strong>No</strong> (como Teradata)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Por qué importa:</strong> si TEL020 sumara, el ranking cambiaría vs producción Teradata. Corregido 2026-09-04.</p>
+<hr />
+<h3>EMA-03 — Variables de trazabilidad fuera del score</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th style="text-align: center;">¿Calcula?</th>
+<th style="text-align: center;">¿En suma final?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EMA003, EMA007, EMA018, EMA025</td>
+<td style="text-align: center;">Sí</td>
+<td style="text-align: center;"><strong>No</strong></td>
+</tr>
+<tr>
+<td>EMA010, EMA014, EMA016, …</td>
+<td style="text-align: center;">Sí</td>
+<td style="text-align: center;">Sí</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Por qué importa:</strong> Teradata las calcula para auditoría pero no las usa en <code>Sumatoria_Score_Email</code>.</p>
+<hr />
+<h3>CEL-02 — Operador desconocido</h3>
+<table>
+<thead>
+<tr>
+<th>Prefijo</th>
+<th>Catálogo</th>
+<th>CEL018 (= valor × 100)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>310</td>
+<td>Claro</td>
+<td>62.0</td>
+</tr>
+<tr>
+<td>300</td>
+<td>Comcel</td>
+<td>55.0</td>
+</tr>
+<tr>
+<td>999</td>
+<td>Sin mapeo</td>
+<td><strong>22.0</strong> (default 0.22)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3>RANK-02 — Empate de score</h3>
+<p>Si dos direcciones tienen el <strong>mismo score</strong>, no hay regla nueva de desempate: <code>ROW_NUMBER</code> elige un orden (igual que baseline Teradata). Si en paridad hay diferencia, se documenta como hallazgo; <strong>no se inventa criterio</strong>.</p>
+<hr />
+<h2>9. Salida final — consolidación</h2>
+<table>
+<thead>
+<tr>
+<th>Paso</th>
+<th>Regla</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Tomar scores del canal <strong>DIR</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Solo RPUs <strong>ganadoras</strong></td>
+</tr>
+<tr>
+<td>3</td>
+<td>Mejor <code>lugar</code> por RPU → <code>orden_prioridad</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Guardar en <code>rpu_orden_prioridad</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Ejemplo consolidado</h3>
+<table>
+<thead>
+<tr>
+<th>Persona</th>
+<th>Dirección</th>
+<th style="text-align: right;">Score DIR</th>
+<th style="text-align: right;">lugar</th>
+<th style="text-align: right;">orden_prioridad</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P-100</td>
+<td>Calle 10 #20</td>
+<td style="text-align: right;">0.84</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;"><strong>1</strong></td>
+</tr>
+<tr>
+<td>P-100</td>
+<td>Carrera 5 #1</td>
+<td style="text-align: right;">0.71</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;"><strong>2</strong></td>
+</tr>
+<tr>
+<td>P-100</td>
+<td>Calle 10 apto 3 (hija)</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;"><strong>NULL</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>DEV:</strong> 408.624 RPUs con <code>orden_prioridad</code> asignado.</p>
+<hr />
+<h2>10. ¿Quedó bien? — Checklist de validación</h2>
+<p>Usar después de cada corrida en DEV:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Pregunta</th>
+<th>Cómo verificar</th>
+<th>Resultado esperado DEV</th>
+<th style="text-align: center;">Estado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>¿Corrió el pipeline completo?</td>
+<td>Stages en evidencias E2E</td>
+<td>Todos OK</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>2</td>
+<td>¿Hay scores en los 4 canales?</td>
+<td><code>COUNT(*)</code> por canal</td>
+<td>DIR/TEL/EMA ~407K; CEL bajo (datos)</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>3</td>
+<td>¿Ninguna hija tiene orden?</td>
+<td><code>rpu_hijas_con_orden_incorrecto</code></td>
+<td><strong>0</strong></td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>4</td>
+<td>¿Todas las ganadoras DIR tienen score?</td>
+<td>Comparar conteos</td>
+<td>~409K scores DIR</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>5</td>
+<td>¿Fórmulas alineadas a Teradata?</td>
+<td>TEL-02, EMA-03, CEL-02</td>
+<td>Corregidas 2026-09-04</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>6</td>
+<td>¿Betas cargadas?</td>
+<td><code>beta_ordenamiento</code></td>
+<td>47 filas mock</td>
+<td style="text-align: center;">✓ (mock)</td>
+</tr>
+<tr>
+<td>7</td>
+<td>¿Tiempo aceptable?</td>
+<td>Log corrida</td>
+<td>~98 s total</td>
+<td style="text-align: center;">✓</td>
+</tr>
+</tbody>
+</table>
+<h3>Query rápida — gate de hijas (debe dar 0)</h3>
+<pre><code class="language-sql">SELECT COUNT(*) AS hijas_con_orden_incorrecto
+FROM bdm_datos.relacion_persona_ubicacion
+WHERE COALESCE(ind_unificacion, 0) = 1
+  AND orden_prioridad IS NOT NULL;
+</code></pre>
+<h3>Query rápida — scores por canal</h3>
+<pre><code class="language-sql">SELECT canal,
+       COUNT(*) AS scores,
+       ROUND(MIN(score::FLOAT), 4) AS min_s,
+       ROUND(MAX(score::FLOAT), 4) AS max_s
+FROM bdm_datos.score_ordenamiento
+GROUP BY 1
+ORDER BY 1;
+</code></pre>
+<hr />
+<h2>11. Cómo explicarlo en 2 minutos (guión — lenguaje de sesiones)</h2>
+<ol>
+<li><strong>Contexto:</strong> “Después de unificar, a cada persona le quedan direcciones <em>ganadoras</em> y contactos en XPM.”</li>
+<li><strong>Problema:</strong> “Si María tiene casa, oficina, dos celulares y tres emails, ¿por cuál empezamos?”</li>
+<li><strong>Solución:</strong> “Ordenamiento calcula un score por canal usando el <strong>catálogo de betas</strong> (RITM) y asigna lugar 1, 2, 3… Solo DIR escribe <code>orden_prioridad</code>.”</li>
+<li><strong>Filtro clave:</strong> “Las <em>hijas</em> de unificación no compiten — ya no son vigentes.” <em>(mesa)</em></li>
+<li><strong>Evidencia:</strong> “DEV: 1,2M scores, 0 hijas mal ordenadas, fórmulas TEL/EMA/CEL y betas reales.”</li>
+<li><strong>Demo:</strong> “20001 casa/oficina · 20004 fijo válido · 20006 celulares · 20008 emails.”</li>
+<li><strong>Qué no es:</strong> “No recalculamos betas, no hacemos 242 completo ni incremental en este sprint.”</li>
+</ol>
+<hr />
+<h2>12. Qué falta (alineado a sesiones — no bloquea Opción A)</h2>
+<table>
+<thead>
+<tr>
+<th>Tema</th>
+<th>Estado</th>
+<th>Impacto</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Betas catálogo RITM5226589</td>
+<td><strong>Cargado</strong> (47 coefs Teradata)</td>
+<td>Datashare IFR continuo = opcional</td>
+</tr>
+<tr>
+<td>Paridad Teradata Opción B / MIG-01</td>
+<td>Diferido en sesión</td>
+<td>Scoring Opción A OK</td>
+</tr>
+<tr>
+<td>Procesamiento incremental (F1)</td>
+<td>Fuera de alcance Opción A</td>
+<td>Full refresh acordado</td>
+</tr>
+<tr>
+<td>Cobertura CEL en DEV</td>
+<td>Baja (115 personas)</td>
+<td>Dato del ambiente, no del SP</td>
+</tr>
+<tr>
+<td>PRs <code>feature/ordenamiento</code></td>
+<td>Pendiente abrir</td>
+<td>Rama lista</td>
+</tr>
+<tr>
+<td>Re-evidencia consumidor post-betas</td>
+<td>Parcial</td>
+<td>Productor DEV OK; Reconocer cuando se desbloquee</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>13. Documentos relacionados</h2>
+<table>
+<thead>
+<tr>
+<th>Documento</th>
+<th>Para qué</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FASES_ORDENAMIENTO_EXPLICADAS.md</code></td>
+<td><strong>Explicar fases</strong> — 1 SP = 1 paso + ejemplos</td>
+</tr>
+<tr>
+<td><code>MAPA_ORDENAMIENTO_EDF_VIEWS_NEGOCIO.html</code></td>
+<td>Mapa interactivo (pestañas 1→2a→2b→2c→2d→3-4→SPs)</td>
+</tr>
+<tr>
+<td><code>Evidencias_DEV_ORDENAMIENTO_EDF_COMPLETO.md</code></td>
+<td>Números E2E con datos reales</td>
+</tr>
+<tr>
+<td><code>Evidencias_Ordenamiento_Smoke_DEV.md</code></td>
+<td>Smoke 9 personas</td>
+</tr>
+<tr>
+<td><code>Evidencias_ORDENAMIENTO_FORMULAS_DEV.md</code></td>
+<td>Detalle TEL-02, EMA-03, CEL-02</td>
+</tr>
+<tr>
+<td><code>PRESENTACION_ORDENAMIENTO_NEGOCIO.md</code></td>
+<td>Preguntas para sesión con negocio</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>Generado para el paquete PAQUETE_UNIFICACION_BDM_STAGE — ordenamiento DEV edf_views.</em></p></body>
+</html>

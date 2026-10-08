@@ -1,0 +1,24 @@
+-- ============================================================
+-- run_geo_exportar_insumo.sql  (Reconocer / Enriquecimiento GEO - Regla 3)
+-- Script CALL de la MALLA SINCRONA de Unificacion (task 12.1).
+--
+-- Encaje en el Framework Batch (design.md "Encaje en el Framework Batch"):
+--   Nivel 3 de la malla sincrona, tras la Regla 1 + Regla 2. El Exportador_GEO
+--   exporta los candidatos (UNLOAD a S3) y TERMINA sin esperar a ArcGIS_Externo;
+--   el pipeline continua a Ordenamiento con el estado R1+R2 (Req 12.3, 12.4).
+--   NO hay Regla 3 en esta malla (se aplica en la malla diferida).
+--
+-- Invoca el wrapper de 6 parametros del Framework Batch en bdm_stage:
+--   bdm_stage.sp_geo_exportar_insumo(in_solicitud, in_nit_suscriptor,
+--       in_path_archivo, in_nemotecnico, in_id_facturacion, in_fecha_ejecucion).
+--   El Exportador_GEO selecciona candidatos por cuenta propia y AUTODETECTA el
+--   ambiente (cuenta AWS / current_database), por lo que ninguno de los 6
+--   parametros se usa: se pasan vacios (...,'','','','','','').
+--
+-- CALL NONATOMIC consistente con la cadena (el helper hace UNLOAD; mezclar modos
+-- de transaccion produce P0001). UTF-8 sin BOM. No bloqueante para el pipeline.
+--
+-- Requisitos: 8.1, 8.2, 8.3
+-- ============================================================
+
+CALL bdm_stage.sp_geo_exportar_insumo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));

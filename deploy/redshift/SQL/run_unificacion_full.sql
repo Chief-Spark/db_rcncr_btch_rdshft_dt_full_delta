@@ -1,0 +1,22 @@
+-- ============================================================
+-- run_unificacion_full.sql
+-- Script CALL de PRUEBA - corrida FULL de la Unificacion (repo dt).
+-- Spec: unificacion-full-delta (Task 10.1)
+--
+-- Ejecuta una corrida en Modo_Full: el orquestador maestro
+-- bdm_datos.sp_unificacion_ciclo hace TRUNCATE de bdm_datos.unificacion_direccion
+-- (una sola vez, por ser FULL) y reprocesa todo el universo con INSERT append
+-- (Req 5.3, 10.2). Reproduce el comportamiento hoy desplegado.
+--
+-- Contrato Framework_Batch (6 params VARCHAR, firma exacta - leccion #11):
+--   in_nemotecnico    = 'FULL'  -> Modo_Corrida FULL
+--   in_id_facturacion = '1356001' -> Lote_Corrida (entero externo; ausente -> aborta, Req 6.4)
+--   in_fecha_ejecucion= ''-> Fecha_Proceso (YYYY-MM-DD | '' -> CURRENT_DATE, Req 14.2)
+--   in_solicitud / in_nit_suscriptor / in_path_archivo no se usan (vacios).
+--   La orquestacion sustituye :LOTE y :FECHA al lanzar la corrida.
+--
+-- CALL NONATOMIC consistente con la cadena (Req 12.3). UTF-8 sin BOM.
+-- Requisitos: 5.3, 10.2, 12.1, 12.3
+-- ============================================================
+
+CALL bdm_datos.sp_unificacion_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('FULL' AS VARCHAR(256)), CAST('1356001' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));

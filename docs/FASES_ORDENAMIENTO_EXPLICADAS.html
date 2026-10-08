@@ -1,0 +1,515 @@
+<!DOCTYPE html><html lang=es><head><meta charset=utf-8/><title>Fases ordenamiento</title><style>body{font-family:Segoe UI,sans-serif;max-width:920px;margin:24px auto;padding:0 16px;line-height:1.45} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ccc;padding:6px 8px;font-size:14px} th{background:#f3f3f3}</style></head><body><h1>Ordenamiento — fases explicadas con ejemplos (1 SP = 1 paso)</h1>
+<p><strong>Para:</strong> explicar el proceso sin SQL.<br />
+<strong>Fecha:</strong> 2026-09-11 · <strong>DEV validado:</strong> R2 unificación 72.448 · ordenamiento 1.223.998 scores · c03/c04 = 0.</p>
+<p><strong>Proceso completo:</strong> <a href="PROCESO_RECONOCER_END_TO_END.md"><code>PROCESO_RECONOCER_END_TO_END.md</code></a> · contexto consolidado: <a href="contexto_reconocer/02_ORDENAMIENTO.md"><code>contexto_reconocer/02_ORDENAMIENTO.md</code></a><br />
+<strong>Proceso punta a punta:</strong> <a href="PROCESO_RECONOCER_END_TO_END.md"><code>PROCESO_RECONOCER_END_TO_END.md</code></a> · contexto: <a href="contexto_reconocer/02_ORDENAMIENTO.md"><code>contexto_reconocer/02_ORDENAMIENTO.md</code></a></p>
+<hr />
+<h2>Idea en 10 segundos</h2>
+<ol>
+<li><strong>Unificación</strong> ya decidió qué direcciones están vigentes (<strong>ganadoras</strong>) y cuáles no (<strong>hijas</strong>). <em>(Acuerdo mesa: no avanzar ordenamiento sin eso.)</em></li>
+<li><strong>Ordenamiento</strong> responde: <em>si hay varias opciones, ¿cuál contacto intento primero?</em></li>
+<li>Lo hace <strong>por canal</strong> (DIR, TEL, CEL, EMA). Un teléfono <strong>no</strong> compite con un email.</li>
+<li>Los <strong>betas son un catálogo</strong> (RITM5226589): coeficientes × características → score → lugar.</li>
+</ol>
+<p><strong>Fuera de este sprint (sesión):</strong> malla 242 completa · incremental · recalcular betas · QA productor.</p>
+<hr />
+<h2>Mapa de fases (así se explica en reunión)</h2>
+<table>
+<thead>
+<tr>
+<th>Fase</th>
+<th>Pregunta de negocio</th>
+<th>Qué corre</th>
+<th>Ejemplo smoke</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>0</strong> Precondición</td>
+<td>¿Quién es dirección vigente?</td>
+<td>Unificación (ya hecha)</td>
+<td>Hija RPU 10002 fuera; 10001 y 10003 entran</td>
+</tr>
+<tr>
+<td><strong>1</strong> Armar candidatos</td>
+<td>¿Qué contactos entran?</td>
+<td>Vistas + <code>preparar_insumos</code></td>
+<td>Solo ganadoras; email sin <code>@</code> fuera</td>
+</tr>
+<tr>
+<td><strong>2a</strong> Ordenar calles</td>
+<td>¿Qué dirección primero?</td>
+<td><code>scoring_dir</code></td>
+<td>Persona <strong>20001</strong> (casa vs oficina)</td>
+</tr>
+<tr>
+<td><strong>2b</strong> Ordenar fijos</td>
+<td>¿Qué teléfono primero?</td>
+<td><code>scoring_tel</code></td>
+<td>Persona <strong>20004</strong> (válido vs no válido)</td>
+</tr>
+<tr>
+<td><strong>2c</strong> Ordenar celulares</td>
+<td>¿Qué celular primero?</td>
+<td><code>scoring_cel</code></td>
+<td>Persona <strong>20006</strong> (Claro vs otro)</td>
+</tr>
+<tr>
+<td><strong>2d</strong> Ordenar emails</td>
+<td>¿Qué correo primero?</td>
+<td><code>scoring_ema</code></td>
+<td>Persona <strong>20008</strong> (gmail vs corporativo)</td>
+</tr>
+<tr>
+<td><strong>3</strong> Guardar orden</td>
+<td>¿Qué queda en el RPU?</td>
+<td><code>consolidacion</code></td>
+<td><code>lugar</code> → <code>orden_prioridad</code></td>
+</tr>
+<tr>
+<td><strong>4</strong> Limpiar</td>
+<td>¿Queda basura?</td>
+<td><code>drop_staging</code></td>
+<td>Borra <code>stg_*</code></td>
+</tr>
+<tr>
+<td><strong>Run</strong></td>
+<td>¿Cómo se ejecuta todo?</td>
+<td><code>ejecucion_edf</code> + run <code>_dt</code></td>
+<td>Un solo <code>CALL ...(TRUE)</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Nota:</strong> En el mapa HTML la pestaña “Fase 1” = <strong>armar candidatos</strong> (fase 1 de arriba). No es la F1 Teradata de materialización incremental (esa no corre en Opción A DEV).</p>
+</blockquote>
+<hr />
+<h2>Fase 0 — Ya unificado (sin SP de ordenamiento)</h2>
+<p><strong>Pregunta:</strong> ¿Esta dirección sigue vigente?</p>
+<table>
+<thead>
+<tr>
+<th>RPU</th>
+<th>Calle</th>
+<th>ind_unificacion</th>
+<th>¿Ordenamiento?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10001</td>
+<td>Calle 10 #20</td>
+<td>NULL</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>10002</td>
+<td>Calle 10 #20 apto 3</td>
+<td><strong>1</strong> (hija)</td>
+<td><strong>No</strong></td>
+</tr>
+<tr>
+<td>10003</td>
+<td>Carrera 5 #1</td>
+<td>NULL</td>
+<td>Sí</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Cómo explicarlo:</strong> “La hija ya no es el contacto vigente; el negocio llama al padre.”</p>
+<hr />
+<h2>Fase 1 — Armar candidatos (qué entra)</h2>
+<h3>1.1 Setup (una vez) — <code>_strct</code></h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Archivo</th>
+<th>En español</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SP-00</td>
+<td><code>01_ddl_ordenamiento.sql</code></td>
+<td>Crea tablas: scores, orden, betas</td>
+</tr>
+<tr>
+<td>SP-01</td>
+<td><code>02_catalogos_ordenamiento.sql</code></td>
+<td>Catálogos (sector, tipo cuenta, operador celular)</td>
+</tr>
+<tr>
+<td>SP-02</td>
+<td><code>03_vistas_contacto_canal…</code></td>
+<td>Traduce <code>contactType</code> → canal (TEL/CEL/EMA/DIR)</td>
+</tr>
+<tr>
+<td>SP-03</td>
+<td><code>04_vistas_insumo…</code></td>
+<td>Contrato de lectura: solo ganadoras</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Ejemplo contactType:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Canal</th>
+<th>Ejemplo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1,2,3,7</td>
+<td>DIR</td>
+<td>Casa / oficina</td>
+</tr>
+<tr>
+<td>4,5</td>
+<td>TEL</td>
+<td>Fijo</td>
+</tr>
+<tr>
+<td>9</td>
+<td>CEL</td>
+<td>Celular</td>
+</tr>
+<tr>
+<td>10</td>
+<td>EMA</td>
+<td>Email (debe tener <code>@</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3>1.2 Preparar insumos (cada corrida) — SP-04</h3>
+<p><strong>SP:</strong> <code>sp_ordenamiento_preparar_insumos_edf</code><br />
+<strong>Pregunta:</strong> ¿Qué filas van a scoring hoy?</p>
+<p><strong>Pasos internos (subdivisión para explicar):</strong></p>
+<ol>
+<li>Leer RPUs post-unificación  </li>
+<li>Quedarse solo con <strong>ganadoras</strong> (<code>ind_unificacion ≠ 1</code>)  </li>
+<li>Armar contactos por canal desde XPM  </li>
+<li>Materializar <code>stg_insumo_direccion / telefono / celular / email</code>  </li>
+<li><code>ANALYZE</code> staging  </li>
+</ol>
+<p><strong>Ejemplo:</strong> Persona con email <code>sinarroba.com</code> → <strong>no entra</strong> a EMA.<br />
+Persona solo con hija → <strong>no entra</strong> a ningún canal.</p>
+<hr />
+<h2>Fase 2a — DIR (direcciones) — SP-05</h2>
+<p><strong>SP:</strong> <code>sp_ordenamiento_scoring_dir_edf</code><br />
+<strong>Pregunta:</strong> ¿Qué <strong>calle</strong> contactar primero?</p>
+<p><strong>Pasos internos:</strong></p>
+<ol>
+<li>Agrupar reportes por persona + dirección  </li>
+<li>Calcular 12 métricas (antigüedad, reportes, sector, tipo RES/LAB/CRR…)  </li>
+<li>Convertir a categorías × Beta → <strong>score</strong>  </li>
+<li><code>ROW_NUMBER</code> → <strong>lugar</strong> 1, 2, 3…</li>
+</ol>
+<h3>Ejemplo A — Persona 20001 (dos calles)</h3>
+<table>
+<thead>
+<tr>
+<th>Dirección</th>
+<th>Tipo</th>
+<th>Reportes</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CL 22 27 45 AP 101</td>
+<td>RES</td>
+<td>3</td>
+<td>Compite → lugar 1 o 2</td>
+</tr>
+<tr>
+<td>KR 15 80 22 OF 301</td>
+<td>LAB</td>
+<td>2</td>
+<td>Compite → la otra</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Frase:</strong> “Misma persona, dos calles distintas. Gana la de mejor historial.”</p>
+<h3>Ejemplo B — Persona 20002 (una calle)</h3>
+<table>
+<thead>
+<tr>
+<th>Dirección</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TV 70 114 55 Suba RES (8 reportes)</td>
+<td><strong>lugar = 1</strong>, trivial</td>
+</tr>
+</tbody>
+</table>
+<h3>Ejemplo C — Persona 20003 (tres calles)</h3>
+<table>
+<thead>
+<tr>
+<th>Dirección</th>
+<th>Tipo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DG 50 30 10</td>
+<td>CRR</td>
+</tr>
+<tr>
+<td>KR 7 45 12</td>
+<td>RES</td>
+</tr>
+<tr>
+<td>AC 40 12 08 Galicia</td>
+<td>LAB</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Frase:</strong> “Tres scores DIR → lugar 1, 2 y 3. Ninguna se borra; solo se ordenan.”</p>
+<hr />
+<h2>Fase 2b — TEL (fijo) — SP-06</h2>
+<p><strong>SP:</strong> <code>sp_ordenamiento_scoring_tel_edf</code><br />
+<strong>Pregunta:</strong> ¿Qué <strong>teléfono fijo</strong> primero?</p>
+<p><strong>Detalle fácil:</strong> se calcula TEL020 (geo) pero <strong>no suma al score</strong> (igual Teradata).</p>
+<h3>Ejemplo — Persona 20004</h3>
+<table>
+<thead>
+<tr>
+<th>Teléfono</th>
+<th>Estado</th>
+<th>¿Compite igual?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fijo en CL 10 20 30</td>
+<td>VALIDA</td>
+<td>Sí</td>
+</tr>
+<tr>
+<td>Fijo en KR 20 55 18</td>
+<td>NO VALIDA</td>
+<td>No / peor</td>
+</tr>
+</tbody>
+</table>
+<h3>Ejemplo — Persona 20005</h3>
+<p>Un solo fijo válido → <strong>lugar = 1</strong>.</p>
+<p><strong>Frase:</strong> “TEL no cambia el orden de la dirección; es un ranking aparte.”</p>
+<hr />
+<h2>Fase 2c — CEL (celular) — SP-07</h2>
+<p><strong>SP:</strong> <code>sp_ordenamiento_scoring_cel_edf</code><br />
+<strong>Pregunta:</strong> ¿Qué <strong>celular</strong> primero?</p>
+<p><strong>Detalle fácil:</strong> prefijo 310 → Claro en catálogo; prefijo desconocido → default <strong>0.22</strong>.</p>
+<h3>Ejemplo — Persona 20006</h3>
+<table>
+<thead>
+<tr>
+<th>Celular</th>
+<th>Prefijo</th>
+<th>Operador</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3101234567</td>
+<td>310</td>
+<td>Claro</td>
+</tr>
+<tr>
+<td>3209876543</td>
+<td>320</td>
+<td>Otro</td>
+</tr>
+</tbody>
+</table>
+<h3>Ejemplo — Persona 20007</h3>
+<p>Un solo celular → <strong>lugar = 1</strong>.</p>
+<hr />
+<h2>Fase 2d — EMA (email) — SP-08</h2>
+<p><strong>SP:</strong> <code>sp_ordenamiento_scoring_ema_edf</code><br />
+<strong>Pregunta:</strong> ¿Qué <strong>email</strong> primero?</p>
+<p><strong>Detalle fácil:</strong> algunas variables se calculan pero <strong>no suman</strong> (EMA003/007/018/025).</p>
+<h3>Ejemplo — Persona 20008</h3>
+<table>
+<thead>
+<tr>
+<th>Email</th>
+<th>Tipo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>user1@gmail.com</td>
+<td>Personal / dominio popular</td>
+</tr>
+<tr>
+<td>work@empresa.co</td>
+<td>Corporativo</td>
+</tr>
+</tbody>
+</table>
+<h3>Ejemplo — Persona 20009</h3>
+<p>Un solo hotmail → <strong>lugar = 1</strong>.</p>
+<hr />
+<h2>Fase 3 — Guardar orden — SP-09</h2>
+<p><strong>SP:</strong> <code>sp_ordenamiento_consolidacion_edf</code><br />
+<strong>Pregunta:</strong> ¿Qué <code>orden_prioridad</code> queda guardado?</p>
+<p><strong>Pasos:</strong></p>
+<ol>
+<li>Tomar scores de RPUs <strong>ganadoras</strong>  </li>
+<li>Mejor <code>lugar</code> por RPU  </li>
+<li>Escribir <code>rpu_orden_prioridad</code> (DELETE + INSERT)</li>
+</ol>
+<h3>Ejemplo consolidado</h3>
+<table>
+<thead>
+<tr>
+<th>Persona</th>
+<th>Dirección</th>
+<th style="text-align: right;">Score</th>
+<th style="text-align: right;">lugar</th>
+<th style="text-align: right;">orden_prioridad</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P-100</td>
+<td>Calle 10 #20</td>
+<td style="text-align: right;">0.84</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;"><strong>1</strong></td>
+</tr>
+<tr>
+<td>P-100</td>
+<td>Carrera 5 #1</td>
+<td style="text-align: right;">0.71</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;"><strong>2</strong></td>
+</tr>
+<tr>
+<td>P-100</td>
+<td>Calle 10 apto 3 (hija)</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;"><strong>NULL</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>DEV:</strong> ~408.624 RPUs con orden · <strong>0</strong> hijas con orden incorrecto.</p>
+<hr />
+<h2>Fase 4 — Limpiar — SP-10</h2>
+<p><strong>SP:</strong> <code>sp_ordenamiento_drop_staging_edf</code><br />
+Borra <code>bdm_tempo.stg_*</code>. La próxima corrida las recrea.</p>
+<hr />
+<h2>Run — Cómo se ejecuta todo — SP-11 / SP-12 / SP-13</h2>
+<pre><code class="language-sql">CALL bdm_datos.sp_ordenamiento_ejecucion_edf(TRUE);
+</code></pre>
+<p>Orden interno del orquestador:</p>
+<pre><code>preparar → DIR → TEL → CEL → EMA → consolidar → drop
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Archivo</th>
+<th>Rol</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SP-11</td>
+<td><code>sp_ordenamiento_ejecucion_edf.sql</code></td>
+<td>Orquestador</td>
+</tr>
+<tr>
+<td>SP-12</td>
+<td><code>run_ordenamiento_ejecucion_edf.sql</code></td>
+<td>Runbook Jenkins (<code>_dt</code>)</td>
+</tr>
+<tr>
+<td>SP-13</td>
+<td><code>validacion_ordenamiento_conteos.sql</code></td>
+<td>Gate: hijas con orden = 0</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Checklist “¿quedó bien?” (DEV)</h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Esperado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R2 unificación</td>
+<td>~72.448</td>
+</tr>
+<tr>
+<td>Scores totales ordenamiento</td>
+<td>~1.223.998</td>
+</tr>
+<tr>
+<td>Hijas con <code>orden_prioridad</code></td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>c03 / c04 unificación</td>
+<td><strong>0</strong> / <strong>0</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Guión de 90 segundos</h2>
+<ol>
+<li>“Después de unificar, solo ganadoras entran.”  </li>
+<li>“Preparamos insumos una vez por corrida.”  </li>
+<li>“Rankeamos por canal: calles, fijos, celulares, emails — separados.”  </li>
+<li>“Guardamos <code>orden_prioridad</code> y limpiamos temporales.”  </li>
+<li>“Demo: 20001 dos calles; 20004 fijo válido/no válido; 20006 dos celulares.”</li>
+</ol>
+<hr />
+<h2>Dónde está cada cosa</h2>
+<table>
+<thead>
+<tr>
+<th>Artefacto</th>
+<th>Ruta</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Este documento</td>
+<td><code>Documentacion/FASES_ORDENAMIENTO_EXPLICADAS.md</code></td>
+</tr>
+<tr>
+<td>Guía + PDF</td>
+<td><code>Documentacion/GUIA_ORDENAMIENTO_EJEMPLOS_BASICOS.*</code></td>
+</tr>
+<tr>
+<td>Mapa HTML</td>
+<td><code>Documentacion/MAPA_ORDENAMIENTO_EDF_VIEWS_NEGOCIO.html</code></td>
+</tr>
+<tr>
+<td>Smoke 9 personas</td>
+<td><code>sql/ordenamiento_mock/06_smoke_mock_9_personas.sql</code></td>
+</tr>
+<tr>
+<td>SPs DEV</td>
+<td><code>sql/dev_edf_ordenamiento/</code></td>
+</tr>
+<tr>
+<td>Bitbucket</td>
+<td>rama <code>feature/ordenamiento</code> en <code>_strct</code> → <code>_pgm</code> → <code>_dt</code></td>
+</tr>
+</tbody>
+</table></body></html>

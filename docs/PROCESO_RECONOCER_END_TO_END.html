@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Proceso Reconocer Batch — punta a punta</title>
+<style>
+:root {
+  --bg: #f0f3f7; --white: #fff; --text: #1a2332; --muted: #5c6b7a;
+  --line: #d5dde6; --accent: #1d6fdc; --accent-soft: #e8f1fc;
+  --ok: #0d9f6e; --ok-soft: #e6f7f1; --warn: #b86e00; --warn-soft: #fef6e6;
+  --prod: #232f3e; --cons: #1d6fdc; --geo: #7c5cbf;
+  --sans: "Segoe UI", system-ui, sans-serif; --mono: Consolas, monospace;
+  --shadow: 0 6px 24px rgba(26,35,50,.08); --radius: 14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); line-height: 1.45; }
+.top {
+  position: sticky; top: 0; z-index: 20; background: var(--white);
+  border-bottom: 1px solid var(--line); padding: .7rem 1.1rem;
+  display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+}
+.top h1 { font-size: 1.05rem; font-weight: 800; margin-right: .5rem; }
+.badge {
+  font-size: .68rem; font-weight: 700; padding: .2rem .55rem; border-radius: 999px;
+  background: var(--ok-soft); color: var(--ok); border: 1px solid #b6e8d4;
+}
+.badge.warn { background: var(--warn-soft); color: var(--warn); border-color: #f0d59a; }
+.nav { display: flex; flex-wrap: wrap; gap: .35rem; margin-left: auto; }
+.nav a {
+  font-size: .72rem; font-weight: 600; text-decoration: none; color: var(--muted);
+  padding: .28rem .65rem; border-radius: 999px; border: 1px solid var(--line); background: var(--bg);
+}
+.nav a:hover, .nav a:focus { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+main { max-width: 1100px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+section {
+  background: var(--white); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 1.15rem 1.25rem; margin-bottom: 1rem;
+}
+section h2 { font-size: 1.05rem; margin-bottom: .65rem; }
+section h3 { font-size: .88rem; color: var(--muted); margin: .9rem 0 .4rem; }
+p, li { font-size: .9rem; color: var(--text); }
+.muted { color: var(--muted); font-size: .82rem; }
+.flow {
+  display: flex; flex-wrap: wrap; gap: .45rem; align-items: center; margin: .7rem 0 0;
+}
+.chip {
+  padding: .45rem .7rem; border-radius: 10px; font-size: .78rem; font-weight: 700;
+  border: 1px solid var(--line); background: var(--bg);
+}
+.chip.edf { background: #fff8e6; border-color: #f0c14b; }
+.chip.share { background: #f3eeff; border-color: #8c4fff; color: #5b2db0; }
+.chip.unif { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.chip.ord { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.chip.geo { background: #efe8ff; border-color: var(--geo); color: var(--geo); }
+.arrow { color: var(--muted); font-weight: 700; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+@media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+.card {
+  border: 1px solid var(--line); border-radius: 12px; padding: .8rem .9rem; background: var(--bg);
+}
+.card h4 { font-size: .82rem; margin-bottom: .35rem; }
+.card ul { margin-left: 1.1rem; }
+.card li { font-size: .8rem; margin: .15rem 0; }
+table { width: 100%; border-collapse: collapse; font-size: .82rem; margin-top: .5rem; }
+th, td { border: 1px solid var(--line); padding: .4rem .55rem; text-align: left; vertical-align: top; }
+th { background: var(--bg); font-weight: 700; }
+td.num { text-align: right; font-family: var(--mono); font-weight: 700; }
+.ok { color: var(--ok); font-weight: 700; }
+.warn { color: var(--warn); font-weight: 700; }
+.repo { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .5rem; }
+.repo span {
+  font-family: var(--mono); font-size: .72rem; padding: .35rem .55rem; border-radius: 8px;
+  background: var(--prod); color: #fff;
+}
+.repo span:nth-child(2) { background: var(--cons); }
+.repo span:nth-child(3) { background: var(--ok); }
+pre {
+  background: #1a2332; color: #e8eef5; padding: .75rem .9rem; border-radius: 10px;
+  font-family: var(--mono); font-size: .75rem; overflow-x: auto; margin-top: .5rem;
+}
+.links a { display: inline-block; margin: .2rem .45rem .2rem 0; font-size: .8rem; color: var(--accent); }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Proceso Reconocer Batch</h1>
+  <span class="badge">Cierre = data real (edf_views)</span>
+  <span class="badge warn">Mock = laboratorio opcional</span>
+  <nav class="nav">
+    <a href="#cadena">Cadena</a>
+    <a href="#datashare">Data Share</a>
+    <a href="#unif">Unificación</a>
+    <a href="#ord">Ordenamiento</a>
+    <a href="#deploy">Deploy</a>
+    <a href="#qa">Calidad</a>
+  </nav>
+</header>
+<main>
+
+<section id="cadena">
+  <h2>1. Cadena de punta a punta</h2>
+  <p class="muted">Contexto: RECONOCER-Consolidado · ejecución DEV: edf_views en consumidor <code>dba_rncr_batch</code></p>
+  <div class="flow">
+    <span class="chip edf">EDF estandariza</span><span class="arrow">→</span>
+    <span class="chip share">edf_views (Data Share)</span><span class="arrow">→</span>
+    <span class="chip geo">Geo ArcGIS</span><span class="arrow">→</span>
+    <span class="chip unif">Unificación R1→R2→R3</span><span class="arrow">→</span>
+    <span class="chip ord">Ordenamiento 4 canales</span><span class="arrow">→</span>
+    <span class="chip">DB2 Online</span>
+  </div>
+  <p style="margin-top:.75rem">Migración Teradata → Redshift · apagado TD <strong>31 mar 2027</strong> · ~65–70M contactos.</p>
+</section>
+
+<section id="datashare">
+  <h2>2. Data Sharing (sin copiar XPM)</h2>
+  <div class="grid2">
+    <div class="card">
+      <h4>Productor · procesosbatch</h4>
+      <ul>
+        <li>Cuenta <code>651706752126</code></li>
+        <li>Publica schema <code>edf_views</code></li>
+        <li>EDF + Framework Batch viven aquí</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Consumidor · reconocerbatch</h4>
+      <ul>
+        <li>Cuenta <code>647096294147</code></li>
+        <li>DB <code>dba_rncr_batch</code></li>
+        <li>Lee <code>ds_dba_rncr_batch.edf_views.*</code></li>
+        <li>Escribe solo local: bdm_datos / tempo / stage</li>
+      </ul>
+    </div>
+  </div>
+  <pre>SELECT … FROM ds_dba_rncr_batch.edf_views.*   -- solo lectura
+→ vistas / staging locales
+→ bdm_datos.unificacion_direccion
+→ score_ordenamiento / rpu_orden_prioridad</pre>
+</section>
+
+<section id="unif">
+  <h2>3. Unificación (cascada)</h2>
+  <table>
+    <thead><tr><th>Regla</th><th>Pregunta</th><th>Nota DEV real</th></tr></thead>
+    <tbody>
+      <tr><td><strong>R1</strong></td><td>Misma puerta, distinto tipo uso (CIIU)</td><td class="num">0 <span class="warn">(empates)</span></td></tr>
+      <tr><td><strong>R2</strong></td><td>Misma puerta, distinto complemento (+ motor)</td><td class="num ok">72.448</td></tr>
+      <tr><td><strong>R3</strong></td><td>Vía + puerta ±2 (necesita lat/long)</td><td class="num">0 <span class="warn">(sin geo → N/A)</span></td></tr>
+      <tr><td>C03 / C04</td><td>Hijo sin padre / autoreferencia</td><td class="num ok">0 / 0</td></tr>
+    </tbody>
+  </table>
+  <p class="muted" style="margin-top:.5rem">Rama: <code>feature/unificacion-edf-views</code> · RF oficial en consolidado · mapa HTML unificación.</p>
+</section>
+
+<section id="ord">
+  <h2>4. Ordenamiento (post-unificación)</h2>
+  <table>
+    <thead><tr><th>Fase</th><th>Pregunta</th><th>SP</th></tr></thead>
+    <tbody>
+      <tr><td>0</td><td>¿Quién es vigente?</td><td>Unificación previa</td></tr>
+      <tr><td>1</td><td>¿Quién entra?</td><td><code>preparar_insumos_edf</code></td></tr>
+      <tr><td>2a–2d</td><td>¿Qué contacto primero?</td><td><code>scoring_dir/tel/cel/ema_edf</code></td></tr>
+      <tr><td>3</td><td>¿Qué se guarda?</td><td><code>consolidacion_edf</code></td></tr>
+      <tr><td>4</td><td>¿Limpieza?</td><td><code>drop_staging_edf</code></td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:.55rem">Evidencia DEV: <strong class="ok">1.223.998</strong> scores · hijas mal ordenadas <strong class="ok">0</strong>.</p>
+  <pre>CALL bdm_datos.sp_ordenamiento_ejecucion_edf(TRUE);</pre>
+  <p class="muted">Rama: <code>feature/ordenamiento</code></p>
+</section>
+
+<section id="deploy">
+  <h2>5. Deploy · 3 repos · Framework Batch</h2>
+  <p>Orden Jenkins obligatorio:</p>
+  <div class="repo">
+    <span>1 · STRCT (DDL/vistas)</span>
+    <span>2 · PGM (SPs)</span>
+    <span>3 · DT (CALL + validación)</span>
+  </div>
+  <h3>YAML unificación (niveles)</h3>
+  <table>
+    <thead><tr><th>Nivel</th><th>Qué corre</th></tr></thead>
+    <tbody>
+      <tr><td>0</td><td>cleanup + vistas</td></tr>
+      <tr><td>1</td><td>Regla 1</td></tr>
+      <tr><td>2</td><td>Regla 2 + motor</td></tr>
+      <tr><td>3</td><td>Regla 3</td></tr>
+    </tbody>
+  </table>
+  <p class="muted" style="margin-top:.45rem">Trigger <code>.val</code> S3 → Step Functions → Data API · SP con 6 parámetros de contrato.</p>
+</section>
+
+<section id="qa">
+  <h2>6. Calidad — hasta dónde llegamos nosotros</h2>
+  <p>Este bloque describe el <strong>alcance de validación del equipo de migración</strong> (SPs + gates). No asigna tareas a terceros.</p>
+
+  <h3>Lo que sí cubrimos (datos reales)</h3>
+  <table>
+    <thead><tr><th>Hasta aquí</th><th>Detalle</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Fuente</strong></td><td>Lectura <code>edf_views</code> vía Data Share → vistas <code>bdm_tempo.v_xpm_*</code></td></tr>
+      <tr><td><strong>Ejecución</strong></td><td>Deploy SPs · <code>CALL</code> unificación (+ ordenamiento si aplica)</td></tr>
+      <tr><td><strong>Gates que cerramos</strong></td><td>R2 &gt; 0 · <strong>C03=0</strong> · <strong>C04=0</strong> · hijas mal ordenadas = 0</td></tr>
+      <tr><td><strong>Evidencia DEV</strong></td><td>R2 = <strong class="ok">72.448</strong> · C03/C04 = <strong class="ok">0</strong> · scores = <strong class="ok">1.223.998</strong></td></tr>
+      <tr><td><strong>Límite conocido</strong></td><td>R3 con data real queda <strong>N/A</strong> sin lat/long (Geo fuera de nuestro alcance). La muestra real es pequeña: no cubre todos los escenarios R1/R2.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Lo que no es el cierre del entregable</h3>
+  <p class="muted">El laboratorio sintético (<code>bdm_stage</code> / <code>perf_persona_meta</code> / suite TC / benchmark 20K) sirve para forzar casos puntuales (empate R2, geo R3). <strong>No sustituye</strong> los gates sobre data real.</p>
+  <div class="grid2" style="margin-top:.75rem">
+    <div class="card">
+      <h4 class="ok">Nuestro cierre</h4>
+      <ul>
+        <li>SPs Data Sharing en rama + gates reales</li>
+        <li>Documentar R3 = N/A sin Geo</li>
+        <li>Scripts mock disponibles si se pide cobertura sintética</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4 class="warn">Fuera de este alcance</h4>
+      <ul>
+        <li>Carga de geo/lat-long (equipo Geo)</li>
+        <li>Certificar todos los escenarios R1/R2 solo con la muestra real</li>
+        <li>Grants DBA / ejecución de INSERT mock en QA</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

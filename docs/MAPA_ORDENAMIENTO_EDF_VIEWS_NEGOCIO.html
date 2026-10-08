@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Ordenamiento edf_views — mapa DEV (8 SPs + 3 repos)</title>
+<style>
+
+:root {
+  --bg: #f4f6f9;
+  --white: #ffffff;
+  --text: #1a2332;
+  --muted: #5c6b7a;
+  --line: #dde3ea;
+  --accent: #1d6fdc;
+  --accent-soft: #e8f1fc;
+  --ok: #0d9f6e;
+  --ok-soft: #e6f7f1;
+  --warn: #c27803;
+  --warn-soft: #fef6e6;
+  --block: #c0392b;
+  --block-soft: #fdecea;
+  --shadow: 0 8px 32px rgba(26,35,50,0.08);
+  --radius: 16px;
+  --sans: "Segoe UI", system-ui, sans-serif;
+  --mono: Consolas, "Cascadia Code", monospace;
+  --topbar-h: 38px;
+  --footer-h: 0px;
+  --header-h: 52px;
+  --scenario-nav-w: 96px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); }
+
+/* Header: título + pasos horizontales */
+.app-header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: var(--header-h); background: var(--white); border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 0.65rem;
+  padding: 0 0.65rem 0 0.55rem;
+}
+.app-header h1 {
+  font-size: 1.05rem; font-weight: 800; flex-shrink: 0;
+  padding-right: 0.65rem; margin-right: 0.15rem;
+  border-right: 1px solid var(--line); line-height: 1;
+}
+.step-nav {
+  flex: 1; display: flex; align-items: center; gap: 0.3rem;
+  overflow-x: auto; min-width: 0;
+}
+.step-btn {
+  padding: 0.32rem 0.75rem; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--bg);
+  font-size: 0.72rem; font-weight: 600; color: var(--muted);
+  cursor: pointer; white-space: nowrap; font-family: inherit;
+  transition: all 0.15s;
+}
+.step-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.step-btn.active {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(29,111,220,0.25);
+}
+.header-meta {
+  font-size: 0.62rem; color: var(--muted); white-space: nowrap; flex-shrink: 0;
+}
+.progress { flex: 0 0 64px; height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); width: 0%; transition: width 0.5s; }
+.rail { display: none; }
+
+/* Viewport a pantalla completa bajo header */
+.viewport {
+  position: fixed; left: 0; top: var(--header-h); right: 0; bottom: 0;
+  overflow: hidden; background: var(--bg);
+}
+.canvas {
+  position: relative; width: 100%; height: 100%;
+}
+.frame {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  background: var(--white);
+  border: none; border-radius: 0; box-shadow: none;
+  padding: 0;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.frame.frame-on {
+  display: flex;
+  visibility: visible; opacity: 1; pointer-events: auto;
+}
+.frame.frame-off {
+  display: none;
+  visibility: hidden; opacity: 0; pointer-events: none;
+}
+.frame-fit {
+  flex: 1; min-height: 0; width: 100%;
+  display: flex; flex-direction: column;
+  padding: 0.35rem 0.55rem 0.2rem;
+  overflow: hidden;
+}
+#frame-home .frame-fit {
+  display: block;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.45rem 0.75rem 0.35rem;
+  max-width: none;
+  margin: 0;
+  width: 100%;
+}
+.frame-fit.rule-frame {
+  padding: 0.15rem 0.45rem 0.1rem 0;
+}
+.frame-fit.rule-frame .frame-title,
+.frame-fit.rule-frame .frame-sub,
+.frame-fit.rule-frame .rule-nav-hint { display: none; }
+.drill-section {
+  margin-bottom: 1.75rem;
+  clear: both;
+}
+.drill-section-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 2px solid var(--accent-soft);
+}
+.drill-section-note {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.45;
+  margin-bottom: 0.75rem;
+}
+.frame-title { font-size: clamp(0.95rem, 1.6vw, 1.2rem); font-weight: 700; margin-bottom: 0.1rem; letter-spacing: -0.02em; flex-shrink: 0; line-height: 1.2; }
+.frame-sub { color: var(--muted); font-size: 0.72rem; margin-bottom: 0.35rem; flex-shrink: 0; line-height: 1.3; }
+
+/* Home frame layout */
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem; flex-shrink: 0; }
+#frame-home .kpi-row { margin-bottom: 0; }
+.kpi {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 0.65rem 0.5rem; text-align: center;
+}
+.kpi b { display: block; font-size: clamp(1rem, 2vw, 1.35rem); color: var(--accent); margin: 0.15rem 0; }
+.kpi small { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.kpi span { font-size: 0.8rem; color: var(--muted); }
+
+.flow-interactive {
+  display: flex; align-items: stretch; gap: 0; margin: 0.5rem 0;
+  background: var(--bg); border-radius: 12px; border: 1px solid var(--line); overflow: hidden;
+  flex-shrink: 0;
+}
+.flow-node {
+  flex: 1; padding: 0.75rem 0.5rem; text-align: center; cursor: pointer;
+  border-right: 1px solid var(--line); transition: background 0.2s;
+}
+.flow-node:last-child { border-right: none; }
+.flow-node:hover { background: var(--accent-soft); }
+.flow-node strong { display: block; font-size: 1.25rem; color: var(--accent); }
+.flow-node em { display: block; font-style: normal; font-size: 0.75rem; color: var(--muted); margin-top: 0.35rem; }
+.flow-arrow-box { display: flex; align-items: center; padding: 0 0.25rem; color: var(--muted); font-size: 1.2rem; }
+
+.rules-map {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.45rem;
+  margin-bottom: 0.65rem; flex-shrink: 0;
+}
+.rules-card {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 0.6rem 0.7rem; cursor: pointer; transition: all 0.15s;
+}
+.rules-card:hover { border-color: var(--accent); background: var(--accent-soft); }
+.rules-card h3 { font-size: 0.76rem; font-weight: 700; color: var(--accent); margin-bottom: 0.3rem; line-height: 1.25; }
+.rules-card .esc-tag {
+  font-size: 0.62rem; font-weight: 600; color: var(--warn); background: var(--warn-soft);
+  display: inline-block; padding: 0.1rem 0.35rem; border-radius: 4px; margin-bottom: 0.25rem;
+}
+.rules-card p { font-size: 0.66rem; color: var(--muted); line-height: 1.35; }
+.rules-card b { display: block; font-size: 0.72rem; color: var(--text); margin-top: 0.3rem; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.55rem 1rem; border-radius: 10px; font-size: 0.85rem; font-weight: 600;
+  border: 1px solid var(--line); background: var(--white); cursor: pointer;
+  transition: all 0.15s; font-family: inherit;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { background: #1558b0; color: #fff; }
+.btn-query {
+  background: var(--accent-soft); color: var(--accent); border-color: #b8d4f5;
+  padding: 0.65rem 1.1rem; font-size: 0.88rem;
+}
+.btn-query:hover { background: var(--accent); color: #fff; }
+
+/* Rule frames — índice lateral + escenario ancho completo */
+.rule-frame {
+  display: flex; flex-direction: column; min-height: 0; flex: 1; height: 100%;
+}
+.rule-layout {
+  flex: 1; min-height: 0;
+  display: grid;
+  grid-template-columns: var(--scenario-nav-w) minmax(0, 1fr);
+  gap: 0.25rem;
+  overflow: hidden;
+}
+.scenario-nav {
+  overflow-y: auto; min-height: 0;
+  border: none; border-right: 1px solid var(--line); border-radius: 0;
+  background: transparent; padding: 0.1rem 0.15rem 0.1rem 0.05rem;
+}
+.scenario-nav-item {
+  display: block; width: 100%; text-align: left;
+  padding: 0.18rem 0.22rem; margin-bottom: 0.1rem;
+  border: 1px solid transparent; border-radius: 4px;
+  background: transparent; cursor: pointer; font-family: inherit;
+}
+.scenario-nav-item:last-child { margin-bottom: 0; }
+.scenario-nav-item:hover { background: var(--accent-soft); border-color: #c5daf5; }
+.scenario-nav-item.active {
+  background: var(--accent-soft); border-color: var(--accent);
+}
+.scenario-nav-item .nav-code {
+  font-size: 0.58rem; font-weight: 800; color: var(--accent); display: block; line-height: 1.2;
+}
+.scenario-nav-item .nav-title { display: none; }
+.scenario-stage {
+  overflow: hidden; min-height: 0; min-width: 0;
+  padding-right: 0.25rem;
+  display: flex; align-items: flex-start;
+}
+.scenario-stage .scenario-item {
+  width: 100%;
+  transform-origin: top left;
+}
+.frame-fit.rule-frame .scenario-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+  align-content: start;
+}
+.frame-fit.rule-frame .scenario-body > .scenario-head,
+.frame-fit.rule-frame .scenario-body > .scenario-section,
+.frame-fit.rule-frame .scenario-body > .tbl-block-full,
+.frame-fit.rule-frame .scenario-body > .tbl-block-ej-full {
+  grid-column: 1 / -1;
+}
+.frame-fit.rule-frame .tbl-block-ej-full .scenario-table {
+  width: 100%;
+  table-layout: auto;
+}
+.frame-fit.rule-frame .tbl-block-ej-full .scenario-table th,
+.frame-fit.rule-frame .tbl-block-ej-full .scenario-table td {
+  font-size: 0.72rem;
+  padding: 0.32rem 0.42rem;
+  line-height: 1.4;
+  vertical-align: top;
+}
+.frame-fit.rule-frame .scenario-table th,
+.frame-fit.rule-frame .scenario-table td {
+  font-size: 0.74rem; padding: 0.28rem 0.38rem; line-height: 1.35;
+}
+.frame-fit.rule-frame .tbl-caption { font-size: 0.76rem; margin-top: 0.05rem; }
+.frame-fit.rule-frame .scenario-section p { font-size: 0.78rem; }
+.frame-fit.rule-frame .conclusion-box { padding: 0.35rem 0.45rem 1.85rem; }
+.frame-fit.rule-frame .esc-pill { padding: 0.2rem 0.45rem; }
+.scenario-item {
+  display: flex; flex-direction: column; gap: 0;
+  padding: 0; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--white); flex-shrink: 0;
+}
+.scenario-item.section { border-color: var(--accent); border-width: 2px; }
+.esc-pill {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.35rem;
+  padding: 0.28rem 0.55rem; font-size: 0.68rem; font-weight: 800;
+  letter-spacing: 0.03em; text-transform: uppercase; flex-shrink: 0;
+}
+.esc-pill .esc-code { font-size: 0.75rem; }
+.esc-pill .esc-kind { font-size: 0.58rem; font-weight: 600; opacity: 0.85; }
+.esc-pill.neutral { background: #eef1f5; color: #5c6b7a; }
+.esc-pill.paso { background: #fef6e6; color: #9a6700; }
+.esc-pill.empate { background: #fdecea; color: #c0392b; }
+.esc-pill.salida { background: #e6f7f1; color: #0d9f6e; }
+.esc-pill.esc1 { background: #1d6fdc; color: #fff; }
+.esc-pill.esc2 { background: #1558b0; color: #fff; }
+.esc-pill.esc3 { background: #0e4a8a; color: #fff; }
+.esc-pill.esc4 { background: #5b8fd9; color: #fff; }
+.esc-pill.esc5 { background: #7aa6e0; color: #fff; }
+.esc-pill.esc6 { background: #99bce8; color: #1a2332; }
+.esc-pill.motor { background: #ede7f6; color: #5e35b1; }
+.scenario-body {
+  display: flex; flex-direction: column; gap: 0.45rem;
+  padding: 0.45rem 0.55rem 0.5rem;
+}
+.scenario-table th, .scenario-table td {
+  font-size: 0.8rem; padding: 0.38rem 0.48rem;
+}
+.tbl-caption {
+  font-size: 0.84rem; font-weight: 600; color: var(--text); margin-top: 0.15rem; line-height: 1.4;
+}
+.scenario-head {
+  position: relative;
+  display: flex; align-items: flex-start; gap: 0.5rem; flex-wrap: wrap;
+  padding-right: 6.5rem;
+}
+.scenario-head h4 { font-size: 1rem; font-weight: 600; line-height: 1.35; flex: 1; min-width: 0; margin: 0; }
+.scenario-head-main {
+  display: flex; align-items: flex-start; gap: 0.5rem; flex: 1; min-width: 0;
+}
+.scenario-head-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.12rem; }
+.scenario-vol-meta {
+  font-size: 0.78rem; font-weight: 600; color: var(--text); margin: 0; line-height: 1.35;
+}
+.scenario-vol-hint {
+  font-size: 0.68rem; color: var(--muted); margin: 0; line-height: 1.3;
+}
+.btn-head-query {
+  position: absolute; top: 0; right: 0;
+  bottom: auto;
+}
+.scenario-section { display: flex; flex-direction: column; gap: 0.3rem; }
+.scenario-section .sec-label {
+  font-size: 0.66rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--accent);
+}
+.scenario-section p {
+  font-size: 0.84rem; color: var(--text); line-height: 1.5; margin: 0;
+}
+.scenario-section .busca-line { color: var(--muted); }
+.conclusion-box {
+  position: relative;
+  background: var(--accent-soft); border: 1px solid #b8d4f5; border-radius: 8px;
+  padding: 0.4rem 0.5rem 2.15rem;
+}
+.conclusion-box p { color: var(--text); padding-right: 0.25rem; }
+.btn-card-query {
+  position: absolute; bottom: 0.45rem; right: 0.55rem;
+  font-size: 0.68rem; font-weight: 600; padding: 0.35rem 0.75rem;
+  border-radius: 8px; border: 1px solid var(--accent);
+  background: var(--white); color: var(--accent); cursor: pointer;
+  font-family: inherit; white-space: nowrap;
+}
+.btn-card-query:hover { background: var(--accent); color: #fff; }
+.card-query-wrap { display: flex; justify-content: flex-end; padding-top: 0.15rem; }
+.card-query-wrap .btn-card-query { position: static; }
+.dev-narrative p { font-size: 0.82rem; }
+.scenario-group {
+  grid-column: 1 / -1;
+  padding: 0.35rem 0.5rem 0.15rem;
+  border-bottom: 2px solid var(--accent-soft);
+  margin-top: 0.15rem;
+}
+.scenario-group:first-child { margin-top: 0; }
+.scenario-group strong { display: block; font-size: 0.78rem; color: var(--accent); font-weight: 700; }
+.scenario-group span { display: block; font-size: 0.66rem; color: var(--muted); line-height: 1.3; margin-top: 0.1rem; }
+.scenario-item[data-esc="ESC1"] { border-top: 3px solid #1d6fdc; }
+.scenario-item[data-esc="ESC2"] { border-top: 3px solid #1558b0; }
+.scenario-item[data-esc="ESC3"] { border-top: 3px solid #0e4a8a; }
+.scenario-item[data-esc="ESC4"] { border-top: 3px solid #5b8fd9; }
+.scenario-item[data-esc="ESC5"] { border-top: 3px solid #7aa6e0; }
+.scenario-item[data-esc="ESC6"] { border-top: 3px solid #99bce8; }
+.sp-detail-card dl { margin: 0.5rem 0; font-size: 0.88rem; }
+.sp-detail-card dt { font-weight: 600; color: var(--muted); margin-top: 0.35rem; }
+.sp-detail-card dd { margin: 0.15rem 0 0 0; }
+.sp-query-pre {
+  background: #f0f4f8; border: 1px solid var(--line); border-radius: 8px;
+  padding: 0.65rem; font-family: var(--mono); font-size: 0.75rem;
+  white-space: pre-wrap; margin-top: 0.5rem;
+}
+#frame-sps.rule-frame { --scenario-nav-w: 11.5rem; }
+#frame-sps .scenario-nav-item .nav-title {
+  display: block;
+  font-size: 0.62rem;
+  color: var(--muted);
+  line-height: 1.25;
+  margin-top: 0.12rem;
+  white-space: normal;
+  word-break: break-word;
+}
+#frame-sps .scenario-stage { align-items: stretch; }
+#frame-sps .scenario-stage .scenario-item {
+  width: 100%;
+  max-width: 100%;
+  transform: none !important;
+}
+#frame-sps .sp-detail-card dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.4rem 0.85rem;
+  align-items: start;
+  margin: 0.5rem 0;
+}
+#frame-sps .sp-detail-card dt {
+  margin-top: 0;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+#frame-sps .sp-detail-card dd { margin: 0; }
+.badge {
+  font-size: 0.65rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 6px;
+  text-transform: uppercase; flex-shrink: 0;
+}
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+.badge.block { background: var(--block-soft); color: var(--block); }
+.badge.neutral { background: var(--line); color: var(--muted); }
+.scenario-text { flex: 1; min-width: 0; }
+.vol-stats {
+  font-size: 0.72rem; color: var(--accent); font-weight: 600;
+  padding-top: 0.15rem; border-top: 1px dashed var(--line);
+}
+
+.drill-wrap { margin-top: 0.5rem; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.drill-wrap h3 { font-size: 0.82rem; margin-bottom: 0.25rem; flex-shrink: 0; }
+.drill-note { font-size: 0.7rem; color: var(--muted); margin-bottom: 0.35rem; flex-shrink: 0; }
+.drill-scroll { overflow: auto; border: 1px solid var(--line); border-radius: 10px; flex: 1; min-height: 100px; }
+.drill-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
+.drill-table th, .drill-table td { padding: 0.4rem 0.5rem; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+.drill-table th { position: sticky; top: 0; background: var(--accent-soft); z-index: 1; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.drill-table tr.section td { background: #eef2f7; font-weight: 700; font-size: 0.67rem; }
+.drill-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.drill-table .busca { color: var(--muted); max-width: 260px; line-height: 1.3; }
+.drill-table tr.zero { opacity: 0.7; }
+
+/* Glosario + cascada drill-down (estilo Excel negocio) */
+.glossary {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.85rem;
+  flex-shrink: 0;
+}
+.glossary-card {
+  background: var(--accent-soft); border: 1px solid #b8d4f5; border-radius: 10px;
+  padding: 0.85rem 0.95rem;
+}
+.glossary-card h4 { font-size: 0.78rem; color: var(--accent); margin-bottom: 0.35rem; }
+.glossary-card p { font-size: 0.74rem; color: var(--text); line-height: 1.45; }
+
+.metric-toggle {
+  display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+  flex-shrink: 0;
+}
+.metric-toggle button {
+  border: none; background: var(--white); padding: 0.45rem 0.85rem;
+  font-size: 0.76rem; cursor: pointer; font-family: inherit; color: var(--muted);
+}
+.metric-toggle button.active { background: var(--accent); color: #fff; font-weight: 600; }
+#frame-home .metric-toggle { margin-bottom: 0.85rem; }
+
+.drill-cascade-panel {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem 1.15rem 1.15rem;
+}
+.drill-cascade {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  overflow: visible;
+}
+.cascade-step {
+  position: relative;
+  text-align: center;
+  min-width: 0;
+}
+.cascade-step .step-num {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  margin-bottom: 0.35rem;
+}
+.cascade-box {
+  background: var(--white); border: 2px solid var(--line); border-radius: 10px;
+  padding: 0.75rem 0.55rem; min-height: 108px; cursor: pointer; transition: all 0.15s;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.cascade-box:hover, .cascade-box.active { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 2px 8px rgba(29,111,220,0.12); }
+.cascade-box.universo { border-color: var(--accent); background: linear-gradient(180deg,#e8f1fc,#fff); }
+.cascade-box.zero { opacity: 0.72; border-style: dashed; }
+.cascade-box .lbl { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); line-height: 1.25; }
+.cascade-box .val { font-size: 0.92rem; font-weight: 800; color: var(--accent); margin: 0.35rem 0; line-height: 1.3; word-break: break-word; }
+.cascade-box .sub { font-size: 0.68rem; color: var(--muted); line-height: 1.35; }
+
+.drill-matrix-wrap { display: block; }
+#frame-home .drill-scroll {
+  height: min(540px, 52vh);
+  min-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+}
+.drill-matrix-wrap h3 { font-size: 0.88rem; margin-bottom: 0.35rem; }
+.drill-matrix-note { font-size: 0.74rem; color: var(--muted); margin-bottom: 0.65rem; line-height: 1.45; }
+
+.strategic-box {
+  padding: 1rem 1.1rem; background: var(--warn-soft);
+  border: 1px solid #f0d9a8; border-radius: 10px; flex-shrink: 0;
+}
+.strategic-box h4 { font-size: 0.82rem; color: var(--warn); margin-bottom: 0.45rem; }
+.strategic-box ol { margin-left: 1.2rem; font-size: 0.76rem; color: var(--text); line-height: 1.55; }
+
+.drill-table .regla-cell { font-weight: 700; color: var(--accent); white-space: nowrap; }
+.drill-table .justif { min-width: 220px; max-width: 360px; line-height: 1.4; font-size: 0.74rem; }
+.drill-table .subesc { color: var(--muted); font-size: 0.72rem; white-space: normal; }
+#frame-home .drill-table th, #frame-home .drill-table td {
+  padding: 0.55rem 0.65rem;
+  font-size: 0.74rem;
+}
+#frame-home .rules-map { margin-top: 0.25rem; }
+
+.scenario-table {
+  width: 100%; border-collapse: collapse; margin-top: 0.15rem;
+  font-size: 0.74rem; table-layout: auto;
+}
+.scenario-table th {
+  background: #eef2f7; text-align: left; padding: 0.45rem 0.55rem;
+  font-weight: 600; font-size: 0.68rem; vertical-align: top;
+  border: 1px solid var(--line);
+}
+.scenario-table td {
+  border: 1px solid var(--line); padding: 0.45rem 0.55rem;
+  text-align: left; vertical-align: top;
+  white-space: normal; word-break: break-word; line-height: 1.45;
+}
+.scenario-table td.ok { color: var(--ok); font-weight: 600; }
+.scenario-table td.fail { color: var(--block); font-weight: 600; }
+
+.app-footer, .nav-float { display: none !important; }
+
+/* Modal query */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(26,35,50,0.45); z-index: 200;
+  display: none; align-items: center; justify-content: center; padding: 1rem;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: var(--white); border-radius: var(--radius); width: min(720px, 96vw);
+  max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+}
+.modal-head { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--line); }
+.modal-head h2 { font-size: 1.15rem; }
+.modal-head p { font-size: 0.85rem; color: var(--muted); margin-top: 0.35rem; }
+.modal-body { padding: 1rem 1.5rem; overflow-y: auto; flex: 1; }
+.modal-body pre {
+  background: #f0f4f8; border: 1px solid var(--line); border-radius: 10px;
+  padding: 1rem; font-family: var(--mono); font-size: 0.78rem;
+  white-space: pre-wrap; word-break: break-word; max-height: 280px; overflow-y: auto;
+}
+.modal-foot {
+  padding: 1rem 1.5rem; border-top: 1px solid var(--line);
+  display: flex; gap: 0.75rem; flex-wrap: wrap;
+}
+
+.toast {
+  position: fixed; bottom: 0.75rem; left: 50%; transform: translateX(-50%);
+  background: var(--text); color: #fff; padding: 0.65rem 1.25rem; border-radius: 999px;
+  font-size: 0.85rem; z-index: 300; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+@media (max-width: 900px) {
+  .step-nav { gap: 0.2rem; }
+  .step-btn { padding: 0.28rem 0.55rem; font-size: 0.66rem; }
+  .rule-layout { grid-template-columns: 72px 1fr; }
+  .scenario-nav { max-height: none; }
+  .rules-map { grid-template-columns: 1fr; }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .glossary { grid-template-columns: 1fr; }
+  .drill-cascade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1200px) {
+  .drill-cascade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+#frame-home .rules-map { grid-template-columns: repeat(3, 1fr); }
+.scope-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.65rem; }
+.guion-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; margin-top: 0.4rem; }
+.guion-card {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 0.55rem 0.7rem; border-left: 3px solid var(--accent, #2a6f97);
+}
+.guion-card .paso { font-size: 0.72rem; font-weight: 700; color: var(--muted); letter-spacing: 0.04em; }
+.guion-card h4 { margin: 0.15rem 0 0.25rem; font-size: 0.92rem; }
+.guion-card p { margin: 0; font-size: 0.82rem; line-height: 1.35; color: var(--text); }
+.scope-card {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 0.65rem 0.75rem; border-left: 3px solid var(--line);
+}
+.scope-card.ok { border-left-color: var(--ok); }
+.scope-card.parcial, .scope-card.pendiente { border-left-color: var(--warn); }
+.scope-card.na { border-left-color: var(--muted); opacity: 0.85; }
+.scope-card h4 { font-size: 0.78rem; margin-bottom: 0.25rem; }
+.scope-card .scope-id { font-size: 0.62rem; color: var(--muted); font-weight: 700; }
+.scope-card p { font-size: 0.7rem; color: var(--muted); line-height: 1.4; margin-top: 0.2rem; }
+.fases-table, .brechas-table, .artefactos-table {
+  width: 100%; border-collapse: collapse; font-size: 0.72rem;
+}
+.fases-table th, .brechas-table th, .artefactos-table th {
+  text-align: left; padding: 0.45rem 0.5rem; background: #eef2f7;
+  border-bottom: 1px solid var(--line); font-size: 0.65rem; text-transform: uppercase;
+}
+.fases-table td, .brechas-table td, .artefactos-table td {
+  padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top;
+}
+.pill { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.62rem; font-weight: 700; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.parcial { background: var(--warn-soft); color: var(--warn); }
+.pill.no, .pill.pendiente { background: var(--block-soft); color: var(--block); }
+.pill.na { background: var(--bg); color: var(--muted); }
+.pill.alta { background: var(--block-soft); color: var(--block); }
+.pill.media { background: var(--warn-soft); color: var(--warn); }
+.doc-banner {
+  background: var(--accent-soft); border: 1px solid #b8d4f5; border-radius: 10px;
+  padding: 0.65rem 0.85rem; font-size: 0.74rem; line-height: 1.45; color: var(--text);
+  margin-bottom: 0.75rem;
+}
+.doc-banner strong { color: var(--accent); }
+.frame-fit.rule-frame:not(#frame-sps) .scenario-nav-item .nav-title {
+  display: block;
+  font-size: 0.58rem;
+  color: var(--muted);
+  line-height: 1.25;
+  margin-top: 0.15rem;
+  text-align: left;
+  white-space: normal;
+}
+.scenario-table td.ok { color: var(--ok); font-weight: 600; }
+.scenario-table td.fail { color: var(--block); font-weight: 600; }
+.formula-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.65rem; }
+.formula-card {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  padding: 0.65rem 0.75rem; font-size: 0.72rem;
+}
+.formula-card h4 { font-size: 0.82rem; margin-bottom: 0.35rem; color: var(--accent); }
+.formula-card .mono { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+.formula-card ul { margin: 0.35rem 0 0 1rem; line-height: 1.45; }
+.formula-card .out { color: var(--block); }
+.arch-flow { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
+.arch-step {
+  flex: 1 1 140px; background: var(--accent-soft); border: 1px solid #b8d4f5;
+  border-radius: 8px; padding: 0.45rem 0.55rem; font-size: 0.68rem;
+}
+.arch-step b { display: block; font-size: 0.72rem; margin-bottom: 0.15rem; }
+.sp-catalog { font-size: 0.7rem; }
+.sp-catalog td code { font-size: 0.65rem; }
+.repo-block { margin-bottom: 0.75rem; padding: 0.55rem 0.65rem; background: var(--bg); border-radius: 8px; border: 1px solid var(--line); }
+.repo-block h4 { font-size: 0.78rem; margin-bottom: 0.3rem; }
+.sp-detail-card { font-size: 0.74rem; line-height: 1.45; }
+.sp-detail-card pre { background: #1a2332; color: #e8ecf1; padding: 0.5rem; border-radius: 6px; font-size: 0.65rem; overflow-x: auto; margin-top: 0.35rem; }
+#frame-sps.rule-frame { --scenario-nav-w: 14rem; }
+#frame-sps .sp-detail-card ol { margin: 0.25rem 0 0 1.1rem; }
+#frame-sps .sp-detail-card .conclusion-box { margin-top: 0.45rem; }
+@media (max-width: 1100px) {
+  #frame-home .rules-map { grid-template-columns: repeat(2, 1fr); }
+  .scope-grid, .formula-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <h1>Ordenamiento</h1>
+  <nav class="step-nav" id="stepNav"></nav>
+  <span class="header-meta">DEV · 2026-09-16</span>
+  <div class="progress"><i id="progressBar"></i></div>
+</header>
+
+<div class="viewport" id="viewport">
+  <div class="canvas" id="canvas">
+
+    <div class="frame frame-on" id="frame-home">
+      <div class="frame-fit">
+      <div class="frame-title">Cómo explicarlo — alineado a Mesa / Sesión Alineación</div>
+      <div class="frame-sub">Opción A · post-unificación · betas catálogo RITM · 4 canales · edf_views</div>
+
+      <div class="doc-banner" id="docBanner"></div>
+
+      <section class="drill-section">
+        <div class="drill-section-title">0 · Guión de reunión (2 minutos)</div>
+        <p class="drill-section-note">Texto listo para decir en la mesa — mismo lenguaje de las transcripciones (ganadoras, catálogo betas, canales aparte).</p>
+        <div class="guion-grid" id="guionGrid"></div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">1 · Alcance acordado en sesiones</div>
+        <p class="drill-section-note">Qué sí construimos ahora vs qué quedó diferido (242, incremental, QA productor).</p>
+        <div class="scope-grid" id="scopeGrid"></div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">2 · Fases para explicar (1 pregunta = 1 fase)</div>
+        <p class="drill-section-note">Mapa de reunión Opción A. No es la F1 Teradata incremental (esa no corre aquí).</p>
+        <div class="drill-matrix-wrap"><table class="fases-table" id="fasesTable"></table></div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">3 · Cierres técnicos vs diferidos</div>
+        <p class="drill-section-note">TEL-02 / EMA-03 / CEL-02 y <strong>betas RITM</strong> cerrados. MIG-01 e incremental = fuera de alcance ahora (sesión).</p>
+        <div class="drill-matrix-wrap"><table class="brechas-table" id="brechasTable"></table></div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">4 · Arquitectura datasharing (sin copia XPM)</div>
+        <p class="drill-section-note">edf_views → staging temporal → scoring → orden_prioridad. Precondición: unificación R1/R2/R3.</p>
+        <div class="arch-flow" id="archFlow"></div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">5 · contactType → canal</div>
+        <div class="drill-matrix-wrap"><table class="fases-table" id="contactTypeTable"></table></div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">6 · Fórmulas de score por canal</div>
+        <p class="drill-section-note">Score = Σ (categoría/max × Beta). Variables <span class="out">fuera de suma</span> se calculan pero no mueven ranking.</p>
+        <div class="formula-grid" id="formulaGrid"></div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">7 · Qué estamos contando</div>
+        <p class="drill-section-note">Score relativo por canal (DIR, TEL, CEL, EMA). No mezcla canales ni personas.</p>
+        <div class="glossary" id="glossary"></div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">8 · Resumen DEV</div>
+        <div class="kpi-row" id="kpiRow"></div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">9 · Cascada — insumo → score → orden_prioridad</div>
+        <p class="drill-section-note">Cada caja es un paso del pipeline. Clic para ubicar en la matriz.</p>
+        <div class="metric-toggle" id="metricToggle"></div>
+        <div class="drill-cascade-panel">
+          <div class="drill-cascade" id="drillCascade"></div>
+        </div>
+      </section>
+
+      <section class="drill-section drill-section-matrix">
+        <div class="drill-section-title">10 · Matriz drill-down</div>
+        <p class="drill-matrix-note">Fase → canal → conteos DEV → justificación funcional.</p>
+        <div class="drill-matrix-wrap">
+          <div class="drill-scroll"><table class="drill-table" id="drillMatrix"></table></div>
+        </div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">11 · Catálogo SP divididos (14 archivos)</div>
+        <p class="drill-matrix-note">Un SP por responsabilidad — no monolito. Clic en pestaña <strong>SPs</strong> para detalle completo.</p>
+        <div class="drill-matrix-wrap"><table class="artefactos-table sp-catalog" id="spsCatalogTable"></table></div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">12 · Despliegue Bitbucket (3 repos)</div>
+        <div id="reposDeploy"></div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">13 · Artefactos SQL / SP (índice)</div>
+        <div class="drill-matrix-wrap"><table class="artefactos-table" id="artefactosTable"></table></div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">14 · Preguntas de cierre (sesión)</div>
+        <div class="strategic-box">
+          <ol>
+            <li>¿Confirmamos Opción A (scoring post-unificación EDF) como camino a certificar?</li>
+            <li>¿Betas RITM5226589 en catálogo son la fuente oficial hasta datashare IFR?</li>
+            <li>¿Abrimos PRs <code>feature/ordenamiento</code> (_strct → _pgm → _dt)?</li>
+            <li>¿Demo con smoke 20001–20009 + números DEV (1.22M scores, 0 hijas)?</li>
+            <li>¿Dejamos fuera por ahora: incremental, malla 242, QA productor?</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="drill-section">
+        <div class="drill-section-title">15 · Detalle por fase / canal</div>
+        <div class="rules-map" id="rulesMap"></div>
+      </section>
+      </div>
+    </div>
+
+    <div class="frame frame-off" id="frame-fase1">
+      <div class="frame-fit rule-frame">
+      <div class="frame-title">Fase 1 — Armar candidatos (qué entra)</div>
+      <div class="frame-sub">Solo ganadoras · contactType → canal · ejemplo: email sin @ no entra</div>
+      <div class="rule-layout">
+        <aside class="scenario-nav" id="nav-fase1"></aside>
+        <div class="scenario-stage" id="stage-fase1"></div>
+      </div>
+      </div>
+    </div>
+
+    <div class="frame frame-off" id="frame-dir">
+      <div class="frame-fit rule-frame">
+      <div class="frame-title">Fase 2a — DIR · ¿Qué dirección primero?</div>
+      <div class="frame-sub">Ejemplo: persona 20001 casa vs oficina · 20002 una sola calle · 20003 tres calles</div>
+      <div class="rule-layout">
+        <aside class="scenario-nav" id="nav-dir"></aside>
+        <div class="scenario-stage" id="stage-dir"></div>
+      </div>
+      </div>
+    </div>
+
+    <div class="frame frame-off" id="frame-tel">
+      <div class="frame-fit rule-frame">
+      <div class="frame-title">Fase 2b — TEL · ¿Qué fijo primero?</div>
+      <div class="frame-sub">Ejemplo: persona 20004 VALIDA vs NO VALIDA · TEL020 no suma al score</div>
+      <div class="rule-layout">
+        <aside class="scenario-nav" id="nav-tel"></aside>
+        <div class="scenario-stage" id="stage-tel"></div>
+      </div>
+      </div>
+    </div>
+
+    <div class="frame frame-off" id="frame-cel">
+      <div class="frame-fit rule-frame">
+      <div class="frame-title">Fase 2c — CEL · ¿Qué celular primero?</div>
+      <div class="frame-sub">Ejemplo: persona 20006 prefijo 310 vs 320 · sin operador → 0.22</div>
+      <div class="rule-layout">
+        <aside class="scenario-nav" id="nav-cel"></aside>
+        <div class="scenario-stage" id="stage-cel"></div>
+      </div>
+      </div>
+    </div>
+
+    <div class="frame frame-off" id="frame-ema">
+      <div class="frame-fit rule-frame">
+      <div class="frame-title">Fase 2d — EMA · ¿Qué email primero?</div>
+      <div class="frame-sub">Ejemplo: persona 20008 gmail vs corporativo · EMA003/007 no suman</div>
+      <div class="rule-layout">
+        <aside class="scenario-nav" id="nav-ema"></aside>
+        <div class="scenario-stage" id="stage-ema"></div>
+      </div>
+      </div>
+    </div>
+
+    <div class="frame frame-off" id="frame-salida">
+      <div class="frame-fit rule-frame">
+      <div class="frame-title">Fase 3–4 — Guardar orden y limpiar</div>
+      <div class="frame-sub">lugar → orden_prioridad · hijas = NULL · DROP stg_*</div>
+      <div class="rule-layout">
+        <aside class="scenario-nav" id="nav-salida"></aside>
+        <div class="scenario-stage" id="stage-salida"></div>
+      </div>
+      </div>
+    </div>
+
+    <div class="frame frame-off" id="frame-sps">
+      <div class="frame-fit rule-frame">
+      <div class="frame-title">Catálogo SP — una fase / un archivo</div>
+      <div class="frame-sub">Pregunta de negocio + ejemplo smoke · _strct · _pgm · _dt</div>
+      <div class="rule-layout">
+        <aside class="scenario-nav" id="nav-sps"></aside>
+        <div class="scenario-stage" id="stage-sps"></div>
+      </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="modal-backdrop" id="queryModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Ver query</h2>
+      <p id="modalSubtitle">Copiar y ejecutar en dba_rncr_batch</p>
+    </div>
+    <div class="modal-body"><pre id="modalSql"></pre></div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-primary" id="btnCopyQuery">Copiar query</button>
+      <button type="button" class="btn" id="btnCloseModal">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DATA = {"generated": "2026-09-16", "kpis": {"personas": 407351, "rpu_ganadoras": 518718, "rpu_hijas": 72448, "rpu_con_orden": 408624, "betas": 47, "total_scores": 1223998, "preparar_seg": 78.1, "scoring_seg": 20.0, "canales": {"DIR": {"scores": 409014, "personas": 407351, "min": 0.6113, "max": 0.843, "insumo": 1055905}, "TEL": {"scores": 407320, "personas": 407320, "min": 0.2675, "max": 0.635, "insumo": 627934}, "CEL": {"scores": 258, "personas": 115, "min": 0.49, "max": 0.7325, "insumo": 17240}, "EMA": {"scores": 407406, "personas": 407207, "min": 0.26, "max": 0.525, "insumo": 605998}}}, "volumenes": {"filas": [{"regla": "UNIVERSO", "codigo": "POST-UNIF", "escenario": "Ganadoras", "personas": 407351, "contactos": 518718, "busca": "RPUs que compiten tras unificación R1/R2/R3 (ind_unificacion <> 1).", "ratio": 1.27}, {"regla": "UNIVERSO", "codigo": "HIJAS", "escenario": "Excluidas", "personas": 0, "contactos": 72448, "busca": "Hijas de unificación: no reciben score ni orden_prioridad.", "ratio": null}, {"regla": "FASE 1", "codigo": "INSUMO-DIR", "escenario": "insumo_direccion", "personas": 407351, "contactos": 1055905, "busca": "Reportes de dirección en RPUs ganadoras → base canal DIR.", "ratio": 2.59}, {"regla": "FASE 1", "codigo": "INSUMO-TEL", "escenario": "insumo_telefono", "personas": 407320, "contactos": 627934, "busca": "Contactos XPM contactType 4, 5, 8 para personas con DIR ganadora.", "ratio": 1.54}, {"regla": "FASE 1", "codigo": "INSUMO-CEL", "escenario": "insumo_celular", "personas": 115, "contactos": 17240, "busca": "Celulares contactType 9. Cobertura baja en DEV edf_views.", "ratio": 149.91}, {"regla": "FASE 1", "codigo": "INSUMO-EMA", "escenario": "insumo_email", "personas": 407207, "contactos": 605998, "busca": "Emails contactType 10 con formato válido (@).", "ratio": 1.49}, {"regla": "DIR", "codigo": "SCORE", "escenario": "score_ordenamiento", "personas": 407351, "contactos": 409014, "busca": "Un score por dirección distinta; ROW_NUMBER → lugar.", "ratio": 1.0}, {"regla": "TEL", "codigo": "SCORE", "escenario": "score_ordenamiento", "personas": 407320, "contactos": 407320, "busca": "Ranking teléfonos por persona (clave = número).", "ratio": 1.0}, {"regla": "CEL", "codigo": "SCORE", "escenario": "score_ordenamiento", "personas": 115, "contactos": 258, "busca": "Ranking celulares; operador desde prefijo.", "ratio": 2.24}, {"regla": "EMA", "codigo": "SCORE", "escenario": "score_ordenamiento", "personas": 407207, "contactos": 407406, "busca": "Ranking emails por dominio y recencia.", "ratio": 1.0}, {"regla": "SALIDA", "codigo": "CONSOL", "escenario": "orden_prioridad", "personas": 407351, "contactos": 408624, "busca": "UPDATE relacion_persona_ubicacion desde score DIR (canal principal).", "ratio": 1.0}, {"regla": "SALIDA", "codigo": "CHECK", "escenario": "hijas_sin_orden", "personas": 0, "contactos": 72448, "busca": "Validación F3-02 doc v2.0: hijas sin orden_prioridad.", "ratio": null}], "universo": {"personas": 407351, "contactos": 518718}}, "rows": [{"Regla": "PUNTO DE PARTIDA", "Escenario": "ORD-RESUMEN", "Subescenario": "Qué es Ordenamiento y cómo se relaciona con Unificación", "Qué espera (negocio)": "Después de R1/R2/R3, priorizar contactos por canal con score relativo (no probabilidad calibrada).", "Qué encontramos DEV": "407,351 personas · 518,718 RPUs ganadoras compiten.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "En DEV: 518,718 RPUs ganadoras compiten · 72,448 hijas excluidas (F3-02).", "Query validación (copiar en dba_rncr_batch)": "SELECT COUNT(*) FROM bdm_tempo.stg_rpu_post_unificacion WHERE COALESCE(ind_unificacion,0)<>1;", "Acción / revisión": "", "_pack_code": "RESUMEN", "_tabla_pasos": {"title": "Ordenamiento vs Unificación — qué hace cada proceso", "headers": ["Proceso", "Pregunta", "Entrada", "Salida", "¿Compite en ranking?"], "rows": [["Unificación R1/R2/R3", "¿Son la misma dirección?", "Varias RPUs de la misma persona", "Padre gana · hija ind_unificacion=1", "Solo el padre (ganador)"], ["Ordenamiento DIR", "¿Qué dirección contactar primero?", "RPUs ganadoras (varias calles posibles)", "lugar 1, 2, 3… por score", "Todas las ganadoras del canal"], ["Ordenamiento TEL/CEL/EMA", "¿Qué teléfono/cel/email primero?", "Contactos XPM de la persona", "lugar por canal (independiente)", "No mezcla con DIR ni entre canales"]]}, "_tabla_ejemplo": {"title": "Ejemplo conceptual — persona con 3 direcciones tras unificación", "headers": ["RPU", "Calle", "ind_unificacion", "¿Entra a ordenamiento?", "Por qué"], "rows": [["10001", "Calle 10 #20", "NULL (ganadora)", "Sí ✓", "Vigente; compite por score DIR"], ["10002", "Calle 10 #20 apto 3", "1 (hija)", "No ✗", "Absorbida en R2; solo trazabilidad"], ["10003", "Carrera 5 #1", "NULL (sin unificar)", "Sí ✓", "Otra ganadora; puede ser lugar 2"]]}, "_conclusion": "En DEV: 518,718 RPUs ganadoras compiten · 72,448 hijas excluidas (F3-02).", "_esc_codigo": "ORD-RESUMEN", "_titulo_corto": "Qué es Ordenamiento y cómo se relaciona con Unificación", "_busca": "Después de R1/R2/R3, priorizar contactos por canal con score relativo (no probabilidad calibrada).", "_dev": "", "_conclusion_regla": "En DEV: 518,718 RPUs ganadoras compiten · 72,448 hijas excluidas (F3-02).", "_show_query": true, "_regla": "PUNTO DE PARTIDA", "_section": false}, {"Regla": "PUNTO DE PARTIDA", "Escenario": "ORD-FLUJO", "Subescenario": "Pipeline en Redshift (Opción A)", "Qué espera (negocio)": "edf_views → unificación previa → staging insumos → scoring 4 canales → orden_prioridad.", "Qué encontramos DEV": "Preparar ~78.1s · Scoring ~20.0s · 1,223,998 scores.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "Tiempo DEV: preparar ~78.1s · scoring ~20.0s · 1,223,998 scores totales.", "Query validación (copiar en dba_rncr_batch)": "CALL bdm_datos.sp_ordenamiento_ejecucion_edf(TRUE);", "Acción / revisión": "", "_pack_code": "FLUJO", "_tabla_pasos": {"title": "Pipeline DEV (Opción A) — paso a paso", "headers": ["Paso", "SP / objeto", "Qué hace", "Por qué así"], "rows": [["1", "Unificación previa", "R1/R2/R3 → unificacion_direccion", "Ordenamiento no redefine pares padre-hija"], ["2", "sp_preparar_insumos_edf", "stg_rpu + stg_insumo_*", "1 lectura datashare; sin copia permanente"], ["3", "sp_scoring_*_edf (×4)", "score_ordenamiento por canal", "Misma persona, rankings separados"], ["4", "sp_consolidacion_edf", "rpu_orden_prioridad", "Persiste mejor lugar (hoy desde scores)"], ["5", "sp_drop_staging_edf", "DROP stg_*", "Staging solo vive una corrida"]]}, "_conclusion": "Tiempo DEV: preparar ~78.1s · scoring ~20.0s · 1,223,998 scores totales.", "_esc_codigo": "ORD-FLUJO", "_titulo_corto": "Pipeline en Redshift (Opción A)", "_busca": "edf_views → unificación previa → staging insumos → scoring 4 canales → orden_prioridad.", "_dev": "", "_conclusion_regla": "Tiempo DEV: preparar ~78.1s · scoring ~20.0s · 1,223,998 scores totales.", "_show_query": true, "_regla": "PUNTO DE PARTIDA", "_section": false}, {"Regla": "ALCANCE", "Escenario": "ORD-ALCANCE", "Subescenario": "Alcance funcional acordado", "Qué espera (negocio)": "DDL/SQL/SP en Redshift; aplicar betas Experian; paridad condicional; procesos upstream fuera del SP.", "Qué encontramos DEV": "Documento consolidado de requerimientos en revisión; referencia: doc funcional v2.0.", "Estado": "Pendiente", "Ejemplo verificable (reporte + ID + query)": "Ordenamiento no reimplementa unificación ni carga de ubicaciones: lee el estado ya procesado en edf_views.", "Query validación (copiar en dba_rncr_batch)": "", "Acción / revisión": "", "_pack_code": "ALCANCE", "_tabla_ejemplo": {"title": "Alcance del proceso de ordenamiento en Redshift", "headers": ["Tema", "En alcance", "Estado DEV"], "rows": [["DDL, SQL, SP", "Construcción y orquestación en Redshift", "OK ✓"], ["Aplicar betas Experian", "Leer catálogo vigente (no definir modelo)", "Parcial — mock local"], ["Paridad Teradata", "Solo si mismos betas en ambas plataformas", "Pendiente"], ["Procesos upstream", "Unificación, bloqueos, estandarización (consume resultado)", "OK ✓"], ["Fases 1–3 Teradata", "Solo si se adopta paridad Control-M completa", "Opción A activa"]]}, "_conclusion": "Ordenamiento no reimplementa unificación ni carga de ubicaciones: lee el estado ya procesado en edf_views.", "_esc_codigo": "ORD-ALCANCE", "_titulo_corto": "Alcance funcional acordado", "_busca": "DDL/SQL/SP en Redshift; aplicar betas Experian; paridad condicional; procesos upstream fuera del SP.", "_dev": "", "_conclusion_regla": "Ordenamiento no reimplementa unificación ni carga de ubicaciones: lee el estado ya procesado en edf_views.", "_show_query": false, "_regla": "ALCANCE", "_section": false}, {"Regla": "FASE 1", "Escenario": "ORD-F1-CT", "Subescenario": "contactType → canal (quién entra y quién no)", "Qué espera (negocio)": "Cada tipo XPM alimenta un canal; TEL/CEL/EMA solo si la persona tiene dirección ganadora.", "Qué encontramos DEV": "DIR 1,055,905 filas · TEL 627,934 · CEL 17,240 · EMA 605,998.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "TEL/CEL/EMA exigen persona con al menos una dirección ganadora post-unificación.", "Query validación (copiar en dba_rncr_batch)": "", "Acción / revisión": "", "_pack_code": "INSUMO-CT", "_tabla_ejemplo": {"title": "contactType XPM → canal — quién entra y quién no", "headers": ["contactType", "Canal", "¿Entra?", "Por qué sí", "Por qué no"], "rows": [["1,2,3,7,8", "DIR", "Sí ✓", "Dirección física en RPU ganadora", "—"], ["4, 5, 8", "TEL", "Sí ✓", "Teléfono fijo en persona con DIR ganadora", "Type 8 también es token dirección en unif."], ["9", "CEL", "Sí ✓", "Celular válido", "Solo 115 personas en DEV (cobertura baja)"], ["10", "EMA", "Sí ✓", "Email con @", "Sin @ → NO VALIDA en preparar"], ["Otros", "—", "No ✗", "—", "No mapeados al modelo de ordenamiento"]]}, "_conclusion": "TEL/CEL/EMA exigen persona con al menos una dirección ganadora post-unificación.", "_esc_codigo": "ORD-F1-CT", "_titulo_corto": "contactType → canal (quién entra y quién no)", "_busca": "Cada tipo XPM alimenta un canal; TEL/CEL/EMA solo si la persona tiene dirección ganadora.", "_dev": "", "_conclusion_regla": "TEL/CEL/EMA exigen persona con al menos una dirección ganadora post-unificación.", "_show_query": false, "_regla": "FASE 1", "_section": false}, {"Regla": "FASE 1", "Escenario": "ORD-F1-RPU", "Subescenario": "Materialización RPU en staging", "Qué espera (negocio)": "stg_rpu_post_unificacion: lectura datashare + join unificacion_direccion; sin copia permanente.", "Qué encontramos DEV": "Ganadoras 518,718 · Hijas excluidas 72,448.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "Check DEV: 0 hijas con orden_prioridad · 72,448 hijas sin orden.", "Query validación (copiar en dba_rncr_batch)": "SELECT COUNT(*) FROM bdm_tempo.stg_rpu_post_unificacion WHERE COALESCE(ind_unificacion,0)<>1;", "Acción / revisión": "", "_pack_code": "RPU-STG", "_tabla_ejemplo": {"title": "stg_rpu_post_unificacion — elegibilidad fila a fila", "headers": ["Caso", "ind_unificacion", "¿En staging ganadoras?", "¿Recibe score?", "Por qué"], "rows": [["Padre R1", "0 o NULL", "Sí ✓", "Sí ✓", "Ganó unificación; dirección vigente"], ["Hija absorbida", "1", "Filtrada ✗", "No ✗", "Doc v2.0 F3-02: no ranking como vigente"], ["Sin unificar (empate)", "NULL", "Sí ✓", "Sí ✓", "Nunca fue hija; compite normal"], ["Motor enriquecida", "NULL", "Sí ✓", "Sí ✓", "RPU nueva vigente post-R2"]]}, "_conclusion": "Check DEV: 0 hijas con orden_prioridad · 72,448 hijas sin orden.", "_esc_codigo": "ORD-F1-RPU", "_titulo_corto": "Materialización RPU en staging", "_busca": "stg_rpu_post_unificacion: lectura datashare + join unificacion_direccion; sin copia permanente.", "_dev": "", "_conclusion_regla": "Check DEV: 0 hijas con orden_prioridad · 72,448 hijas sin orden.", "_show_query": true, "_regla": "FASE 1", "_section": false}, {"Regla": "FASE 1", "Escenario": "ORD-F1-BETA", "Subescenario": "Parametrización de coeficientes", "Qué espera (negocio)": "Experian define betas; Redshift solo los aplica vía JOIN (no recalibra el modelo).", "Qué encontramos DEV": "47 betas RITM5226589 en bdm_datos.beta_ordenamiento.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "Paridad Teradata solo tiene sentido si Experian certifica mismos betas en ambas plataformas.", "Query validación (copiar en dba_rncr_batch)": "SELECT canal, COUNT(*) FROM bdm_datos.beta_ordenamiento GROUP BY 1;", "Acción / revisión": "Snapshot RITM5226589 (sesión John). Datashare IFR opcional después.", "_pack_code": "BETAS", "_tabla_ejemplo": {"title": "Betas — quién define vs quién aplica", "headers": ["Responsable", "Qué hace", "Artefacto", "Estado DEV"], "rows": [["Experian", "Define coeficientes y vigencia", "v_beta_ordenamiento_dir/tel/cel/ema", "Pendiente datashare"], ["Implementación Redshift", "JOIN y aplica en fórmula score", "bdm_datos.beta_ordenamiento", "Mock 47 filas"], ["Implementación Redshift", "No recalibra ni redefine características", "SPs scoring", "OK ✓"]]}, "_conclusion": "Paridad Teradata solo tiene sentido si Experian certifica mismos betas en ambas plataformas.", "_esc_codigo": "ORD-F1-BETA", "_titulo_corto": "Parametrización de coeficientes", "_busca": "Experian define betas; Redshift solo los aplica vía JOIN (no recalibra el modelo).", "_dev": "", "_conclusion_regla": "Paridad Teradata solo tiene sentido si Experian certifica mismos betas en ambas plataformas.", "_show_query": true, "_regla": "FASE 1", "_section": false}, {"Regla": "CANAL DIR", "Escenario": "ORD-DIR-RANK", "Subescenario": "Ranking de direcciones (RANK-01)", "Qué espera (negocio)": "Varias direcciones ganadoras por persona; mayor score → lugar 1 → orden_prioridad.", "Qué encontramos DEV": "409,014 scores · rango 0.6113–0.843.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "DEV: 409,014 scores DIR · rango 0.6113–0.843.", "Query validación (copiar en dba_rncr_batch)": "SELECT canal, COUNT(*) AS n, ROUND(MIN(score::FLOAT),4) AS min_s, ROUND(MAX(score::FLOAT),4) AS max_s\nFROM bdm_datos.score_ordenamiento WHERE canal='DIR' GROUP BY 1;", "Acción / revisión": "", "_pack_code": "DIR-RANK", "_tabla_ejemplo": {"title": "Caso RANK-01 — dos direcciones, scores distintos (misma persona)", "headers": ["Dirección", "Score DIR", "lugar", "orden_prioridad", "Por qué"], "rows": [["Calle 10 #20", "0.84", "1", "1", "Mayor score → primer intento de contacto"], ["Carrera 5 #1", "0.71", "2", "2", "Vigente pero menos prioritaria"], ["Calle 10 apto 3 (hija)", "—", "—", "NULL", "Excluida por unificación"]]}, "_tabla_pasos": {"title": "Cómo se calcula el score DIR (resumen)", "headers": ["Paso", "Ejemplo", "Efecto en ranking"], "rows": [["Agregar reportes", "12 meses, sector financiero, tipo RES", "Métricas CO00DIR*"], ["Categorizar", "Valor → bin 1..4", "Comparación con umbrales fijos"], ["Ponderar", "(cat/4) × Beta", "Suma = score"], ["Rankear", "ROW_NUMBER por persona", "lugar 1 = máximo score"]]}, "_conclusion": "DEV: 409,014 scores DIR · rango 0.6113–0.843.", "_esc_codigo": "ORD-DIR-RANK", "_titulo_corto": "Ranking de direcciones (RANK-01)", "_busca": "Varias direcciones ganadoras por persona; mayor score → lugar 1 → orden_prioridad.", "_dev": "", "_conclusion_regla": "DEV: 409,014 scores DIR · rango 0.6113–0.843.", "_show_query": true, "_regla": "CANAL DIR", "_section": false}, {"Regla": "CANAL DIR", "Escenario": "ORD-F3-HIJA", "Subescenario": "Hija de unificación excluida (F3-02)", "Qué espera (negocio)": "ind_unificacion=1 no recibe score ni orden; solo trazabilidad en unificacion_direccion.", "Qué encontramos DEV": "0 hijas con orden incorrecto · 72,448 hijas sin orden.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "Por qué no: la hija ya no es contacto vigente; el negocio contacta al padre. DEV: 72,448 hijas sin orden.", "Query validación (copiar en dba_rncr_batch)": "SELECT COUNT(*) AS hijas_con_orden_incorrecto\nFROM bdm_datos.relacion_persona_ubicacion\nWHERE COALESCE(ind_unificacion,0)=1 AND orden_prioridad IS NOT NULL;", "Acción / revisión": "", "_pack_code": "ELEG-HIJA", "_tabla_ejemplo": {"title": "Caso F3-02 — dirección hija de unificación", "headers": ["Campo", "Valor hija", "Valor padre ganador", "Regla"], "rows": [["ind_unificacion", "1", "NULL", "Hija marcada en unificación"], ["score_ordenamiento", "— (no existe)", "0.72 (ej.)", "Solo ganadoras reciben score"], ["orden_prioridad", "NULL", "1", "Prioridad solo en vigentes"], ["unificacion_direccion", "Apunta al padre", "—", "Trazabilidad; ordenamiento no la borra"]]}, "_conclusion": "Por qué no: la hija ya no es contacto vigente; el negocio contacta al padre. DEV: 72,448 hijas sin orden.", "_esc_codigo": "ORD-F3-HIJA", "_titulo_corto": "Hija de unificación excluida (F3-02)", "_busca": "ind_unificacion=1 no recibe score ni orden; solo trazabilidad en unificacion_direccion.", "_dev": "", "_conclusion_regla": "Por qué no: la hija ya no es contacto vigente; el negocio contacta al padre. DEV: 72,448 hijas sin orden.", "_show_query": true, "_regla": "CANAL DIR", "_section": false}, {"Regla": "CANAL DIR", "Escenario": "ORD-F3-BLOQ", "Subescenario": "Bloqueos y datos NO VÁLIDOS (F3-01 / F3-03)", "Qué espera (negocio)": "Registros bloqueados o inválidos no compiten; parte se filtra en upstream o en preparar insumos.", "Qué encontramos DEV": "Filtro hijas OK; bloqueos explícitos dependen de insumo IFR.", "Estado": "Parcial", "Ejemplo verificable (reporte + ID + query)": "F1-08 (carga/bloqueos upstream) no es alcance del SP; se consume estado ya procesado.", "Query validación (copiar en dba_rncr_batch)": "", "Acción / revisión": "", "_pack_code": "ELEG-BLOQ", "_tabla_ejemplo": {"title": "Bloqueos y NO VÁLIDO — fuera del ranking (F3-01 / F3-03)", "headers": ["Condición", "¿Compite?", "Por qué sí", "Por qué no", "Dónde se aplica hoy"], "rows": [["Hija unificación", "No ✗", "—", "No es vigente", "Filtro stg_rpu ind<>1"], ["descripcion_gestion = NO VALIDA", "Parcial", "Algunos canales filtran reportes", "Dato DQ no vigente", "TEL en agregación"], ["Registro bloqueado", "No ✗", "—", "Excluido antes scoring (doc)", "Upstream IFR (no en SP)"], ["Email sin @", "No ✗", "—", "Formato inválido", "05_sp_preparar CASE"]]}, "_conclusion": "F1-08 (carga/bloqueos upstream) no es alcance del SP; se consume estado ya procesado.", "_esc_codigo": "ORD-F3-BLOQ", "_titulo_corto": "Bloqueos y datos NO VÁLIDOS (F3-01 / F3-03)", "_busca": "Registros bloqueados o inválidos no compiten; parte se filtra en upstream o en preparar insumos.", "_dev": "", "_conclusion_regla": "F1-08 (carga/bloqueos upstream) no es alcance del SP; se consume estado ya procesado.", "_show_query": false, "_regla": "CANAL DIR", "_section": false}, {"Regla": "CANAL DIR", "Escenario": "ORD-DIR-EMP", "Subescenario": "Empate de score (RANK-02)", "Qué espera (negocio)": "Dos direcciones con mismo score: no se agrega desempate funcional nuevo en migración.", "Qué encontramos DEV": "ROW_NUMBER preserva baseline; diferencias por empate → hallazgo de certificación.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "Si en paridad hay diferencia por empate, se registra hallazgo; no se inventa criterio.", "Query validación (copiar en dba_rncr_batch)": "", "Acción / revisión": "", "_pack_code": "DIR-EMPATE", "_tabla_ejemplo": {"title": "Caso RANK-02 — empate de score (doc v2.0)", "headers": ["Dirección A", "Dirección B", "Score", "Desempate doc", "Qué hace Redshift"], "rows": [["Dir A", "Dir B", "0.75", "0.75", "No hay regla funcional nueva"], ["—", "—", "Igual", "Preservar baseline Teradata", "ROW_NUMBER — orden no determinístico"]]}, "_conclusion": "Si en paridad hay diferencia por empate, se registra hallazgo; no se inventa criterio.", "_esc_codigo": "ORD-DIR-EMP", "_titulo_corto": "Empate de score (RANK-02)", "_busca": "Dos direcciones con mismo score: no se agrega desempate funcional nuevo en migración.", "_dev": "", "_conclusion_regla": "Si en paridad hay diferencia por empate, se registra hallazgo; no se inventa criterio.", "_show_query": false, "_regla": "CANAL DIR", "_section": false}, {"Regla": "CANAL TEL", "Escenario": "ORD-TEL-RANK", "Subescenario": "Ranking teléfono fijo por persona", "Qué espera (negocio)": "Canal independiente de DIR; agrupa por número; no escribe orden_prioridad en RPU.", "Qué encontramos DEV": "407,320 scores · 407,320 personas.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "DEV: 407,320 scores TEL · 407,320 personas.", "Query validación (copiar en dba_rncr_batch)": "SELECT COUNT(*) FROM bdm_datos.score_ordenamiento WHERE canal='TEL';", "Acción / revisión": "", "_pack_code": "TEL-RANK", "_tabla_ejemplo": {"title": "Ranking TEL — independiente de DIR", "headers": ["Persona", "Teléfono", "Score TEL", "lugar TEL", "¿Afecta orden_prioridad DIR?"], "rows": [["P-100", "6012345678", "0.62", "1", "No — canales separados"], ["P-100", "6019876543", "0.55", "2", "No"], ["P-100", "Calle 10 (DIR)", "0.84", "1 (DIR)", "Sí — solo DIR escribe orden_prioridad"]]}, "_conclusion": "DEV: 407,320 scores TEL · 407,320 personas.", "_esc_codigo": "ORD-TEL-RANK", "_titulo_corto": "Ranking teléfono fijo por persona", "_busca": "Canal independiente de DIR; agrupa por número; no escribe orden_prioridad en RPU.", "_dev": "", "_conclusion_regla": "DEV: 407,320 scores TEL · 407,320 personas.", "_show_query": true, "_regla": "CANAL TEL", "_section": false}, {"Regla": "CANAL TEL", "Escenario": "ORD-TEL-02", "Subescenario": "TEL020 fuera de la suma (caso TEL-02)", "Qué espera (negocio)": "Coincidencia geo se calcula pero no debe modificar el score final (baseline Teradata).", "Qué encontramos DEV": "Corregido en 12_sp_ordenamiento_scoring_tel_edf.sql · rango 0.2675–0.635.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "Por qué: baseline calcula TEL020 para trazabilidad pero Sumatoria_Score_Tel lo omite. DEV TEL rango 0.2675–0.635 tras corrección.", "Query validación (copiar en dba_rncr_batch)": "", "Acción / revisión": "", "_pack_code": "TEL-02", "_tabla_ejemplo": {"title": "Caso TEL-02 — TEL020 (coincidencia geo) fuera de la suma", "headers": ["Variable", "Se calcula", "Categoriza", "¿Suma al score?", "Estado SP"], "rows": [["TEL010", "Sí ✓", "Sí ✓", "Sí ✓", "OK"], ["TEL020", "Sí ✓", "Sí ✓", "No ✗ (baseline)", "OK ✓ — corregido"], ["Resto TEL*", "Sí ✓", "Sí ✓", "Sí ✓", "OK"]]}, "_tabla_pasos": {"title": "Fórmula Teradata SCORE (Caracteristicas.txt)", "headers": ["Componente", "En SUM SCORE Teradata", "En SUM Redshift hoy"], "rows": [["TEL001–TEL019, TEL023, TEL025", "Sí", "Sí ✓"], ["TEL020", "No", "No ✓ (corregido 2026-09-04)"]]}, "_conclusion": "Por qué: baseline calcula TEL020 para trazabilidad pero Sumatoria_Score_Tel lo omite. DEV TEL rango 0.2675–0.635 tras corrección.", "_esc_codigo": "ORD-TEL-02", "_titulo_corto": "TEL020 fuera de la suma (caso TEL-02)", "_busca": "Coincidencia geo se calcula pero no debe modificar el score final (baseline Teradata).", "_dev": "", "_conclusion_regla": "Por qué: baseline calcula TEL020 para trazabilidad pero Sumatoria_Score_Tel lo omite. DEV TEL rango 0.2675–0.635 tras corrección.", "_show_query": false, "_regla": "CANAL TEL", "_section": false}, {"Regla": "CANAL CEL", "Escenario": "ORD-CEL-02", "Subescenario": "Operador no mapeado → 0.22 (caso CEL-02)", "Qué espera (negocio)": "CEL018 = 100 × COALESCE(catalogo_operador.valor, 0.22); prefijo LEFT(celular,3).", "Qué encontramos DEV": "258 scores · 115 personas · catalogo_operador_ord_cel OK.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "DEV: 115 personas CEL · 258 scores. catalogo_operador_ord_cel en 02_catalogos_ordenamiento.sql.", "Query validación (copiar en dba_rncr_batch)": "", "Acción / revisión": "", "_pack_code": "CEL-02", "_tabla_ejemplo": {"title": "Caso CEL-02 — CO01CEL018 desde catálogo operador", "headers": ["Prefijo", "Catálogo", "Valor bruto", "CEL018 (=×100)", "¿Excluir?"], "rows": [["310", "CLARO", "0.62", "62.0", "No ✓"], ["300", "COMCEL", "0.55", "55.0", "No ✓"], ["999", "Sin mapeo", "—", "22.0 (default 0.22)", "No ✓"]]}, "_tabla_pasos": {"title": "Teradata vs Redshift — semántica CEL018", "headers": ["Plataforma", "Cálculo CO01CEL018", "Default sin operador"], "rows": [["Teradata", "100 × V_Operador_Ord_Cel.Valor", "0 (excluye en Orden_TM)"], ["Redshift doc v2.0", "100 × COALESCE(catalogo.valor, 0.22)", "0.22 ✓"]]}, "_conclusion": "DEV: 115 personas CEL · 258 scores. catalogo_operador_ord_cel en 02_catalogos_ordenamiento.sql.", "_esc_codigo": "ORD-CEL-02", "_titulo_corto": "Operador no mapeado → 0.22 (caso CEL-02)", "_busca": "CEL018 = 100 × COALESCE(catalogo_operador.valor, 0.22); prefijo LEFT(celular,3).", "_dev": "", "_conclusion_regla": "DEV: 115 personas CEL · 258 scores. catalogo_operador_ord_cel en 02_catalogos_ordenamiento.sql.", "_show_query": false, "_regla": "CANAL CEL", "_section": false}, {"Regla": "CANAL EMA", "Escenario": "ORD-EMA-03", "Subescenario": "EMA003/007/018/025 fuera de la suma (caso EMA-03)", "Qué espera (negocio)": "Se calculan para trazabilidad pero no deben mover el ranking final (Sumatoria_Score_Email Teradata).", "Qué encontramos DEV": "Corregido · rango 0.26–0.525 · 407,406 scores.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "DEV EMA: 407,406 scores · rango 0.26–0.525 tras corrección.", "Query validación (copiar en dba_rncr_batch)": "", "Acción / revisión": "", "_pack_code": "EMA-03", "_tabla_ejemplo": {"title": "Caso EMA-03 — características fuera de la suma final", "headers": ["Característica", "Calcula", "¿En SUM score?", "Teradata", "Redshift hoy"], "rows": [["EMA003", "Sí ✓", "No ✗", "No en Sumatoria_Score_Email", "No ✓"], ["EMA007", "Sí ✓", "No ✗", "No en Sumatoria_Score_Email", "No ✓"], ["EMA018", "Sí ✓", "No ✗", "Hardcoded 0 en suma", "No ✓"], ["EMA025", "Sí ✓", "No ✗", "Hardcoded 0 en suma", "No ✓"], ["EMA010", "Sí ✓", "Sí ✓", "Sí", "Sí ✓"]]}, "_conclusion": "DEV EMA: 407,406 scores · rango 0.26–0.525 tras corrección.", "_esc_codigo": "ORD-EMA-03", "_titulo_corto": "EMA003/007/018/025 fuera de la suma (caso EMA-03)", "_busca": "Se calculan para trazabilidad pero no deben mover el ranking final (Sumatoria_Score_Email Teradata).", "_dev": "", "_conclusion_regla": "DEV EMA: 407,406 scores · rango 0.26–0.525 tras corrección.", "_show_query": false, "_regla": "CANAL EMA", "_section": false}, {"Regla": "CONSOLIDACIÓN", "Escenario": "ORD-SALIDA", "Subescenario": "Persistencia orden_prioridad", "Qué espera (negocio)": "Mejor lugar del canal DIR por RPU ganadora → rpu_orden_prioridad.", "Qué encontramos DEV": "408,624 RPUs con orden.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "DEV: 408,624 RPUs con orden_prioridad.", "Query validación (copiar en dba_rncr_batch)": "SELECT COUNT(*) FROM bdm_datos.rpu_orden_prioridad;", "Acción / revisión": "", "_pack_code": "CONSOL", "_tabla_pasos": {"title": "Consolidación — de score a orden_prioridad", "headers": ["Paso", "Regla", "Por qué"], "rows": [["1", "Tomar score_ordenamiento canal DIR", "Dirección es canal que alimenta RPU"], ["2", "JOIN stg_rpu ganadoras", "Evita escribir en hijas"], ["3", "MIN(lugar) por RPU", "Un orden por reporte"], ["4", "TRUNCATE + INSERT rpu_orden_prioridad", "Idempotencia por corrida"]]}, "_tabla_ejemplo": {"title": "Ejemplo salida — persona con 2 direcciones ganadoras", "headers": ["cod_dw_persona_ubic", "Score", "lugar", "orden_prioridad"], "rows": [["RPU-501", "0.84", "1", "1"], ["RPU-502", "0.71", "2", "2"]]}, "_conclusion": "DEV: 408,624 RPUs con orden_prioridad.", "_esc_codigo": "ORD-SALIDA", "_titulo_corto": "Persistencia orden_prioridad", "_busca": "Mejor lugar del canal DIR por RPU ganadora → rpu_orden_prioridad.", "_dev": "", "_conclusion_regla": "DEV: 408,624 RPUs con orden_prioridad.", "_show_query": true, "_regla": "CONSOLIDACIÓN", "_section": false}, {"Regla": "VALIDACIÓN", "Escenario": "ORD-VAL", "Subescenario": "Matriz de pruebas mínima", "Qué espera (negocio)": "Checks F3-02, RANK-01, TEL-02, EMA-03, CEL-02, MIG-01 según doc v2.0.", "Qué encontramos DEV": "Pipeline E2E DEV OK · fórmulas corregidas 2026-09-04 · 0 hijas con orden incorrecto.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "", "Query validación (copiar en dba_rncr_batch)": "sql/dev_edf_ordenamiento/00_validar_fase2.sql", "Acción / revisión": "", "_pack_code": "VALID", "_tabla_ejemplo": {"title": "Matriz mínima de pruebas — estado DEV", "headers": ["ID", "Caso", "Esperado", "DEV", "Estado"], "rows": [["F3-02", "Hija unificación", "Sin score ni orden", "72,448 sin orden", "OK ✓"], ["RANK-01", "Score distinto", "Mayor → lugar 1", "ROW_NUMBER DESC", "OK ✓"], ["TEL-02", "Solo cambia TEL020", "Score igual", "TEL020 fuera SUM", "OK ✓"], ["EMA-03", "Solo EMA003/007", "Score igual", "003/007/018/025 fuera", "OK ✓"], ["CEL-02", "Sin operador", "Default 0.22", "COALESCE 0.22", "OK ✓"], ["MIG-01", "Paridad Teradata", "Condicional Experian", "No corrida", "N/A"]]}, "_esc_codigo": "ORD-VAL", "_titulo_corto": "Matriz de pruebas mínima", "_busca": "Checks F3-02, RANK-01, TEL-02, EMA-03, CEL-02, MIG-01 según doc v2.0.", "_dev": "", "_conclusion_regla": "", "_show_query": true, "_regla": "VALIDACIÓN", "_section": false}, {"Regla": "ARQUITECTURA SP", "Escenario": "ORD-SP-PREP", "Subescenario": "SP preparar insumos — staging temporal", "Qué espera (negocio)": "Una lectura datashare → 11 CTAS en bdm_tempo.stg_*. Sin copia permanente de XPM.", "Qué encontramos DEV": "sp_ordenamiento_preparar_insumos_edf · ~78s preparar en corrida full.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "Staging vive solo una corrida; drop al final del orquestador.", "Query validación (copiar en dba_rncr_batch)": "SELECT COUNT(*) FROM bdm_tempo.stg_insumo_direccion;", "Acción / revisión": "", "_pack_code": "SP-PREP", "_tabla_pasos": {"title": "sp_ordenamiento_preparar_insumos_edf — pasos internos", "headers": ["#", "CTAS", "Qué materializa", "Por qué"], "rows": [["1", "stg_rpu_post_unificacion", "RPU + flag ind_unificacion", "Elegibilidad ganadoras/hijas"], ["2", "stg_persona_dir_ganadora", "DISTINCT id_buro_persona", "Filtro TEL/CEL/EMA"], ["3–4", "stg_contacto_*", "Canal + dirección RPU", "1 lectura v_xpm_contacto_canal"], ["5–8", "stg_insumo_dir/tel/cel/ema", "Filas listas para scoring", "Misma lógica que vistas insumo_*"]]}, "_conclusion": "Staging vive solo una corrida; drop al final del orquestador.", "_esc_codigo": "ORD-SP-PREP", "_titulo_corto": "SP preparar insumos — staging temporal", "_busca": "Una lectura datashare → 11 CTAS en bdm_tempo.stg_*. Sin copia permanente de XPM.", "_dev": "", "_conclusion_regla": "Staging vive solo una corrida; drop al final del orquestador.", "_show_query": true, "_regla": "ARQUITECTURA SP", "_section": false}, {"Regla": "ARQUITECTURA SP", "Escenario": "ORD-SP-ORQ", "Subescenario": "Orquestador — 8 SPs en secuencia", "Qué espera (negocio)": "preparar → scoring×4 → consolidar → drop. Equivalente Control-M Opción A.", "Qué encontramos DEV": "sp_ordenamiento_ejecucion_edf(TRUE) · ~20s scoring DEV.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "Total scoring ~20.0s · 1,223,998 scores.", "Query validación (copiar en dba_rncr_batch)": "CALL bdm_datos.sp_ordenamiento_ejecucion_edf(TRUE);", "Acción / revisión": "", "_pack_code": "SP-ORQ", "_tabla_pasos": {"title": "sp_ordenamiento_ejecucion_edf — secuencia exacta", "headers": ["Orden", "CALL", "Tabla afectada", "Duración DEV"], "rows": [["1", "sp_preparar_insumos_edf", "bdm_tempo.stg_*", "~78s"], ["2", "sp_scoring_dir_edf", "score_ordenamiento DIR", "—"], ["3", "sp_scoring_tel_edf", "score_ordenamiento TEL", "—"], ["4", "sp_scoring_cel_edf", "score_ordenamiento CEL", "—"], ["5", "sp_scoring_ema_edf", "score_ordenamiento EMA", "—"], ["6", "sp_consolidacion_edf", "rpu_orden_prioridad", "—"], ["7", "sp_drop_staging_edf", "DROP stg_*", "—"]]}, "_conclusion": "Total scoring ~20.0s · 1,223,998 scores.", "_esc_codigo": "ORD-SP-ORQ", "_titulo_corto": "Orquestador — 8 SPs en secuencia", "_busca": "preparar → scoring×4 → consolidar → drop. Equivalente Control-M Opción A.", "_dev": "", "_conclusion_regla": "Total scoring ~20.0s · 1,223,998 scores.", "_show_query": true, "_regla": "ARQUITECTURA SP", "_section": false}, {"Regla": "REPOS", "Escenario": "ORD-BITBUCKET", "Subescenario": "3 repos — rama feature/ordenamiento", "Qué espera (negocio)": "Despliegue Jenkins: _strct → _pgm → _dt. Nombres sin ticket Jira (Manuel).", "Qué encontramos DEV": "14 archivos SQL en deploy_bitbucket/ · merge con unificación en misma rama base.", "Estado": "OK", "Ejemplo verificable (reporte + ID + query)": "Unificación en feature/unificacion-edf-views (PRs pendientes aprobación).", "Query validación (copiar en dba_rncr_batch)": "", "Acción / revisión": "", "_pack_code": "BITBUCKET", "_tabla_pasos": {"title": "Despliegue 3 repos — orden Jenkins", "headers": ["Orden", "Repo", "Qué despliega", "PR / rama"], "rows": [["1", "db_rcncr_btch_rdshft_strct", "DDL + catálogos + vistas", "feature/ordenamiento"], ["2", "db_rcncr_btch_rdshft_pgm", "8 SPs divididos", "feature/ordenamiento"], ["3", "db_rcncr_btch_rdshft_dt", "run + validación", "feature/ordenamiento"]]}, "_conclusion": "Unificación en feature/unificacion-edf-views (PRs pendientes aprobación).", "_esc_codigo": "ORD-BITBUCKET", "_titulo_corto": "3 repos — rama feature/ordenamiento", "_busca": "Despliegue Jenkins: _strct → _pgm → _dt. Nombres sin ticket Jira (Manuel).", "_dev": "", "_conclusion_regla": "Unificación en feature/unificacion-edf-views (PRs pendientes aprobación).", "_show_query": false, "_regla": "REPOS", "_section": false}], "alcance": [{"id": "SES-01", "titulo": "Unificación primero", "responsable": "Acuerdo mesa", "detalle": "No avanzar ordenamiento sin unificación OK. Solo RPUs ganadoras entran; hijas fuera.", "estado": "ok"}, {"id": "SES-02", "titulo": "4 canales independientes", "responsable": "Acuerdo sesión", "detalle": "DIR / TEL / CEL / EMA. Un teléfono no compite con un email. Solo DIR escribe orden_prioridad.", "estado": "ok"}, {"id": "SES-03", "titulo": "Betas = catálogo", "responsable": "John → RITM5226589", "detalle": "Coeficientes en bdm_datos.beta_ordenamiento (47 filas Teradata). No hardcode en SP. No recalcular en este proyecto.", "estado": "ok"}, {"id": "SES-04", "titulo": "Opción A (scoring EDF)", "responsable": "Implementación", "detalle": "Data sharing edf_views → preparar → scoring×4 → consolidar. Sin copiar productor. Full refresh.", "estado": "ok"}, {"id": "SES-05", "titulo": "Fuera de alcance ahora", "responsable": "Diferido", "detalle": "Opción B / malla 242 / incremental F1 / Control-M / EMR / recalcular betas.", "estado": "na"}], "guion_sesion": [{"paso": "1", "titulo": "Qué es", "decir": "Unificación ya dijo qué direcciones son la misma. Ordenamiento responde: si hay varias, ¿cuál contacto intento primero?"}, {"paso": "2", "titulo": "Regla de oro", "decir": "Solo ganadoras. Las hijas no compiten. Cuatro canales aparte: calle, fijo, celular, email."}, {"paso": "3", "titulo": "Cómo puntúa", "decir": "Cada característica se vuelve un valor; se multiplica por el beta del catálogo (RITM); se suma; gana el mayor score → lugar 1."}, {"paso": "4", "titulo": "Ejemplo fácil", "decir": "María: casa vs oficina (DIR 20001). Fijo válido vs no válido (TEL 20004). Cel Claro vs otro (CEL 20006). Gmail vs corporativo (EMA 20008)."}, {"paso": "5", "titulo": "Qué ya cerramos", "decir": "Pipeline Opción A en DEV · fórmulas TEL/EMA/CEL · betas RITM en catálogo · 0 hijas mal ordenadas."}, {"paso": "6", "titulo": "Qué no es este sprint", "decir": "No recalculamos betas, no hacemos malla 242 completa, no incremental Teradata, no QA productor todavía."}], "fases_doc": [{"fase": "0", "nombre": "Precondición", "requiere": "¿Quién es dirección vigente?", "implementado": "Unificación R1/R2/R3 ya corrida; hijas ind=1 fuera", "estado": "ok", "nota": "Ejemplo: RPU 10002 hija no entra; 10001 y 10003 sí"}, {"fase": "1", "nombre": "Armar candidatos", "requiere": "¿Qué contactos entran hoy?", "implementado": "Vistas + preparar_insumos_edf (solo ganadoras + XPM)", "estado": "ok", "nota": "Email sin @ fuera · contactType → canal"}, {"fase": "2", "nombre": "Scoring × 4", "requiere": "¿Cuál intento primero por canal?", "implementado": "DIR/TEL/CEL/EMA · (cat/max)×β RITM · ROW_NUMBER", "estado": "ok", "nota": "Smoke: 20001 DIR · 20004 TEL · 20006 CEL · 20008 EMA"}, {"fase": "3–4", "nombre": "Guardar y limpiar", "requiere": "¿Qué queda en el RPU?", "implementado": "consolidacion → orden_prioridad · drop stg_*", "estado": "ok", "nota": "Gate: 0 hijas con orden · CALL ejecucion_edf(TRUE)"}], "brechas": [{"id": "TEL-02", "canal": "TEL", "regla": "CO01TEL020 no participa en suma final", "actual": "Corregido — alineado sesión/Teradata", "prio": "alta", "estado": "ok"}, {"id": "EMA-03", "canal": "EMA", "regla": "CO01EMA003 y CO01EMA007 no participan en suma", "actual": "Corregido (+ EMA018/025)", "prio": "alta", "estado": "ok"}, {"id": "CEL-02", "canal": "CEL", "regla": "Prefijo sin operador → valor 0.22 en CO01CEL018", "actual": "catalogo_operador + COALESCE(0.22)", "prio": "alta", "estado": "ok"}, {"id": "BETAS", "canal": "ALL", "regla": "Betas = catálogo (acuerdo sesión con John/Manuel)", "actual": "RITM5226589 cargado (47 coefs) · datashare IFR opcional", "prio": "baja", "estado": "ok"}, {"id": "MIG-01", "canal": "ALL", "regla": "Paridad 1:1 Teradata (post-betas)", "actual": "Diferido en sesión — no bloquea Opción A", "prio": "media", "estado": "na"}, {"id": "F1-INC", "canal": "ALL", "regla": "Incremental por novedad (F1 Teradata)", "actual": "Fuera de alcance Opción A (full refresh)", "prio": "media", "estado": "na"}], "artefactos": [{"tipo": "_strct", "archivo": "01_ddl_ordenamiento.sql", "rol": "DDL tablas producto"}, {"tipo": "_strct", "archivo": "02_carga_betas_ritm5226589.sql", "rol": "Catálogo 47 betas Teradata (RITM)"}, {"tipo": "_strct", "archivo": "02_catalogos_ordenamiento.sql", "rol": "Catálogos sector/tel/cel operador"}, {"tipo": "_strct", "archivo": "03_vistas_contacto_canal_edf_views.sql", "rol": "v_xpm_contacto_canal"}, {"tipo": "_strct", "archivo": "04_vistas_insumo_ordenamiento_edf_views.sql", "rol": "v_rpu + insumo_* vistas"}, {"tipo": "_pgm", "archivo": "sp_ordenamiento_preparar_insumos_edf.sql", "rol": "Staging stg_* (11 pasos)"}, {"tipo": "_pgm", "archivo": "sp_ordenamiento_scoring_dir_edf.sql", "rol": "12 características DIR"}, {"tipo": "_pgm", "archivo": "sp_ordenamiento_scoring_tel_edf.sql", "rol": "10 vars en SUM (sin TEL020)"}, {"tipo": "_pgm", "archivo": "sp_ordenamiento_scoring_cel_edf.sql", "rol": "CEL018 operador + 0.22"}, {"tipo": "_pgm", "archivo": "sp_ordenamiento_scoring_ema_edf.sql", "rol": "9 vars en SUM (sin 003/007/018/025)"}, {"tipo": "_pgm", "archivo": "sp_ordenamiento_consolidacion_edf.sql", "rol": "rpu_orden_prioridad"}, {"tipo": "_pgm", "archivo": "sp_ordenamiento_drop_staging_edf.sql", "rol": "DROP stg_*"}, {"tipo": "_pgm", "archivo": "sp_ordenamiento_ejecucion_edf.sql", "rol": "Orquestador secuencial"}, {"tipo": "_dt", "archivo": "run_ordenamiento_ejecucion_edf.sql", "rol": "CALL orquestador"}, {"tipo": "_dt", "archivo": "validacion_ordenamiento_conteos.sql", "rol": "Gate post-corrida"}, {"tipo": "DEV", "archivo": "tools/dev_edf_ordenamiento_run.py", "rol": "Deploy + QA automatizado"}, {"tipo": "DOC", "archivo": "BETAS_ORDENAMIENTO_RITM5226589.md", "rol": "Acuerdo sesión + carga catálogo"}], "arquitectura": [{"paso": 0, "titulo": "Precondición — Unificación", "objeto": "bdm_datos.unificacion_direccion", "detalle": "R1→R2→R3 ya hechos. Solo ganadoras (ind≠1) entran a ordenamiento.", "fuente": "edf_views vía datashare · sin copiar tablas XPM"}, {"paso": 1, "titulo": "Fase 1 — Armar candidatos", "objeto": "sp_ordenamiento_preparar_insumos_edf", "detalle": "1 lectura datashare → stg_rpu + stg_insumo_dir/tel/cel/ema. Filtra hijas y emails sin @.", "fuente": "05_sp_preparar_insumos_edf.sql"}, {"paso": 2, "titulo": "Fase 2a — Ordenar direcciones (DIR)", "objeto": "sp_ordenamiento_scoring_dir_edf", "detalle": "Score + lugar por calle. Ej.: persona 20001 casa vs oficina.", "fuente": "11_sp_ordenamiento_scoring_dir_edf.sql"}, {"paso": 3, "titulo": "Fase 2b/c/d — TEL · CEL · EMA", "objeto": "sp_ordenamiento_scoring_{tel,cel,ema}_edf", "detalle": "Rankings independientes. Ej.: 20004 fijo válido/no válido · 20006 dos celulares · 20008 dos emails.", "fuente": "12–14_sp_*_edf.sql"}, {"paso": 4, "titulo": "Fase 3 — Guardar orden", "objeto": "sp_ordenamiento_consolidacion_edf", "detalle": "Mejor lugar por RPU ganadora → rpu_orden_prioridad.", "fuente": "07_sp_consolidacion_edf.sql"}, {"paso": 5, "titulo": "Fase 4 — Limpiar + Run", "objeto": "drop_staging + ejecucion_edf", "detalle": "DROP stg_*. Un CALL corre todo el pipeline.", "fuente": "08 + 06 + run _dt"}], "repos_bitbucket": [{"orden": 1, "repo": "db_rcncr_btch_rdshft_strct", "rama": "feature/ordenamiento", "archivos": [["01_ddl_ordenamiento.sql", "Tablas score_ordenamiento, rpu_orden_prioridad, betas"], ["02_catalogos_ordenamiento.sql", "sector_financiero, tipo_cuenta_tel, operador_ord_cel"], ["03_vistas_contacto_canal_edf_views.sql", "contactType → canal"], ["04_vistas_insumo_ordenamiento_edf_views.sql", "v_rpu_post_unificacion + insumos vista"]], "nota": "Desplegar después de vistas unificación edf_views"}, {"orden": 2, "repo": "db_rcncr_btch_rdshft_pgm", "rama": "feature/ordenamiento", "archivos": [["sp_ordenamiento_preparar_insumos_edf.sql", "Fase 1 — staging candidatos"], ["sp_ordenamiento_scoring_dir_edf.sql", "Fase 2a — ranking calles"], ["sp_ordenamiento_scoring_tel_edf.sql", "Fase 2b — ranking fijos"], ["sp_ordenamiento_scoring_cel_edf.sql", "Fase 2c — ranking celulares"], ["sp_ordenamiento_scoring_ema_edf.sql", "Fase 2d — ranking emails"], ["sp_ordenamiento_consolidacion_edf.sql", "Fase 3 — orden_prioridad"], ["sp_ordenamiento_drop_staging_edf.sql", "Fase 4 — limpieza"], ["sp_ordenamiento_ejecucion_edf.sql", "Run — orquestador"]], "nota": "8 SPs: un SP = una responsabilidad explicable"}, {"orden": 3, "repo": "db_rcncr_btch_rdshft_dt", "rama": "feature/ordenamiento", "archivos": [["run_ordenamiento_ejecucion_edf.sql", "CALL sp_ordenamiento_ejecucion_edf(TRUE)"], ["validacion_ordenamiento_conteos.sql", "Gate hijas + conteos por canal"]], "nota": "Post-unificación en Jenkins/Control-M"}], "sps_detalle": [{"id": "SP-00", "fase": "1 · Setup", "grupo": "Setup", "archivo": "01_ddl_ordenamiento.sql", "repo": "_strct", "rol": "Crear tablas de producto", "pregunta": "¿Dónde se guardan scores y orden?", "entra": "—", "sale": "score_ordenamiento, rpu_orden_prioridad, beta_ordenamiento", "logica": "DDL una vez. DISTKEY id_buro_persona.", "pasos": ["Crear tablas score/orden/betas", "Sin copiar RPU completa"], "ejemplo": "Sin este paso no hay dónde escribir el ranking.", "query": "SELECT tablename FROM pg_tables WHERE schemaname='bdm_datos' AND tablename LIKE '%orden%';"}, {"id": "SP-01", "fase": "1 · Setup", "grupo": "Setup", "archivo": "02_catalogos_ordenamiento.sql", "repo": "_strct", "rol": "Catálogos (operador, sector, tipo cuenta)", "pregunta": "¿Cómo sé si 310 es Claro?", "entra": "Catálogos interim / IFR", "sale": "catalogo_operador_ord_cel, sector_financiero, tipo_cuenta_tel", "logica": "CEL018 = 100×COALESCE(operador, 0.22).", "pasos": ["Cargar operadores por prefijo", "Default 0.22 si no hay mapeo"], "ejemplo": "Prefijo 310 → Claro 0.62 · Prefijo 999 → default 0.22.", "query": "SELECT COUNT(*) FROM bdm_datos.catalogo_operador_ord_cel;"}, {"id": "SP-02", "fase": "1 · Armar candidatos", "grupo": "Vistas", "archivo": "03_vistas_contacto_canal_edf_views.sql", "repo": "_strct", "rol": "Traducir contactType → canal", "pregunta": "¿Este contacto es TEL, CEL o EMA?", "entra": "edf_views contacto", "sale": "bdm_tempo.v_xpm_contacto_canal", "logica": "4/5/8→TEL · 9→CEL · 10→EMA.", "pasos": ["Leer contactType", "Mapear a canal", "Join ubicación"], "ejemplo": "Type 9 = celular · Type 10 = email.", "query": "SELECT contact_type, COUNT(*) FROM bdm_tempo.v_xpm_contacto_canal GROUP BY 1;"}, {"id": "SP-03", "fase": "1 · Armar candidatos", "grupo": "Vistas", "archivo": "04_vistas_insumo_ordenamiento_edf_views.sql", "repo": "_strct", "rol": "Solo ganadoras (sin copia permanente)", "pregunta": "¿Quién puede competir en ranking?", "entra": "v_xpm_* + unificacion_direccion", "sale": "v_rpu_post_unificacion + vistas insumo_*", "logica": "LEFT JOIN unificacion · ind≠1 → entra.", "pasos": ["Marcar ind_unificacion", "Excluir hijas", "Exponer insumos por canal"], "ejemplo": "RPU hija (ind=1) no aparece en insumos.", "query": "SELECT COUNT(*) FROM bdm_tempo.v_rpu_post_unificacion WHERE COALESCE(ind_unificacion,0)<>1;"}, {"id": "SP-04", "fase": "1 · Armar candidatos", "grupo": "Insumos", "archivo": "sp_ordenamiento_preparar_insumos_edf.sql", "repo": "_pgm", "rol": "Materializar staging de la corrida", "pregunta": "¿Qué filas van a scoring hoy?", "entra": "edf_views + unificacion_direccion", "sale": "stg_rpu_post_unificacion, stg_insumo_dir/tel/cel/ema", "logica": "1 pasada datashare → tablas temporales. Email sin @ fuera.", "pasos": ["Leer RPU post-unificación", "Filtrar ganadoras", "Armar contacto por canal", "CTAS stg_insumo_*", "ANALYZE"], "ejemplo": "Email 'sinarroba.com' no entra a stg_insumo_email.", "query": "SELECT COUNT(*) FROM bdm_tempo.stg_insumo_direccion;"}, {"id": "SP-05", "fase": "2a · DIR", "grupo": "Scoring DIR", "archivo": "sp_ordenamiento_scoring_dir_edf.sql", "repo": "_pgm", "rol": "¿Qué dirección intento primero?", "pregunta": "¿Casa o oficina primero?", "entra": "stg_insumo_direccion + betas", "sale": "score_ordenamiento canal=DIR + lugar", "logica": "12 características → score → ROW_NUMBER por persona.", "pasos": ["Agregar reportes por persona+calle", "Categorizar métricas", "Score = Σ (cat/max)×Beta", "lugar 1 = mejor score"], "ejemplo": "Persona 20001: CL 22… vs KR 15… → lugar 1 y 2. Persona 20002: una sola calle → lugar 1. (Sesión: ¿casa o oficina primero?)", "query": "SELECT COUNT(*), MIN(score), MAX(score) FROM bdm_datos.score_ordenamiento WHERE canal='DIR';"}, {"id": "SP-06", "fase": "2b · TEL", "grupo": "Scoring TEL", "archivo": "sp_ordenamiento_scoring_tel_edf.sql", "repo": "_pgm", "rol": "¿Qué teléfono fijo primero?", "pregunta": "¿Cuál fijo uso primero?", "entra": "stg_insumo_telefono + betas", "sale": "score_ordenamiento canal=TEL", "logica": "TEL020 se calcula pero NO suma (TEL-02). Ranking independiente de DIR.", "pasos": ["Agregar por persona+número", "Filtrar/penalizar NO VALIDA", "Score sin TEL020", "lugar por persona"], "ejemplo": "Persona 20004: fijo VALIDA vs NO VALIDA → el válido queda arriba.", "query": "SELECT COUNT(*) FROM bdm_datos.score_ordenamiento WHERE canal='TEL';"}, {"id": "SP-07", "fase": "2c · CEL", "grupo": "Scoring CEL", "archivo": "sp_ordenamiento_scoring_cel_edf.sql", "repo": "_pgm", "rol": "¿Qué celular primero?", "pregunta": "¿Cuál celular priorizo?", "entra": "stg_insumo_celular + catalogo_operador_ord_cel", "sale": "score_ordenamiento canal=CEL", "logica": "Prefijo 3 dígitos → operador. Sin mapeo → 0.22 (CEL-02).", "pasos": ["LEFT(celular,3) → catálogo", "CEL018 = 100×valor", "Sumar resto de características", "lugar por persona"], "ejemplo": "Persona 20006: 310… (Claro) vs 320… → compiten por score.", "query": "SELECT COUNT(*) FROM bdm_datos.score_ordenamiento WHERE canal='CEL';"}, {"id": "SP-08", "fase": "2d · EMA", "grupo": "Scoring EMA", "archivo": "sp_ordenamiento_scoring_ema_edf.sql", "repo": "_pgm", "rol": "¿Qué email primero?", "pregunta": "¿Gmail o correo del trabajo?", "entra": "stg_insumo_email + betas", "sale": "score_ordenamiento canal=EMA", "logica": "EMA003/007/018/025 fuera de suma (EMA-03).", "pasos": ["Agregar por persona+email", "Dominio popular vs corporativo", "Score sin vars de trazabilidad", "lugar por persona"], "ejemplo": "Persona 20008: user1@gmail.com vs work@empresa.co → ranking EMA aparte de DIR.", "query": "SELECT COUNT(*) FROM bdm_datos.score_ordenamiento WHERE canal='EMA';"}, {"id": "SP-09", "fase": "3 · Guardar", "grupo": "Salida", "archivo": "sp_ordenamiento_consolidacion_edf.sql", "repo": "_pgm", "rol": "Persistir orden_prioridad", "pregunta": "¿Qué orden queda guardado en el RPU?", "entra": "score_ordenamiento + stg_rpu ganadoras", "sale": "bdm_datos.rpu_orden_prioridad", "logica": "MIN(lugar) por RPU ganadora. Hijas no reciben orden.", "pasos": ["Join scores con ganadoras", "Mejor lugar por RPU", "DELETE + INSERT idempotente"], "ejemplo": "Calle score 0.84 → orden_prioridad=1 · Hija → NULL.", "query": "SELECT COUNT(*) FROM bdm_datos.rpu_orden_prioridad;"}, {"id": "SP-10", "fase": "4 · Limpiar", "grupo": "Salida", "archivo": "sp_ordenamiento_drop_staging_edf.sql", "repo": "_pgm", "rol": "Borrar temporales de la corrida", "pregunta": "¿Queda basura en tempo?", "entra": "bdm_tempo.stg_*", "sale": "— (DROP)", "logica": "Staging vive una corrida. La siguiente recrea.", "pasos": ["DROP stg_*"], "ejemplo": "Después del CALL, stg_insumo_* no debe existir.", "query": "SELECT COUNT(*) FROM pg_tables WHERE schemaname='bdm_tempo' AND tablename LIKE 'stg_%';"}, {"id": "SP-11", "fase": "Run", "grupo": "Orquestador", "archivo": "sp_ordenamiento_ejecucion_edf.sql", "repo": "_pgm", "rol": "Correr todo en orden", "pregunta": "¿Cómo ejecuto el pipeline completo?", "entra": "p_preparar_insumos BOOLEAN", "sale": "scores + orden + staging limpio", "logica": "preparar→DIR→TEL→CEL→EMA→consolidar→drop.", "pasos": ["CALL preparar (si TRUE)", "CALL scoring DIR/TEL/CEL/EMA", "CALL consolidacion", "CALL drop_staging"], "ejemplo": "CALL bdm_datos.sp_ordenamiento_ejecucion_edf(TRUE); · Betas ya en catálogo RITM5226589.", "query": "CALL bdm_datos.sp_ordenamiento_ejecucion_edf(TRUE);"}, {"id": "SP-12", "fase": "Run", "grupo": "DT", "archivo": "run_ordenamiento_ejecucion_edf.sql", "repo": "_dt", "rol": "Runbook Jenkins", "pregunta": "¿Qué script dispara Control-M?", "entra": "Unificación previa OK", "sale": "Pipeline completo", "logica": "Un solo CALL. Precondición: unificacion_direccion poblada.", "pasos": ["Validar precondición", "CALL ejecucion_edf(TRUE)"], "ejemplo": "Job post-unificación en DEV/QA.", "query": "-- deploy_bitbucket/_dt/run_ordenamiento_ejecucion_edf.sql"}, {"id": "SP-13", "fase": "Run · Gate", "grupo": "DT", "archivo": "validacion_ordenamiento_conteos.sql", "repo": "_dt", "rol": "¿Quedó bien la corrida?", "pregunta": "¿Alguna hija tiene orden por error?", "entra": "score_ordenamiento, rpu_orden_prioridad", "sale": "Conteos + gate calidad", "logica": "rpu_hijas_con_orden_incorrecto debe ser 0.", "pasos": ["Contar scores por canal", "Gate hijas", "Drill-down CEL sin catálogo"], "ejemplo": "DEV: 0 hijas con orden · ~1.22M scores.", "query": "-- sql/dev_edf_ordenamiento/00_validar_fase2.sql"}], "formulas": [{"canal": "DIR", "formula": "Score = Σ (categoría_i / max_cat_i) × Beta_i", "en_suma": ["CO00DIR001IN", "CO00DIR004RO", "CO00DIR007TO", "CO00DIR010FI", "CO00DIR013OT", "CO00DIR017", "CO00DIR019", "CO00DIR034FI", "CO00DIR050TO", "CO00DIR057", "CO00DIR059", "CO01DIR009"], "fuera_suma": [], "nota": "Ejemplo: persona 20001 (2 calles) · 20003 (3 calles).", "dev": "409.014 scores · 0.6113–0.8430"}, {"canal": "TEL", "formula": "Score = Σ pesos TEL* (sin TEL020)", "en_suma": ["CO01TEL001", "CO01TEL002", "CO01TEL003", "CO01TEL006", "CO01TEL007", "CO01TEL010", "CO01TEL017", "CO01TEL019", "CO01TEL023", "CO01TEL025"], "fuera_suma": ["CO01TEL020 (geo — solo trazabilidad, TEL-02)"], "nota": "Ejemplo: persona 20004 VALIDA vs NO VALIDA.", "dev": "407.320 scores · 0.2675–0.6350"}, {"canal": "CEL", "formula": "CEL018 = 100 × COALESCE(operador.valor, 0.22)", "en_suma": ["CO01CEL003", "CO01CEL006", "CO01CEL007", "CO01CEL013", "CO01CEL014", "CO01CEL015", "CO01CEL017", "CO01CEL018", "CO01CEL019", "CO01CEL020", "CO01CEL023"], "fuera_suma": [], "nota": "Ejemplo: persona 20006 prefijos 310 vs 320.", "dev": "258 scores · 0.49–0.7325 · 115 personas"}, {"canal": "EMA", "formula": "Score = Σ pesos EMA* (sin 003/007/018/025)", "en_suma": ["CO01EMA010", "CO01EMA014", "CO01EMA015", "CO01EMA016", "CO01EMA017", "CO01EMA020", "CO01EMA021", "CO01EMA023", "CO01EMA024"], "fuera_suma": ["CO01EMA003", "CO01EMA007", "CO01EMA018", "CO01EMA025"], "nota": "Ejemplo: persona 20008 gmail vs corporativo.", "dev": "407.406 scores · 0.26–0.5250"}], "contact_types": [{"types": "1, 2, 3, 7, 8", "canal": "DIR", "unificacion": "8 = dirección unificación", "ordenamiento": "Solo ganadoras post-R1/R2/R3"}, {"types": "4, 5, 8", "canal": "TEL", "unificacion": "8 también token dirección", "ordenamiento": "Solo si persona tiene DIR ganadora"}, {"types": "9", "canal": "CEL", "unificacion": "—", "ordenamiento": "Prefijo 3 dígitos → operador"}, {"types": "10", "canal": "EMA", "unificacion": "—", "ordenamiento": "Requiere @ en valor_contacto"}]};
+
+const FRAMES = [
+  { id: 'home', label: 'Drill-down', el: 'frame-home', progress: 0 },
+  { id: 'fase1', label: '1 Insumos', el: 'frame-fase1', progress: 14 },
+  { id: 'dir', label: '2a DIR', el: 'frame-dir', progress: 28 },
+  { id: 'tel', label: '2b TEL', el: 'frame-tel', progress: 42 },
+  { id: 'cel', label: '2c CEL', el: 'frame-cel', progress: 56 },
+  { id: 'ema', label: '2d EMA', el: 'frame-ema', progress: 70 },
+  { id: 'salida', label: '3-4 Salida', el: 'frame-salida', progress: 84 },
+  { id: 'sps', label: 'SPs', el: 'frame-sps', progress: 100 },
+];
+
+let currentFrame = 0;
+let metricMode = 'ambos';
+
+const RULE_FRAMES = [
+  null,
+  { regla: 'PUNTO DE PARTIDA', nav: 'nav-fase1', stage: 'stage-fase1', extra: ['ALCANCE', 'FASE 1', 'ARQUITECTURA SP', 'REPOS'] },
+  { regla: 'CANAL DIR', nav: 'nav-dir', stage: 'stage-dir' },
+  { regla: 'CANAL TEL', nav: 'nav-tel', stage: 'stage-tel' },
+  { regla: 'CANAL CEL', nav: 'nav-cel', stage: 'stage-cel' },
+  { regla: 'CANAL EMA', nav: 'nav-ema', stage: 'stage-ema' },
+  { regla: 'CONSOLIDACIÓN', nav: 'nav-salida', stage: 'stage-salida', extra: ['VALIDACIÓN'] },
+];
+const SP_ITEMS = DATA.sps_detalle || [];
+let spPos = 0;
+const ruleRowMap = {};
+const scenarioPos = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 };
+let modalSqlText = '';
+
+function fmt(n) { return Number(n).toLocaleString('es-CO'); }
+function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+
+function badgeClass(estado) {
+  const e = (estado||'').toLowerCase();
+  if (e==='ok') return 'ok';
+  if (['parcial','pendiente','warn'].some(x=>e.includes(x))) return 'warn';
+  return 'neutral';
+}
+
+function pill(estado) {
+  const e = (estado||'').toLowerCase();
+  const lbl = {ok:'OK', parcial:'Parcial', no:'No impl.', pendiente:'Pendiente', na:'N/A', alta:'Alta', media:'Media'}[e] || estado;
+  return `<span class="pill ${e}">${esc(lbl)}</span>`;
+}
+
+function renderDocBanner() {
+  document.getElementById('docBanner').innerHTML = `
+    <strong>Alineado a Mesa de Trabajo + Sesión Alineación</strong> —
+    Unificación primero · solo ganadoras · 4 canales · betas = catálogo RITM · Opción A EDF.
+    DEV: ${fmt(DATA.kpis.total_scores)} scores · 0 hijas mal ordenadas · fórmulas TEL/EMA/CEL OK.
+    Empieza por el <strong>guión §0</strong>; luego pestañas Fase 1 → DIR → TEL → CEL → EMA → Salida → SPs.
+  `;
+}
+
+function renderGuion() {
+  const items = DATA.guion_sesion || [];
+  document.getElementById('guionGrid').innerHTML = items.map(g => `
+    <div class="guion-card">
+      <div class="paso">PASO ${esc(g.paso)}</div>
+      <h4>${esc(g.titulo)}</h4>
+      <p>${esc(g.decir)}</p>
+    </div>`).join('');
+}
+
+function renderScope() {
+  const items = DATA.alcance || [];
+  document.getElementById('scopeGrid').innerHTML = items.map(a => `
+    <div class="scope-card ${esc(a.estado)}">
+      <div class="scope-id">${esc(a.id)} · ${esc(a.responsable)}</div>
+      <h4>${esc(a.titulo)}</h4>
+      <p>${pill(a.estado)} ${esc(a.detalle)}</p>
+    </div>`).join('');
+}
+
+function renderFases() {
+  const rows = DATA.fases_doc || [];
+  let html = `<thead><tr><th>Fase</th><th>Requiere (doc)</th><th>Implementado DEV</th><th>Estado</th><th>Nota</th></tr></thead><tbody>`;
+  rows.forEach(f => {
+    html += `<tr>
+      <td><strong>${esc(f.fase)}</strong><br/><span style="color:var(--muted)">${esc(f.nombre)}</span></td>
+      <td>${esc(f.requiere)}</td>
+      <td>${esc(f.implementado)}</td>
+      <td>${pill(f.estado)}</td>
+      <td style="color:var(--muted)">${esc(f.nota)}</td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('fasesTable').innerHTML = html;
+}
+
+function renderBrechas() {
+  const rows = DATA.brechas || [];
+  let html = `<thead><tr><th>ID</th><th>Canal</th><th>Regla v2.0</th><th>Estado SP</th><th>Prio</th></tr></thead><tbody>`;
+  rows.forEach(b => {
+    const st = b.estado === 'ok' ? pill('ok') : pill(b.prio);
+    html += `<tr>
+      <td><strong>${esc(b.id)}</strong></td>
+      <td>${esc(b.canal)}</td>
+      <td>${esc(b.regla)}</td>
+      <td>${esc(b.actual)} ${st}</td>
+      <td>${pill(b.prio)}</td>
+    </tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('brechasTable').innerHTML = html;
+}
+
+function renderArchFlow() {
+  const steps = DATA.arquitectura || [];
+  document.getElementById('archFlow').innerHTML = steps.map(s => `
+    <div class="arch-step">
+      <b>Paso ${s.paso} · ${esc(s.titulo)}</b>
+      <code>${esc(s.objeto)}</code><br/>
+      ${esc(s.detalle)}
+    </div>`).join('');
+}
+
+function renderContactTypes() {
+  const rows = DATA.contact_types || [];
+  let html = `<thead><tr><th>contactType</th><th>Canal</th><th>Unificación</th><th>Ordenamiento</th></tr></thead><tbody>`;
+  rows.forEach(r => {
+    html += `<tr><td>${esc(r.types)}</td><td><strong>${esc(r.canal)}</strong></td>
+      <td>${esc(r.unificacion)}</td><td>${esc(r.ordenamiento)}</td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('contactTypeTable').innerHTML = html;
+}
+
+function renderFormulas() {
+  const items = DATA.formulas || [];
+  document.getElementById('formulaGrid').innerHTML = items.map(f => `
+    <div class="formula-card">
+      <h4>${esc(f.canal)}</h4>
+      <div class="mono">${esc(f.formula)}</div>
+      <p><strong>En suma:</strong> ${f.en_suma.map(x => esc(x)).join(', ')}</p>
+      ${f.fuera_suma.length ? `<p class="out"><strong>Fuera suma:</strong> ${f.fuera_suma.map(x => esc(x)).join('; ')}</p>` : ''}
+      <p style="color:var(--muted);margin-top:0.35rem">${esc(f.nota)}</p>
+      <p><strong>DEV:</strong> ${esc(f.dev)}</p>
+    </div>`).join('');
+}
+
+function renderSpsCatalog() {
+  const rows = DATA.sps_detalle || [];
+  let html = `<thead><tr><th>ID</th><th>Fase</th><th>Repo</th><th>Archivo</th><th>Pregunta</th><th>Ejemplo</th></tr></thead><tbody>`;
+  rows.forEach(s => {
+    html += `<tr><td>${esc(s.id)}</td><td>${esc(s.fase || s.grupo)}</td><td>${esc(s.repo)}</td>
+      <td><code>${esc(s.archivo)}</code></td><td>${esc(s.pregunta || s.rol)}</td>
+      <td style="color:var(--muted)">${esc(s.ejemplo || '')}</td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('spsCatalogTable').innerHTML = html;
+}
+
+function renderReposDeploy() {
+  const repos = DATA.repos_bitbucket || [];
+  document.getElementById('reposDeploy').innerHTML = repos.map(r => `
+    <div class="repo-block">
+      <h4>${r.orden}. ${esc(r.repo)} <span style="color:var(--muted)">(${esc(r.rama)})</span></h4>
+      <p style="font-size:0.68rem;color:var(--muted);margin-bottom:0.35rem">${esc(r.nota)}</p>
+      <table class="fases-table"><thead><tr><th>Archivo</th><th>Descripción</th></tr></thead><tbody>
+        ${r.archivos.map(a => `<tr><td><code>${esc(a[0])}</code></td><td>${esc(a[1])}</td></tr>`).join('')}
+      </tbody></table>
+    </div>`).join('');
+}
+
+function renderArtefactos() {
+  const rows = DATA.artefactos || [];
+  let html = `<thead><tr><th>Tipo</th><th>Archivo</th><th>Rol</th></tr></thead><tbody>`;
+  rows.forEach(a => {
+    html += `<tr><td>${esc(a.tipo)}</td><td><code>${esc(a.archivo)}</code></td><td>${esc(a.rol)}</td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('artefactosTable').innerHTML = html;
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function openQueryModal(sql, title) {
+  modalSqlText = sql || '';
+  document.getElementById('modalSql').textContent = modalSqlText;
+  document.getElementById('modalSubtitle').textContent = title || 'Validación en dba_rncr_batch';
+  document.getElementById('queryModal').classList.add('open');
+}
+function closeQueryModal() { document.getElementById('queryModal').classList.remove('open'); }
+document.getElementById('btnCloseModal').onclick = closeQueryModal;
+document.getElementById('queryModal').onclick = (e) => { if (e.target.id==='queryModal') closeQueryModal(); };
+document.getElementById('btnCopyQuery').onclick = () => {
+  navigator.clipboard.writeText(modalSqlText).then(() => toast('Query copiada'));
+};
+
+function fitRuleStage() {
+  const fr = document.querySelector('.frame.frame-on');
+  if (!fr || fr.id === 'frame-sps' || !fr.querySelector('.rule-layout')) return;
+  const stage = fr.querySelector('.scenario-stage');
+  const item = stage?.querySelector('.scenario-item');
+  if (!stage || !item) return;
+  item.style.transform = '';
+  item.style.width = '';
+  const sh = stage.clientHeight, sw = stage.clientWidth;
+  if (sh < 20 || sw < 20) return;
+  const scale = Math.min(1, sw / Math.max(item.scrollWidth,1), sh / Math.max(item.scrollHeight,1));
+  const s = Math.max(0.72, scale);
+  if (s < 0.992) {
+    item.style.transform = `scale(${s})`;
+    item.style.transformOrigin = 'top left';
+    item.style.width = `${100/s}%`;
+  }
+}
+
+function showFrame(idx) {
+  currentFrame = idx;
+  const f = FRAMES[idx];
+  document.getElementById('progressBar').style.width = f.progress + '%';
+  document.querySelectorAll('.step-btn').forEach((b,i) => b.classList.toggle('active', i===idx));
+  document.querySelectorAll('.frame').forEach(fr => {
+    const on = fr.id === f.el;
+    fr.classList.toggle('frame-on', on);
+    fr.classList.toggle('frame-off', !on);
+  });
+  if (idx >= 1 && idx <= 6) showRuleScenario(idx, scenarioPos[idx], false);
+  if (idx === 7) showSpDetail(spPos, false);
+  requestAnimationFrame(() => requestAnimationFrame(fitRuleStage));
+}
+function zoomToFrame(idx) { showFrame(idx); }
+
+function buildRuleRowMap() {
+  RULE_FRAMES.forEach((meta, fi) => {
+    if (!meta) return;
+    const extras = meta.extra || [];
+    ruleRowMap[fi] = DATA.rows.map((r,i) => ({r,i})).filter(x =>
+      x.r._regla === meta.regla || extras.includes(x.r._regla)
+    );
+  });
+}
+
+function escCodigo(row) { return row._esc_codigo || row.Escenario || '—'; }
+
+function renderTabla(tbl, cls) {
+  if (!tbl) return '';
+  if (typeof tbl === 'string') {
+    if (!tbl.includes('<table')) return '';
+    return `<div class="tbl-block-full">${tbl}</div>`;
+  }
+  if (!tbl.headers) return '';
+  const head = tbl.headers.map(h => `<th>${esc(h)}</th>`).join('');
+  const rows = (tbl.rows || []).map(r =>
+    `<tr>${r.map(c => {
+      const s = String(c ?? '');
+      const cl = s.includes('✓') ? 'ok' : (s.includes('✗') ? 'fail' : '');
+      return `<td class="${cl}">${esc(s)}</td>`;
+    }).join('')}</tr>`
+  ).join('');
+  const cap = tbl.title ? `<div class="tbl-caption">${esc(tbl.title)}</div>` : '';
+  return `${cap}<table class="${cls || 'scenario-table'}"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function wrapTblBlock(tbl, role) {
+  if (!tbl) return '';
+  const cls = role === 'ej-full' ? 'tbl-block-ej-full' : 'tbl-block-full';
+  return `<div class="tbl-block ${cls}">${renderTabla(tbl, 'scenario-table')}</div>`;
+}
+
+function renderScenarioCard(row, idx) {
+  const bc = badgeClass(row.Estado);
+  const titulo = row._titulo_corto || row.Subescenario || row.Escenario;
+  const busca = row._busca || '';
+  const dev = row._dev || '';
+  const conclusion = row._conclusion_regla || '';
+  const q = row['Query validación (copiar en dba_rncr_batch)'] || '';
+  const headQueryBtn = q && row._show_query ? `<button type="button" class="btn btn-query btn-head-query btn-card-query" data-idx="${idx}">Ver query</button>` : '';
+  const tblPasos = wrapTblBlock(row._tabla_pasos, 'full');
+  const tblEj = wrapTblBlock(row._tabla_ejemplo, 'ej-full');
+  const buscaBlock = busca ? `<div class="scenario-section"><span class="sec-label">Regla de negocio</span><p class="busca-line">${esc(busca)}</p></div>` : '';
+  const devBlock = dev ? `<div class="scenario-section dev-narrative"><span class="sec-label">Qué encontramos en DEV</span><p>${esc(dev)}</p></div>` : '';
+  const conclBlock = conclusion ? `<div class="scenario-section conclusion-box"><span class="sec-label">Conclusión</span><p>${esc(conclusion)}</p></div>` : '';
+  const accion = row['Acción / revisión'];
+  const accionBlock = accion ? `<div class="scenario-section"><span class="sec-label">Siguiente paso</span><p>${esc(accion)}</p></div>` : '';
+  return `<div class="scenario-item">
+    <div class="esc-pill paso"><span class="esc-code">${esc(escCodigo(row))}</span><span class="esc-kind">Escenario</span></div>
+    <div class="scenario-body">
+      <div class="scenario-head">
+        <div class="scenario-head-main">
+          <span class="badge ${bc}">${esc(row.Estado||'—')}</span>
+          <div class="scenario-head-text"><h4>${esc(titulo)}</h4></div>
+        </div>
+        ${headQueryBtn}
+      </div>
+      ${buscaBlock}${tblPasos}${tblEj}${devBlock}${conclBlock}${accionBlock}
+    </div>
+  </div>`;
+}
+
+function showRuleScenario(frameIdx, pos, scroll) {
+  const meta = RULE_FRAMES[frameIdx];
+  if (!meta) return;
+  const items = ruleRowMap[frameIdx] || [];
+  if (!items.length) return;
+  const p = Math.max(0, Math.min(pos, items.length - 1));
+  scenarioPos[frameIdx] = p;
+  const {r, i} = items[p];
+  document.getElementById(meta.nav).innerHTML = items.map((it, j) =>
+    `<button type="button" class="scenario-nav-item ${j===p?'active':''}" data-pos="${j}">
+      <span class="nav-code">${esc(escCodigo(it.r))}</span>
+      <span class="nav-title">${esc(it.r._titulo_corto || it.r.Subescenario || '')}</span>
+    </button>`
+  ).join('');
+  document.getElementById(meta.stage).innerHTML = renderScenarioCard(r, i);
+  document.getElementById(meta.nav).querySelectorAll('.scenario-nav-item').forEach(btn => {
+    btn.onclick = () => showRuleScenario(frameIdx, +btn.dataset.pos, true);
+  });
+  document.getElementById(meta.stage).querySelectorAll('.btn-card-query').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const row = DATA.rows[+btn.dataset.idx];
+      openQueryModal(row['Query validación (copiar en dba_rncr_batch)'], row._titulo_corto);
+    };
+  });
+  if (scroll) fitRuleStage();
+}
+
+function initRuleFrames() {
+  buildRuleRowMap();
+  [1,2,3,4,5,6].forEach(fi => showRuleScenario(fi, 0, false));
+  initSpFrame();
+}
+
+function renderSpCard(sp) {
+  const pasos = (sp.pasos || []).map((p,i) => `<li><strong>${i+1}.</strong> ${esc(p)}</li>`).join('');
+  const pasosBlock = pasos
+    ? `<div class="scenario-section"><span class="sec-label">Pasos internos</span><ol style="margin:0.25rem 0 0 1.1rem;padding:0;font-size:0.72rem;line-height:1.45">${pasos}</ol></div>`
+    : '';
+  const pregunta = sp.pregunta
+    ? `<p style="margin:0.25rem 0;color:var(--accent);font-weight:700">${esc(sp.pregunta)}</p>`
+    : '';
+  const ejemplo = sp.ejemplo
+    ? `<div class="scenario-section conclusion-box"><span class="sec-label">Ejemplo</span><p>${esc(sp.ejemplo)}</p></div>`
+    : '';
+  return `<div class="scenario-item sp-detail-card">
+    <div class="esc-pill paso"><span class="esc-code">${esc(sp.id)}</span><span class="esc-kind">${esc(sp.fase || sp.grupo)}</span></div>
+    <div class="scenario-body">
+      <div class="scenario-head">
+        <div class="scenario-head-main">
+          <span class="badge ok">${esc(sp.repo)}</span>
+          <div class="scenario-head-text"><h4><code>${esc(sp.archivo)}</code></h4></div>
+        </div>
+        <button type="button" class="btn btn-query btn-head-query btn-sp-query">Ver query</button>
+      </div>
+      <p style="margin:0.35rem 0"><strong>${esc(sp.rol)}</strong></p>
+      ${pregunta}
+      <dl>
+        <dt>Entra</dt><dd>${esc(sp.entra)}</dd>
+        <dt>Sale</dt><dd>${esc(sp.sale)}</dd>
+        <dt>Lógica</dt><dd>${esc(sp.logica)}</dd>
+      </dl>
+      ${pasosBlock}
+      ${ejemplo}
+      <pre class="sp-query-pre">${esc(sp.query)}</pre>
+    </div>
+  </div>`;
+}
+
+function showSpDetail(pos, scroll) {
+  if (!SP_ITEMS.length) return;
+  const p = Math.max(0, Math.min(pos, SP_ITEMS.length - 1));
+  spPos = p;
+  const sp = SP_ITEMS[p];
+  document.getElementById('nav-sps').innerHTML = SP_ITEMS.map((s, j) =>
+    `<button type="button" class="scenario-nav-item ${j===p?'active':''}" data-pos="${j}">
+      <span class="nav-code">${esc(s.id)}</span>
+      <span class="nav-title">${esc((s.fase ? s.fase + ' · ' : '') + (s.rol || s.archivo.replace('sp_','').replace('.sql','')))}</span>
+    </button>`
+  ).join('');
+  document.getElementById('stage-sps').innerHTML = renderSpCard(sp);
+  document.getElementById('nav-sps').querySelectorAll('.scenario-nav-item').forEach(btn => {
+    btn.onclick = () => showSpDetail(+btn.dataset.pos, true);
+  });
+  document.getElementById('stage-sps').querySelector('.btn-sp-query')?.addEventListener('click', () => {
+    openQueryModal(sp.query, sp.archivo);
+  });
+  if (scroll) fitRuleStage();
+}
+
+function initSpFrame() {
+  showSpDetail(0, false);
+}
+
+const CASCADE_STEPS = [
+  { regla: 'UNIVERSO', codigo: 'POST-UNIF', label: 'Ganadoras', hint: 'Compiten' },
+  { regla: 'UNIVERSO', codigo: 'HIJAS', label: 'Hijas excluidas', hint: 'Sin score' },
+  { regla: 'FASE 1', codigo: 'INSUMO-DIR', label: 'Insumo DIR', hint: 'Direcciones' },
+  { regla: 'DIR', codigo: 'SCORE', label: 'Score DIR', hint: 'Ranking' },
+  { regla: 'TEL', codigo: 'SCORE', label: 'Score TEL', hint: 'Teléfonos' },
+  { regla: 'CEL', codigo: 'SCORE', label: 'Score CEL', hint: 'Celulares' },
+  { regla: 'EMA', codigo: 'SCORE', label: 'Score EMA', hint: 'Emails' },
+  { regla: 'SALIDA', codigo: 'CONSOL', label: 'orden_prioridad', hint: 'Persistencia' },
+];
+
+function volGet(regla, codigo) {
+  return (DATA.volumenes?.filas || []).find(f => f.regla === regla && f.codigo === codigo);
+}
+
+function fmtMetric(f) {
+  if (!f) return '—';
+  if (metricMode === 'personas') return fmt(f.personas);
+  if (metricMode === 'contactos') return fmt(f.contactos);
+  return `${fmt(f.personas)} pers · ${fmt(f.contactos)} filas`;
+}
+
+function renderGlossary() {
+  const k = DATA.kpis;
+  const nAbiertas = (DATA.brechas || []).filter(b => b.estado !== 'ok' && b.estado !== 'na').length;
+  document.getElementById('glossary').innerHTML = `
+    <div class="glossary-card"><h4>Score</h4><p>Suma (categoría/max × <strong>Beta del catálogo</strong>). Ranking por score DESC → lugar 1, 2, 3…</p></div>
+    <div class="glossary-card"><h4>Opción A</h4><p>Acuerdo sesión: scoring directo post-unificación desde <strong>edf_views</strong>. Sin malla 242.</p></div>
+    <div class="glossary-card"><h4>Ganadora</h4><p>RPU con ind_unificacion ≠ 1. Las <strong>${fmt(k.rpu_hijas)}</strong> hijas no compiten (mesa: unificación alimenta DIR).</p></div>
+    <div class="glossary-card"><h4>Betas</h4><p>Catálogo RITM5226589 (47 coefs). <strong>${nAbiertas}</strong> brechas técnicas abiertas; MIG-01/F1 diferidos.</p></div>
+  `;
+}
+
+function renderMetricToggle() {
+  const el = document.getElementById('metricToggle');
+  el.innerHTML = ['personas','contactos','ambos'].map(m =>
+    `<button type="button" data-m="${m}" class="${metricMode===m?'active':''}">${m==='personas'?'Personas':m==='contactos'?'Filas insumo/score':'Ambos'}</button>`
+  ).join('');
+  el.querySelectorAll('button').forEach(b => {
+    b.onclick = () => { metricMode = b.dataset.m; renderMetricToggle(); renderCascade(); renderDrillMatrix(); };
+  });
+}
+
+function renderCascade() {
+  document.getElementById('drillCascade').innerHTML = CASCADE_STEPS.map((s,i) => {
+    const f = volGet(s.regla, s.codigo);
+    return `<div class="cascade-step"><div class="step-num">Paso ${i+1}</div>
+      <div class="cascade-box" data-regla="${esc(s.regla)}" data-codigo="${esc(s.codigo)}">
+        <div class="lbl">${esc(s.label)}</div><div class="val">${fmtMetric(f)}</div>
+        <div class="sub">${esc(s.hint)}</div>
+      </div></div>`;
+  }).join('');
+}
+
+function renderDrillMatrix() {
+  const filas = DATA.volumenes?.filas || [];
+  const hdr = metricMode === 'personas' ? 'Personas' : metricMode === 'contactos' ? 'Filas' : 'Personas · Filas';
+  let html = `<thead><tr><th>Fase</th><th>Código</th><th>Objeto</th><th class="num">${hdr}</th><th class="num">Ratio</th><th>Justificación</th></tr></thead><tbody>`;
+  let last = '';
+  filas.forEach(f => {
+    if (f.regla !== last) { html += `<tr class="section"><td colspan="6">${esc(f.regla)}</td></tr>`; last = f.regla; }
+    html += `<tr><td>${esc(f.regla)}</td><td>${esc(f.codigo)}</td><td>${esc(f.escenario)}</td>
+      <td class="num">${fmtMetric(f)}</td><td class="num">${f.ratio ?? '—'}</td><td class="justif">${esc(f.busca||'')}</td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('drillMatrix').innerHTML = html;
+}
+
+function renderHome() {
+  const k = DATA.kpis;
+  const rules = [
+    { title: '1 · Armar candidatos', tag: 'Ganadoras · XPM', desc: '¿Quién entra? Solo ganadoras. Email sin @ fuera. Ejemplo: hijas no compiten.', dev: `${fmt(k.rpu_ganadoras)} RPUs · ${k.preparar_seg}s`, frame: 1 },
+    { title: '2a · DIR', tag: '¿Calle primero?', desc: 'Persona 20001: casa vs oficina. 20003: tres calles → lugar 1/2/3.', dev: `${fmt(k.canales.DIR.scores)} scores`, frame: 2 },
+    { title: '2b · TEL', tag: '¿Fijo primero?', desc: 'Persona 20004: VALIDA vs NO VALIDA. Ranking aparte de DIR.', dev: `${fmt(k.canales.TEL.personas)} personas`, frame: 3 },
+    { title: '2c · CEL', tag: '¿Cel primero?', desc: 'Persona 20006: prefijo 310 vs 320. Sin operador → 0.22.', dev: `${fmt(k.canales.CEL.personas)} personas`, frame: 4 },
+    { title: '2d · EMA', tag: '¿Email primero?', desc: 'Persona 20008: gmail vs corporativo. Canales no se mezclan.', dev: `${fmt(k.canales.EMA.scores)} scores`, frame: 5 },
+    { title: '3–4 · Guardar y limpiar', tag: 'orden_prioridad', desc: 'lugar 1 → orden 1. Hijas NULL. Luego DROP stg_*.', dev: `${fmt(k.rpu_con_orden)} RPUs`, frame: 6 },
+    { title: 'SPs · paso a paso', tag: '14 archivos', desc: 'Cada SP: pregunta + pasos internos + ejemplo smoke.', dev: 'Ver FASES_ORDENAMIENTO_EXPLICADAS.md', frame: 7 },
+  ];
+  document.getElementById('rulesMap').innerHTML = rules.map(r => `
+    <div class="rules-card" data-frame="${r.frame}">
+      <h3>${esc(r.title)}</h3><span class="esc-tag">${esc(r.tag)}</span>
+      <p>${esc(r.desc)}</p><b>DEV: ${esc(r.dev)}</b>
+    </div>`).join('');
+  document.querySelectorAll('.rules-card').forEach(c => {
+    c.onclick = () => { scenarioPos[+c.dataset.frame] = 0; showFrame(+c.dataset.frame); };
+  });
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi"><small>Personas</small><b>${fmt(k.personas)}</b><span>ganadoras</span></div>
+    <div class="kpi"><small>Scores</small><b>${fmt(k.total_scores)}</b><span>4 canales</span></div>
+    <div class="kpi"><small>orden_prioridad</small><b>${fmt(k.rpu_con_orden)}</b><span>RPUs</span></div>
+    <div class="kpi"><small>Hijas sin orden</small><b>${fmt(k.rpu_hijas)}</b><span>excluidas OK</span></div>
+    <div class="kpi"><small>Scoring</small><b>${k.scoring_seg}s</b><span>DEV</span></div>
+  `;
+  renderDocBanner();
+  renderGuion();
+  renderScope();
+  renderFases();
+  renderBrechas();
+  renderArchFlow();
+  renderContactTypes();
+  renderFormulas();
+  renderSpsCatalog();
+  renderReposDeploy();
+  renderArtefactos();
+  renderGlossary();
+  renderMetricToggle();
+  renderCascade();
+  renderDrillMatrix();
+}
+
+function renderStepNav() {
+  document.getElementById('stepNav').innerHTML = FRAMES.map((f,i) =>
+    `<button type="button" class="step-btn" data-idx="${i}">${esc(f.label)}</button>`
+  ).join('');
+  document.querySelectorAll('.step-btn').forEach(b => {
+    b.onclick = () => zoomToFrame(+b.dataset.idx);
+  });
+}
+
+renderStepNav();
+renderHome();
+initRuleFrames();
+window.addEventListener('resize', () => { showFrame(currentFrame); fitRuleStage(); });
+showFrame(0);
+</script>
+</body>
+</html>
