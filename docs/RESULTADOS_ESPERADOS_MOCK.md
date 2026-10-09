@@ -48,7 +48,7 @@ La ventana DELTA es entonces `fecha >= 2026-03-01 OR fecha IS NULL`.
 
 Filas en `unificacion_direccion_mock` **por réplica** (multiplicar por N):
 
-| ARQ | Escenario | CIIU | Posición | FULL | DELTA |
+| ARQ | Escenario | CIIU | Posición | FULL | DELTA *(pre‑M7)* |
 |----:|---|---|---|----:|----:|
 | 1 | E1 — padre LAB/CRR | `10` | DENTRO | 1 | 1 |
 | 2 | E1 | `10` | FUERA | 1 | **0** |
@@ -67,9 +67,13 @@ Filas en `unificacion_direccion_mock` **por réplica** (multiplicar por N):
 | 15 | E3 | `47` | YA_UNIF | 0 | 0 |
 | 16–20 | EMPATE | `10` | las 5 | 0 | 0 |
 
-**Totales R1 con N = 1000:** FULL → **12 000** filas · DELTA → **9 000** nuevas
-o re-tocadas (las 3 000 de `FUERA` sobreviven del FULL sin re-tocarse, con
-`lote_actualizacion` en NULL).
+**Totales R1 con N = 1000:** FULL → **12 000** filas · DELTA → **0 nuevas**.
+
+> La columna `DELTA` de la tabla describe el comportamiento **anterior a M7**,
+> cuando la vista exponía `ind_unificacion` como constante NULL y el filtro de
+> estado no filtraba nada, así que cada DELTA re-procesaba lo ya unificado. Se
+> conserva porque documenta justo el defecto que M7 corrige. Desde M7 un DELTA
+> sobre datos sin cambios no produce filas nuevas ni re-toca las existentes.
 
 ### Por qué cada 0
 
@@ -157,11 +161,13 @@ Filas por réplica:
 
 | Escenario | DENTRO | FUERA | NULL | CABALLO | YA_UNIF |
 |---|---:|---:|---:|---:|---:|
-| E1 · E2 · E3 · E4 · E5 | 1 | 1 / **0** | 1 | 1 | 0 |
-| E6 | **2** | 2 / **0** | 2 | 2 | 0 |
-| E7 | **3** | 3 / **0** | 3 | 3 | **2** |
+| E1 · E2 · E3 · E4 · E5 | 1 | 1 | 1 | 1 | 0 |
+| E6 | **2** | 2 | 2 | 2 | 0 |
+| E7 | **3** | 3 | 3 | 3 | **2** |
 
-*(FULL / DELTA donde difieren)*
+*(filas del **FULL**. El DELTA sobre datos sin cambios da 0 en todas las
+posiciones desde M7 — ver la nota de abajo. `FUERA` daba 0 en el DELTA incluso
+antes, porque esa persona no entra a la ventana.)*
 
 E7 produce **tres** filas porque el motor unifica el grupo completo contra la
 dirección generada, **el padre incluido** — eso es textual del legado. Y es el
@@ -169,7 +175,34 @@ dirección generada, **el padre incluido** — eso es textual del legado. Y es e
 que excluir la hija deja todavía un par. En los demás el grupo se queda sin
 pareja.
 
-**Totales R2 con N = 1000:** FULL → **42 000** filas · DELTA → **32 000**.
+**Totales R2 con N = 1000:** FULL → **42 000** filas · DELTA → **0 nuevas**.
+
+> ### El DELTA ahora da cero, y está bien
+>
+> Hasta M7 la vista de insumo exponía `ind_unificacion` como
+> `CAST(NULL AS INTEGER)`, es decir «nada está unificado nunca», así que el
+> filtro de estado del legado (`ind_unificacion IS NULL`) no filtraba nada y
+> **cada DELTA re-procesaba todo**. De ahí los 32 000.
+>
+> Con el estado derivado de `unificacion_direccion_mock`, un DELTA sobre datos
+> **sin cambios** no tiene nada que hacer: las hijas que unificó el FULL quedan
+> excluidas y los padres se quedan sin pareja. Arquetipo por arquetipo:
+>
+> | | Qué queda en el insumo del DELTA | Filas nuevas |
+> |---|---|---:|
+> | E1 · E2 · E3 · E4 · E5 | solo el padre, sin pareja | 0 |
+> | E6 | las dos empatadas; nadie por debajo, así que `esc6` no dispara | 0 |
+> | E7 | **nada**: el motor unificó el grupo completo, el padre incluido | 0 |
+>
+> Eso **es** la semántica de un incremental, y por sí misma es una afirmación
+> que vale certificar: *un DELTA sobre datos que no cambiaron no produce filas
+> nuevas ni des-unifica nada*.
+>
+> **Consecuencia para la fase 5:** para certificar el DELTA con algo más que
+> cero, la batería necesita un paso de **mutación** entre el FULL y el DELTA —
+> una dirección nueva que llega, o el complemento de una que cambia. Sin eso el
+> `run_*_full_delta` solo puede probar idempotencia, no incrementalidad. Es el
+> insumo principal del diseño de la fase 5.
 
 > El total anterior (35 000 / 28 000) no concordaba con esta misma tabla:
 > contaba `YA_UNIF` como productiva (5 familias × 1 + E6 × 2 = 7 por réplica,
@@ -198,7 +231,9 @@ En `YA_UNIF` de E7 el hijo excluido es `'AP 302 TO 5'`, que solo aportaba `TO`
 duplicado: el complemento generado **no cambia**, `'AP 9 TO 2 CS 4'`. Lo que baja
 es el número de filas de unificación, de tres a dos.
 
-**Totales motor con N = 1000:** FULL → **5 000** · DELTA → **4 000**.
+**Totales motor con N = 1000:** FULL → **5 000** · DELTA → **0 nuevas**
+(la direccion generada ya existe y su clave es determinista, así que el UPSERT
+la actualizaría; pero el grupo ya está unificado y no vuelve al insumo).
 
 ### Dos hallazgos del diseño
 
@@ -279,10 +314,14 @@ por un escenario anterior.
 | | FULL | DELTA |
 |---|---:|---:|
 | Regla 1 (ARQ 1–20) | 12 000 | 9 000 |
-| Regla 2 (ARQ 21–55) | 42 000 | 32 000 |
-| GEO coords (ARQ 56) | 1 000 | 1 000 |
-| **Total `unificacion_direccion`** | **55 000** | **42 000** |
-| Direcciones generadas por el motor | 5 000 | 4 000 |
+| Regla 2 (ARQ 21–55) | 42 000 | 0 |
+| GEO coords (ARQ 56) | 1 000 | 0 |
+| **Total `unificacion_direccion`** | **55 000** | **0 nuevas** |
+| Direcciones generadas por el motor | 5 000 | 0 nuevas |
+
+La columna DELTA es cero **por diseño** desde M7: ver la nota de la sección de
+Regla 2. Para que el DELTA mida incrementalidad hace falta mutar datos entre las
+dos corridas.
 
 Personas sembradas: **56 000**. Relaciones: **122 000**.
 
@@ -347,10 +386,5 @@ correrlo en el clúster.
   de M6.
 - **Sitio 2 del legado (`A6`)**: decodificar el pivote dinámico de
   `E051_A`/`E051_D` para conocer su regla de padre.
-- **Sustituto del marcado de estado**. Ya no es un bloqueante de convergencia,
-  pero sigue siendo la única divergencia estructural con el legado: los hijos
-  re-entran al insumo en cada DELTA en vez de salir para siempre. El sustituto
-  fiel es una tabla propia (`unif_estado_rpu`) que el insumo consulte en lugar
-  del `ind_unificacion` del datashare — la quinta pasada del TPT reubicada.
-  Cambiaría la semántica DELTA de todos los arquetipos (un DELTA inmediato tras
-  un FULL daría ~0 filas nuevas), así que exige re-derivar la matriz.
+- **Paso de mutación entre el FULL y el DELTA** (fase 5). Sin él el DELTA solo
+  prueba idempotencia.
