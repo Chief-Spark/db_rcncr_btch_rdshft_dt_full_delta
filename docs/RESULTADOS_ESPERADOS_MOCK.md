@@ -148,9 +148,9 @@ todas las direcciones de R2 usan RES, lo que por sí solo las hace inmunes a R1.
 | 21–25 | E1 vía `esc1` | `'AP 301'` / `''` | primero en la cadena |
 | 26–30 | E2 vía `esc2` | `'TO 1 AP 502'` / `'TO 1'` | ambos complementos no vacíos |
 | 31–35 | E3 vía `esc3` | `'AP 201'` / `'AP 202'`, sin NIT | ninguno es substring del otro |
-| 36–40 | E4 vía `esc4` | `'OF 301'` (frec 9) / `'LC 2'` (frec 1), con NIT | nomenclaturas distintas **y** NIT |
-| 41–45 | E5 vía `esc5` | `'BR 5'` (nivel 1) / `'AP 301'` (nivel 7), con NIT, **sin diccionario** | conteo 0 en ambos → empate → `esc4` exige ganador único |
-| 46–50 | E6 vía `esc6` | `'ZA 1'` (10) / `'ZA 2'` (10) / `'ZB 9'` (3), con NIT | empate en el máximo → `esc4` no dispara; `ZA`/`ZB` fuera del catálogo → `esc5` tampoco |
+| 36–40 | E4 vía `esc4` | `'OF 301 TO 2'` (conteo 2) / `'LC 2'` (conteo 1), con NIT | nomenclaturas distintas **y** NIT |
+| 41–45 | E5 vía `esc5` | `'BR 5'` (nivel 1) / `'AP 301'` (nivel 7), con NIT | ambos tokens están en el catálogo y aparecen una sola vez → conteo 1 y 1 → empate → `esc4` exige ganador único |
+| 46–50 | E6 vía `esc6` | `'CA 1 LT 2'` (5) / `'CA 3 LT 4'` (5) / `'CA 9'` (3), con NIT | empate en el máximo → `esc4` no dispara; las tres arrancan con `CA` (mismo nivel) → `esc5` tampoco |
 
 Filas por réplica:
 

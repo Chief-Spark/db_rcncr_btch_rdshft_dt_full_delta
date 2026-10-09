@@ -33,16 +33,24 @@
 --                          ambos complementos no vacios.
 --   E3 misma nomenclatura  'AP 201' / 'AP 202', SIN NIT        inmune a esc1
 --                          (no vacios) y a esc2 (ninguno es substring del otro).
---   E4 diccionario         'OF 301' (frec 9) / 'LC 2' (frec 1), CON NIT
+--   E4 diccionario         'OF 301 TO 2' (conteo 2) / 'LC 2' (conteo 1), CON
+--                          NIT. El conteo lo calcula el constructor del
+--                          diccionario tokenizando el complemento: OF(1)+TO(1)
+--                          contra LC(1). 'OF 301 TO 2' es el maximo UNICO, que
+--                          es lo que esc4 exige (HAVING COUNT(*) = 1).
 --                          inmune a esc3 por dos vias: nomenclaturas distintas
 --                          (OF vs LC) y cod_tipo_ident_fte = '3'.
---   E5 nivel nomenclatura  'BR 5' (nivel 1) / 'AP 301' (nivel 7), CON NIT,
---                          SIN filas en el diccionario -> ambos con conteo 0,
---                          empatan, y esc4 exige ganador UNICO
---                          (HAVING COUNT(*) = 1): por eso esc4 no lo captura.
---                          En esc5 gana el de MENOR nivel, que queda de padre.
---   E6 frecuencia gana     TRES direcciones: 'ZA 1' (frec 10), 'ZA 2' (frec 10)
---                          y 'ZB 9' (frec 3), CON NIT.
+--   E5 nivel nomenclatura  'BR 5' (nivel 1) / 'AP 301' (nivel 7), CON NIT.
+--                          Los dos tokens estan en el catalogo y aparecen una
+--                          sola vez, asi que EMPATAN en conteo 1 y esc4 no los
+--                          captura (exige ganador UNICO). En esc5 gana el de
+--                          MENOR nivel, que queda de padre.
+--   E6 frecuencia gana     TRES direcciones, CON NIT: 'CA 1 LT 2' (conteo 5),
+--                          'CA 3 LT 4' (conteo 5) y 'CA 9' (conteo 3). Las tres
+--                          arrancan con el MISMO token (CA, nivel 4) a
+--                          proposito: asi esc5 no puede discriminar por nivel y
+--                          el caso llega a esc6. Dos empatan en el maximo y una
+--                          pierde, que es el discriminador que esc6 certifica.
 --
 -- POR QUE E6 NECESITA TRES DIRECCIONES (y no dos)
 --   esc4 y esc6 leen LA MISMA fuente de frecuencia. Con dos direcciones de
@@ -83,8 +91,9 @@
 --       tiene ninguna relacion en la ventana y no entra al driver.
 --   YA_UNIF marca la ULTIMA direccion del grupo (la hija) con
 --   ind_unificacion = 1; el filtro de estado del legado la saca del insumo y el
---   grupo se queda sin pareja. En E6 eso deja a 'ZA 1' y 'ZA 2' empatadas, de
---   modo que ni esc4 ni esc6 disparan: 0 filas, igual que el resto.
+--   grupo se queda sin pareja. En E6 eso deja a 'CA 1 LT 2' y 'CA 3 LT 4'
+--   empatadas, de modo que ni esc4 ni esc6 disparan: 0 filas, igual que el
+--   resto.
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -160,13 +169,13 @@ FROM (
   SELECT 1, 2, 2, 'TO 1'        , '1' UNION ALL
   SELECT 2, 1, 2, 'AP 201'      , '1' UNION ALL
   SELECT 2, 2, 2, 'AP 202'      , '1' UNION ALL
-  SELECT 3, 1, 2, 'OF 301'      , '3' UNION ALL
+  SELECT 3, 1, 2, 'OF 301 TO 2' , '3' UNION ALL
   SELECT 3, 2, 2, 'LC 2'        , '3' UNION ALL
   SELECT 4, 1, 2, 'BR 5'        , '3' UNION ALL
   SELECT 4, 2, 2, 'AP 301'      , '3' UNION ALL
-  SELECT 5, 1, 3, 'ZA 1'        , '3' UNION ALL
-  SELECT 5, 2, 3, 'ZA 2'        , '3' UNION ALL
-  SELECT 5, 3, 3, 'ZB 9'        , '3'
+  SELECT 5, 1, 3, 'CA 1 LT 2'   , '3' UNION ALL
+  SELECT 5, 2, 3, 'CA 3 LT 4'   , '3' UNION ALL
+  SELECT 5, 3, 3, 'CA 9'        , '3'
 ) a
 CROSS JOIN (SELECT 1 AS pi UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) p
 CROSS JOIN bdm_stage.mock_numeros n
@@ -229,13 +238,13 @@ FROM (
   SELECT 1, 2, 'TO 1'         UNION ALL
   SELECT 2, 1, 'AP 201'       UNION ALL
   SELECT 2, 2, 'AP 202'       UNION ALL
-  SELECT 3, 1, 'OF 301'       UNION ALL
+  SELECT 3, 1, 'OF 301 TO 2'  UNION ALL
   SELECT 3, 2, 'LC 2'         UNION ALL
   SELECT 4, 1, 'BR 5'         UNION ALL
   SELECT 4, 2, 'AP 301'       UNION ALL
-  SELECT 5, 1, 'ZA 1'         UNION ALL
-  SELECT 5, 2, 'ZA 2'         UNION ALL
-  SELECT 5, 3, 'ZB 9'
+  SELECT 5, 1, 'CA 1 LT 2'    UNION ALL
+  SELECT 5, 2, 'CA 3 LT 4'    UNION ALL
+  SELECT 5, 3, 'CA 9'
 ) a
 CROSS JOIN (SELECT 1 AS pi UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) p
 CROSS JOIN bdm_stage.mock_numeros n
@@ -250,35 +259,44 @@ CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
 -- ============================================================
--- 5) DICCIONARIO DE COMPLEMENTOS (frecuencias de esc4 y esc6)
+-- 5) DICCIONARIO DE COMPLEMENTOS -- YA NO SE SIEMBRA AQUI
 -- ------------------------------------------------------------
--- Solo para los arquetipos que lo necesitan. E5 queda deliberadamente FUERA:
--- sin filas aqui sus dos direcciones empatan en conteo 0 y esc4 no las captura,
--- que es lo que deja que llegue a esc5.
--- El join de los SP es
---   dc.cod_dw_ubic = a.cod_dw_ubic AND dc.id_buro_persona = a.id_buro_persona
---   AND a.complemento LIKE '%' || dc.nomenclatura || '%'
--- por lo que 'nomenclatura' aqui es el TEXTO a buscar dentro del complemento,
--- no una entrada del catalogo de niveles.
+-- Antes esta seccion insertaba filas a mano en
+-- bdm_stage.diccionario_complementos con 'nomenclatura' = el complemento
+-- COMPLETO ('OF 301') y una frecuencia elegida a dedo (9, 1, 10, 10, 3).
+--
+-- Ahora la tabla la construye
+-- bdm_datos.sp_unificacion_mock_r2_construir_diccionario_complementos,
+-- espejo del real, que TOKENIZA el complemento contra el catalogo de
+-- nomenclaturas (equivalente al PRO_CreaDicNomenclaturaReg2 del legado). Las
+-- dos formas son incompatibles: el join de los consumidores es
+-- LIKE '%' || dc.nomenclatura || '%', de modo que una fila con el complemento
+-- completo y una fila con el token 'OF' casan las dos contra 'OF 301' y sus
+-- frecuencias se sumarian. El constructor es dueno unico de la tabla.
+--
+-- Por eso los complementos de esc4 y esc6 se re-derivaron para que la
+-- frecuencia REAL (numero de direcciones de la persona en esa ubicacion que
+-- contienen el token) reproduzca el discriminador que antes se fijaba a mano:
+--
+--   esc4 (ARQ 36-40)  'OF 301 TO 2' -> OF(1)+TO(1) = 2   <- maximo unico, gana
+--                     'LC 2'        -> LC(1)       = 1
+--     Antes 'OF 301'(9) vs 'LC 2'(1). Con tokenizacion real ambos daban 1 y
+--     esc4 NO disparaba: el arquetipo se caia a esc5. El token TO extra
+--     restituye el maximo unico que esc4 exige (HAVING COUNT(*) = 1).
+--
+--   esc6 (ARQ 46-50)  'CA 1 LT 2'   -> CA(3)+LT(2) = 5   <- empatan en el maximo
+--                     'CA 3 LT 4'   -> CA(3)+LT(2) = 5   <-
+--                     'CA 9'        -> CA(3)       = 3      pierde
+--     Antes 'ZA 1'(10) / 'ZA 2'(10) / 'ZB 9'(3). ZA y ZB NO estan en el
+--     catalogo de nomenclaturas, asi que sin el fixture los tres quedaban en
+--     conteo 0 y empataban los TRES, no dos. Los tres complementos arrancan
+--     con el MISMO token (CA, nivel 4) a proposito: asi esc5 no puede
+--     discriminar por nivel y el caso llega a esc6, que es lo que se certifica.
+--
+-- esc5 (ARQ 41-45, 'BR 5' / 'AP 301') no necesita ajuste: los dos tokens si
+-- estan en el catalogo, empatan en frecuencia 1 (esc4 no dispara) y sus
+-- niveles difieren (BR=1, AP=7), que es justo lo que esc5 pide.
 -- ============================================================
-INSERT INTO bdm_stage.diccionario_complementos (
-  id_buro_persona, cod_dw_ubic, nomenclatura, frecuencia
-)
-SELECT
-   9000000 + (21 + a.esc_idx * 5 + p.pi - 1) * 10000 + n.i,
-  (9000000 + (21 + a.esc_idx * 5 + p.pi - 1) * 10000 + n.i) * 10 + 1,
-  a.complemento,
-  a.frecuencia
-FROM (
-  SELECT 3 AS esc_idx, 'OF 301' AS complemento,  9 AS frecuencia UNION ALL
-  SELECT 3, 'LC 2',  1 UNION ALL
-  SELECT 5, 'ZA 1', 10 UNION ALL
-  SELECT 5, 'ZA 2', 10 UNION ALL
-  SELECT 5, 'ZB 9',  3
-) a
-CROSS JOIN (SELECT 1 AS pi UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) p
-CROSS JOIN bdm_stage.mock_numeros n
-WHERE n.i < 1000;
 
 -- ============================================================
 -- 6) REPORTES, CIIU Y CONTACTOS
