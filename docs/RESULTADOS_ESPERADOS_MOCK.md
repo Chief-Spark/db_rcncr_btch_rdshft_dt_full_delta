@@ -151,7 +151,7 @@ todas las direcciones de R2 usan RES, lo que por sí solo las hace inmunes a R1.
 | 36–40 | E4 vía `esc4` | `'OF 301 TO 2'` (conteo 2) / `'LC 2'` (conteo 1), con NIT | nomenclaturas distintas **y** NIT |
 | 41–45 | E5 vía `esc5` | `'BR 5'` (nivel 1) / `'AP 301'` (nivel 7), con NIT | ambos tokens están en el catálogo y aparecen una sola vez → conteo 1 y 1 → empate → `esc4` exige ganador único |
 | 46–50 | E6 vía `esc6` | `'CA 1 LT 2'` (5) / `'CA 3 LT 4'` (5) / `'CA 9'` (3), con NIT | empate en el máximo → `esc4` no dispara; las tres arrancan con `CA` (mismo nivel) → `esc5` tampoco |
-| 51–55 | E7 vía `esc5`, certifica el **motor** | `'BR 5'` (padre, nivel 1) / `'AP 301 TO 2'` / `'AP 302 CS 4'` (hijos, los dos nivel 7), con NIT | empate en el máximo (3 y 3) → `esc4` no dispara; los dos hijos comparten token inicial `AP`, así que `esc5` solo los empareja contra `'BR 5'` y el padre queda **determinista** |
+| 51–55 | E7 vía **`X4`**, certifica el **motor** | `'AP 9'` (padre) / `'AP 301 TO 2 CS 4'` / `'AP 302 TO 5'` (hijos), las tres con `AP` inicial y con NIT | corre antes de `esc4`; `'AP 9'` no es substring de ningún hijo, así que `esc2` no lo consume |
 
 Filas por réplica:
 
@@ -159,15 +159,17 @@ Filas por réplica:
 |---|---:|---:|---:|---:|---:|
 | E1 · E2 · E3 · E4 · E5 | 1 | 1 / **0** | 1 | 1 | 0 |
 | E6 | **2** | 2 / **0** | 2 | 2 | 0 |
-| E7 | 1 | 1 / **0** | 1 | 1 | **1** |
+| E7 | **3** | 3 / **0** | 3 | 3 | **2** |
 
 *(FULL / DELTA donde difieren)*
 
-E7 es el único arquetipo en que `YA_UNIF` **sí** produce fila: tiene tres
-direcciones, así que excluir la hija deja todavía un par y `esc5` sigue
-disparando. En los demás el grupo se queda sin pareja.
+E7 produce **tres** filas porque el motor unifica el grupo completo contra la
+dirección generada, **el padre incluido** — eso es textual del legado. Y es el
+único arquetipo en que `YA_UNIF` sí produce fila: tiene tres direcciones, así
+que excluir la hija deja todavía un par. En los demás el grupo se queda sin
+pareja.
 
-**Totales R2 con N = 1000:** FULL → **33 000** filas · DELTA → **25 000**.
+**Totales R2 con N = 1000:** FULL → **42 000** filas · DELTA → **32 000**.
 
 > El total anterior (35 000 / 28 000) no concordaba con esta misma tabla:
 > contaba `YA_UNIF` como productiva (5 familias × 1 + E6 × 2 = 7 por réplica,
@@ -183,19 +185,20 @@ direcciones (`PRO_UnificacionR2.sql:1602` y `:3423`).
 
 | Escenario | complemento generado | DENTRO | FUERA | NULL | CABALLO | YA_UNIF |
 |---|---|---:|---:|---:|---:|---:|
-| E5 | `'BR 5 AP 301'` | 1 | 1 / **0** | 1 | 1 | 0 |
-| E7 | `'BR 5 TO 2 CS 4 AP 301'` | 1 | 1 / **0** | 1 | 1 | **1** |
-| E1 · E2 · E3 · E4 · E6 | — | 0 | 0 | 0 | 0 | 0 |
+| E7 | `'AP 9 TO 2 CS 4'` | 1 | 1 / **0** | 1 | 1 | **1** |
+| los demás | — | 0 | 0 | 0 | 0 | 0 |
 
-E3 está en la población (`esc3` marca `'L3'`) pero **no genera**: sus dos
-complementos tienen el mismo `nomen` (`AP`), así que el hijo no aporta ningún
-componente nuevo. E6 no está en la población, igual que en el legado, donde la
-cadena `E06` no contiene `MAX_ID`.
+**E6 no genera**, aunque sus tres direcciones arrancan con `CA` y llevan NIT: los
+hijos no aportan **ningún** componente que el padre no tenga, así que no se crea
+dirección *ni se marca*, y el grupo sigue su camino hasta `esc6` como antes.
+**E4 y E5** no entran porque sus nomenclaturas iniciales difieren (`OF`/`LC`,
+`BR`/`AP`). **E1, E2, E3** no llevan NIT.
 
-En `YA_UNIF` de E7 el hijo excluido es `'AP 302 CS 4'`, así que desaparece el
-aporte de `CS`: el complemento generado es `'BR 5 TO 2 AP 301'`.
+En `YA_UNIF` de E7 el hijo excluido es `'AP 302 TO 5'`, que solo aportaba `TO`
+duplicado: el complemento generado **no cambia**, `'AP 9 TO 2 CS 4'`. Lo que baja
+es el número de filas de unificación, de tres a dos.
 
-**Totales motor con N = 1000:** FULL → **9 000** · DELTA → **7 000**.
+**Totales motor con N = 1000:** FULL → **5 000** · DELTA → **4 000**.
 
 ### Dos hallazgos del diseño
 
@@ -213,26 +216,48 @@ documentado como resultado esperado.
 
 ## ARQ 51–55 — E7, el arquetipo del motor
 
-Antes no se sembraban porque el motor era **inobservable**: se quedaba en
-tablas de staging que nadie consumía y no escribía en ninguna tabla
-certificable. Ya no: persiste en `direccion_fisica_generada_mock` y
-`rpu_generada_mock`, con el UPSERT del legado.
+Antes no se sembraban porque el motor era **inobservable**: se quedaba en tablas
+de staging que nadie consumía. Ya no: crea la dirección, unifica el grupo contra
+ella y marca `X4`.
 
-El arquetipo está construido para que el padre sea **determinista**. Con tres
-niveles distintos no lo sería: `'BR 5'` / `'TO 2'` / `'AP 301'` genera los pares
-`(BR,TO)`, `(BR,AP)` y `(TO,AP)`, y como el `UPDATE` de `esc5` lleva
-`AND id_padre IS NULL`, el padre de `AP` depende de cuál fila gane primero. Al
-dar a los dos hijos el mismo token inicial (`AP`) solo se emparejan contra
-`'BR 5'`, porque `esc5` exige `a.nomenclatura_pri <> b.nomenclatura_pri`.
+E7 ejercita el **sitio 1** del legado (`PRO_UnificacionR2.sql:1602`, etapa 3),
+cuya población es `Tmp_Unificacion_E031` (línea 650) más el auto-join de
+`Tmp_Unificacion_E03_B` (línea 703): **con NIT**, mismo grupo, complemento
+distinto y **misma nomenclatura inicial**. Es el complemento exacto de `esc3`,
+que resuelve «sin NIT, misma nomenclatura» uniendo contra un padre real.
+
+El padre es el de `ORDEN = 1` por el `ID` del legado (línea 712), que combina
+`Fecha_Relacion_Persona_Ubicaci` y `Numero_entidades_que_Reportan`. En la
+semilla las tres direcciones de una persona comparten ambas, así que desempata
+`cod_dw_persona_ubic` y el padre es siempre `k = 1`.
+
+`'AP 9'` como padre y no `'AP 301'`: **`'AP 301'` es substring de
+`'AP 301 TO 2 CS 4'`**, y `esc2` corre antes del motor, así que se lo comería.
 
 Lo que certifica, en un solo arquetipo:
 
 | | |
 |---|---|
+| Diccionario | `AP:v=9,f=3` · `TO:v=2,f=2` · `CS:v=4,f=1` |
 | Un padre con **varios** hijos | el legado agrupa por padre y agrega todos sus hijos |
-| Deduplicación por `nomen` | `AP` lo aportan los **dos** hijos; se conserva uno, el del hijo de menor `cod_dw_persona_ubic` |
-| Orden por `nivel_complemento` | `TO`(4) → `CS`(5) → `AP`(7) |
-| El complemento del padre se **conserva** | `'BR 5'` encabeza, no se re-ordena todo |
+| Deduplicación por `nomen` | `TO` lo aportan los **dos** hijos; se conserva uno |
+| Orden por `nivel_complemento` | `TO`(4) → `CS`(5) |
+| El complemento del padre se **conserva** | `'AP 9'` encabeza, no se re-ordena todo |
+| **El padre también se unifica** | las tres filas apuntan a la generada, no solo los hijos |
+
+### Sitio 2 del legado (`A6`) — no implementado
+
+El legado tiene un **segundo** sitio de creación (`:3423`, etapa 5.1). Su
+población base está leída (`Tmp_Unificacion_E051`, línea 2280: grupo sin
+unificar con complemento distinto, **sin** filtro de NIT ni de nomenclatura),
+pero **no la regla con que elige al padre**: eso vive en el pivote dinámico de
+`E051_A`/`E051_D` (líneas 2331‑2900), que genera SQL dinámico sobre hasta 15
+posiciones de componente.
+
+No se implementó por analogía con `esc5` por dos razones: sería una suposición,
+y además *starvaría* a `esc5` —misma población, el sitio 2 corre antes— lo que
+cambiaría el resultado de arquetipos ya certificados. Queda pendiente hasta
+decodificar ese pivote.
 
 ## ARQ 56 — GEO con coordenadas
 
@@ -254,10 +279,10 @@ por un escenario anterior.
 | | FULL | DELTA |
 |---|---:|---:|
 | Regla 1 (ARQ 1–20) | 12 000 | 9 000 |
-| Regla 2 (ARQ 21–55) | 33 000 | 25 000 |
+| Regla 2 (ARQ 21–55) | 42 000 | 32 000 |
 | GEO coords (ARQ 56) | 1 000 | 1 000 |
-| **Total `unificacion_direccion`** | **46 000** | **35 000** |
-| Direcciones generadas por el motor | 9 000 | 7 000 |
+| **Total `unificacion_direccion`** | **55 000** | **42 000** |
+| Direcciones generadas por el motor | 5 000 | 4 000 |
 
 Personas sembradas: **56 000**. Relaciones: **122 000**.
 
@@ -279,66 +304,53 @@ propósito: es la única que detecta si el FULL parte de un insumo limpio.
 | `CA-C07` | **Sin padres huérfanos**: todo padre existe como relación |
 | `CA-C08` | La DELTA no altera el estado del FULL: `DELTA1` = `FULL` |
 
-### Lo que el gate reporta hoy, y por qué
+### Lo que el gate predice tras M6
 
 El motor persiste la dirección generada con `ind_unificacion` en NULL, y las
-vistas de insumo la exponen con `UNION ALL`. Por lo tanto **vuelve a entrar al
-insumo de la corrida siguiente**. El legado lo tolera porque al final de la
-carga marca los hijos con `IND_UNIFICACION = 1` sobre la tabla real
-(`P0020_UNIFICACION_DIRECCION_130.TPT`, quinta pasada, líneas 281‑292) y el
-filtro de estado del insumo los saca para siempre. En Redshift **no se puede**:
-el datashare es de solo lectura y las vistas exponen `ind_unificacion` como
-`CAST(NULL AS INTEGER)` fijo.
+vistas de insumo la exponen con `UNION ALL`, así que **vuelve a entrar al insumo
+de la corrida siguiente**. El legado lo neutraliza marcando los hijos con
+`IND_UNIFICACION = 1` sobre la tabla real
+(`P0020_UNIFICACION_DIRECCION_130.TPT`, quinta pasada, líneas 281‑292). En
+Redshift no se puede: el datashare es de solo lectura y las vistas exponen
+`ind_unificacion` como `CAST(NULL AS INTEGER)` fijo.
 
-Simulación de la cascada completa sobre E7 (`'BR 5'` padre, `'AP 301 TO 2'` y
-`'AP 302 CS 4'` hijos):
+Aun así el ciclo converge, y la razón es M6. Simulación sobre E7:
 
-| Corrida | `unificacion_direccion` | Genera |
-|---|---|---|
-| FULL | `u2→u1`, `u3→u1` | `'BR 5 TO 2 CS 4 AP 301'` |
-| DELTA1 | `u1→G`, `u2→G`, `u3→G` | nada |
-| DELTA2 | igual que DELTA1 | nada |
+| Corrida | `unificacion_direccion` | Tabla acumulada | Hijos con dos padres |
+|---|---|---|---|
+| FULL | `u1→G`, `u2→G`, `u3→G` (`X4`) | 3 filas | ninguno |
+| DELTA1 | `u1→G` (`K2`) — **el mismo par** | sin cambios | ninguno |
+| DELTA2 | idéntico a DELTA1 | sin cambios | ninguno |
 
-En DELTA1 la dirección **generada se vuelve el padre**: `esc2` captura a
-`'BR 5'` porque es substring del complemento generado, y `esc4` captura a los
-otros dos porque el generado tiene el conteo máximo — su complemento contiene
-*todos* los tokens del grupo.
+Al escribir el parentesco en la corrida 1, lo único que la corrida 2 puede hacer
+es **re-derivar el mismo par** (`esc2` captura al padre porque su complemento es
+substring del generado, y es exactamente el par que el motor ya escribió), de
+modo que el UPSERT **actualiza** en vez de insertar. Antes de M6 el motor no
+escribía nada y la corrida 2 descubría un parentesco *distinto* del de la FULL:
+como la Clave_Unificacion es el **par**, ambos coexistían y la misma dirección
+acababa con dos padres.
 
-De ahí tres consecuencias medibles:
+Se espera entonces que los ocho criterios pasen. `CA-C01` (el FULL es
+reproducible) depende además de la corrección de **secuencia** de M5: el borrado
+del histórico de direcciones generadas pasó del motor —que corre al final— al
+paso 6 del orquestador, antes de preparar el insumo. Mientras vivía en el motor,
+el insumo del propio FULL veía las generadas de la corrida anterior y un FULL
+nunca era un reproceso limpio.
 
-1. **Padres duplicados** (`CA-C06`). La Clave_Unificacion es el **par**
-   `(cod_dw_persona_ubic, cod_dw_direccion_unificada)`, así que el UPSERT no
-   impide que una dirección acabe con dos padres: basta que una corrida
-   posterior le asigne otro. Tras DELTA1, `u2` y `u3` tienen `u1` **y** `G`.
-2. **El estado estable no es el del FULL** (`CA-C08`). Converge en dos
-   corridas, pero al estado «todo → G».
-3. **Padres huérfanos** (`CA-C07`, `CA-C01`). Un FULL de reproceso ya no
-   regenera la dirección —su insumo contiene `G`, `esc2`/`esc4` la capturan y
-   `esc5` nunca dispara— así que el motor borra y no reinserta, y
-   `unificacion_direccion` queda apuntando a una dirección que ya no existe.
-
-Estos fallos **no son del gate: son el hallazgo**. El gate se escribió para
-medirlos en vez de suponerlos.
-
-Como parte de M5 sí se corrigió la **secuencia** del FULL: el borrado del
-histórico de direcciones generadas pasó del motor (que corre al final) al paso 6
-del orquestador, antes de preparar el insumo. Mientras vivía en el motor, el
-insumo del propio FULL alcanzaba a ver las generadas de la corrida anterior, de
-modo que un FULL nunca era un reproceso limpio.
+Esto es una **predicción por simulación**, no una medición: el gate hay que
+correrlo en el clúster.
 
 ## Pendiente
 
 - Scripts `reset_mock` y gates de validación restantes (fase 5).
-- **Decisión funcional sobre la realimentación.** Tres opciones, de menor a
-  mayor fidelidad:
-  1. Excluir las direcciones generadas del insumo (`generada_enriquecida = 1`
-     fuera). Hace todo idempotente y el estado estable pasa a ser el del FULL,
-     al coste de no unificar nunca el padre contra la dirección generada.
-  2. Reconstruir el marcado de estado del legado en una **tabla propia**
-     (`unif_estado_rpu`), que el insumo consulta en lugar del `ind_unificacion`
-     del datashare. Es literalmente la quinta pasada del TPT reubicada. Es la
-     opción fiel, pero cambia la semántica DELTA de **todos** los arquetipos:
-     tras un FULL los hijos salen del insumo, así que un DELTA inmediato daría
-     ~0 filas nuevas y habría que re-derivar la matriz de certificación.
-  3. Dejarlo como está y documentarlo. No recomendable: `CA-C06` y `CA-C07`
-     describen corrupción acumulativa, no una diferencia cosmética.
+- **Correr el gate de convergencia en el clúster** para confirmar la predicción
+  de M6.
+- **Sitio 2 del legado (`A6`)**: decodificar el pivote dinámico de
+  `E051_A`/`E051_D` para conocer su regla de padre.
+- **Sustituto del marcado de estado**. Ya no es un bloqueante de convergencia,
+  pero sigue siendo la única divergencia estructural con el legado: los hijos
+  re-entran al insumo en cada DELTA en vez de salir para siempre. El sustituto
+  fiel es una tabla propia (`unif_estado_rpu`) que el insumo consulte en lugar
+  del `ind_unificacion` del datashare — la quinta pasada del TPT reubicada.
+  Cambiaría la semántica DELTA de todos los arquetipos (un DELTA inmediato tras
+  un FULL daría ~0 filas nuevas), así que exige re-derivar la matriz.
