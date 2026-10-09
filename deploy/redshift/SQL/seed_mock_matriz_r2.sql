@@ -182,7 +182,13 @@ DELETE FROM bdm_stage.relacion_persona_ubicacion     WHERE id_buro_persona BETWE
 -- Menor nivel = mas general (BR barrio = 1) y es el que queda de PADRE;
 -- mayor nivel = mas especifico (AP apartamento = 7) y queda de hija.
 -- ============================================================
-DELETE FROM bdm_stage.nomenclatura;
+-- WHERE explicito: la politica del pipeline (REDSHIFT:232) lo exige en todo
+-- DELETE, y aqui ademas es lo correcto. El catalogo es COMPARTIDO: acotar el
+-- borrado a los 12 tokens que esta semilla siembra deja intacta cualquier otra
+-- entrada que haya puesto otro consumidor. El INSERT de abajo los repone, de
+-- modo que la siembra sigue siendo idempotente.
+DELETE FROM bdm_stage.nomenclatura
+ WHERE nomenclatura IN ('TO','AP','CS','LC','OF','BL','IN','ED','BR','MZ','CA','LT');
 INSERT INTO bdm_stage.nomenclatura (nomenclatura, nivel_complemento)
 SELECT v.nomenclatura, v.nivel_complemento
 FROM (
