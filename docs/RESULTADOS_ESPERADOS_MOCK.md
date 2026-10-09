@@ -379,12 +379,69 @@ nunca era un reproceso limpio.
 Esto es una **predicción por simulación**, no una medición: el gate hay que
 correrlo en el clúster.
 
+## La batería (fase 5)
+
+`run_reconocer_e2e_mock_full_delta.sql` corre la secuencia completa y deja el
+veredicto en `bdm_stage.mock_unif_ca_result`. Es auto-contenido: resetea salidas
+y control, y asume el insumo ya sembrado por `seed_mock_matriz*.sql`.
+
+| Paso | Lote | Qué prueba |
+|---|---:|---|
+| **1. FULL** | 1356601 | la matriz completa, arquetipo por arquetipo |
+| **2. DELTA** sin mutar | 1356602 | **idempotencia**: 0 filas nuevas |
+| **3. Mutación** | — | llega una dirección nueva a 100 personas del ARQ 21 y 100 del ARQ 22 |
+| **4. DELTA** mutado | 1356604 | **incrementalidad**: exactamente 200 filas nuevas |
+
+### Los gates
+
+`sp_unificacion_mock_gate_arq(p_fase, p_lote)` compara contra la matriz de este
+documento. La matriz va **codificada explícitamente** en el SP, los 56
+arquetipos uno por uno: un gate de certificación se audita leyéndolo, no
+deduciéndolo.
+
+| Criterio | Qué comprueba |
+|---|---|
+| `FULL/CA-U01` | el conteo de **cada** ARQ coincide con la matriz |
+| `FULL/CA-U02` | total = 55 000 |
+| `FULL/CA-U03` | 5 000 direcciones generadas, todas con `generada_enriquecida = 1` |
+| `FULL/CA-U04` | el complemento generado de E7 es `'AP 9 TO 2 CS 4'` |
+| `DELTA1/CA-U07` | 0 filas nuevas sobre datos sin cambios |
+| `DELTA2/CA-U08` | 100 en ARQ 21 + 100 en ARQ 22 = 200 |
+| `DELTA2/CA-U09` | **contrafáctico del Diseño 2** (ver abajo) |
+| `DELTA2/CA-U10` | total = 55 200, nada del FULL se re-escribió |
+| `*/CA-U05` | un hijo, un padre |
+| `*/CA-U06` | sin padres huérfanos |
+
+`CA-U04` es el que distingue «el motor corrió» de «el motor fusionó bien»: lleva
+el complemento del padre al frente, el aporte de los hijos ordenado por nivel
+(`TO`=4, `CS`=5) y `TO` deduplicado, que lo aportan los **dos** hijos.
+
+### Por qué la mutación toca el ARQ 22 y no solo el 21
+
+El `ARQ 21` es la posición `DENTRO`: su fecha ya cae en la ventana, así que
+entraría al DELTA de todos modos. El `ARQ 22` es `FUERA` (2024‑01‑15): queda
+fuera y entra **solo porque le llegó algo nuevo** (2026‑06‑15, posterior al
+watermark 2026‑03‑01 que dejó el FULL). Al entrar **arrastra consigo al padre**,
+que sigue con la fecha vieja.
+
+Con una ventana por **fila** el padre no entraría, la dirección nueva se
+quedaría sin pareja y el ARQ 22 daría 0. Que dé 100 es el contrafáctico que
+prueba que el driver es por **persona** — el Diseño 2.
+
+El complemento de la dirección nueva es vacío a propósito: dispara el
+escenario 1, el primero de la cascada, así que el resultado esperado no depende
+de ningún otro escenario.
+
 ## Pendiente
 
-- Scripts `reset_mock` y gates de validación restantes (fase 5).
-- **Correr el gate de convergencia en el clúster** para confirmar la predicción
-  de M6.
+- **Correr la batería en el clúster.** Todo lo anterior está verificado por
+  simulación, no por ejecución: paréntesis, `$$`, encoding, espejo real↔mock y
+  paridad de manifiestos. Eso no es un parser ni un motor.
+- **Ordenamiento**: su matriz quedó obsoleta. Desde M2 consume las direcciones
+  que genera el motor (`v_mock_relacion_persona_ubicacion` las une con
+  `UNION ALL`) y nadie ha derivado el efecto sobre el scoring y el orden.
 - **Sitio 2 del legado (`A6`)**: decodificar el pivote dinámico de
   `E051_A`/`E051_D` para conocer su regla de padre.
-- **Paso de mutación entre el FULL y el DELTA** (fase 5). Sin él el DELTA solo
-  prueba idempotencia.
+- **Del cliente**: el fuente de `PRO_CreaDicNomenclaturaReg2`, y si el `conteo`
+  del diccionario es por persona o global por `cod_dw_ubic`. En mock es
+  indistinguible; en datos reales cambia resultados.

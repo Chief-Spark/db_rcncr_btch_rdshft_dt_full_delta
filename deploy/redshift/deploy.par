@@ -20,3 +20,6 @@ run_reconocer_e2e_unificacion_ordenamiento.sql
 run_reconocer_e2e_unificacion_ordenamiento_delta.sql
 validacion_gates_cierre_e2e.sql
 run_unif_convergencia_mock.sql
+reset_mock.sql
+run_reconocer_e2e_mock_full_delta.sql
+validacion_unificacion_mock_ca.sql
