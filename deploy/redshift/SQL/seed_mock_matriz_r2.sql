@@ -277,20 +277,34 @@ WHERE n.i < 1000;
 -- ============================================================
 -- 3) UBICACION (una por persona). Coordenadas NULL salvo el ARQ 56.
 -- ============================================================
+-- Las coordenadas NO se resuelven aqui con un CASE. Redshift infiere el tipo
+-- del nodo CASE a partir del literal (4.60971000 es NUMERIC(9,8)) y lo
+-- contrasta contra el tipo de la columna destino, DECIMAL(12,8); cuando las
+-- ramas llevan su propio CAST el planificador se contradice y aborta con
+-- "Assert: Type inference inconsistency detected: variable of type numeric
+-- expected a precision of (12, 8), but the source column has a precision of
+-- (9, 8)". Se insertan todas las ubicaciones sin coordenadas (NULL por
+-- omision en la lista de columnas) y el ARQ 56 se marca despues con un UPDATE
+-- escalar, donde no hay inferencia que pueda discrepar.
 INSERT INTO bdm_stage.ubicacion_estandarizada (
-  cod_dw_ubic, texto_ubicacion, cod_dw_ciudad, municipio, departamento, latitud, longitud
+  cod_dw_ubic, texto_ubicacion, cod_dw_ciudad, municipio, departamento
 )
 SELECT DISTINCT
   rpu.cod_dw_ubic,
   'CL ' || CAST(100 + (rpu.id_buro_persona - 9000000) / 10000 AS VARCHAR)
         || ' # ' || CAST(rpu.id_buro_persona AS VARCHAR) || ' - 20',
-  11001, 'BOGOTA D.C.', 'CUNDINAMARCA',
-  CASE WHEN rpu.id_buro_persona BETWEEN 9560000 AND 9560999
-       THEN CAST( 4.60971000 AS DECIMAL(12,8)) ELSE CAST(NULL AS DECIMAL(12,8)) END,
-  CASE WHEN rpu.id_buro_persona BETWEEN 9560000 AND 9560999
-       THEN CAST(-74.08175000 AS DECIMAL(12,8)) ELSE CAST(NULL AS DECIMAL(12,8)) END
+  11001, 'BOGOTA D.C.', 'CUNDINAMARCA'
 FROM bdm_stage.relacion_persona_ubicacion rpu
 WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999;
+
+-- Unico arquetipo con latitud/longitud: el 56, control negativo del
+-- Exportador_GEO. Su cod_dw_ubic es (9560000 + i) * 10 + 1 con i < 1000, o sea
+-- el tramo 95600001..95609991; ningun otro arquetipo entra ahi porque todos
+-- nacen de id_buro_persona <= 9559999.
+UPDATE bdm_stage.ubicacion_estandarizada
+   SET latitud  = CAST(  4.60971000 AS DECIMAL(12,8)),
+       longitud = CAST(-74.08175000 AS DECIMAL(12,8))
+ WHERE cod_dw_ubic BETWEEN 95600000 AND 95609999;
 
 -- ============================================================
 -- 4) DIRECCION FISICA: aqui vive el COMPLEMENTO, que es el criterio de R2.
