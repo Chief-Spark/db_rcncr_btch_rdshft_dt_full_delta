@@ -58,6 +58,11 @@ DELETE FROM bdm_stage.relacion_persona_ubicacion
 CALL bdm_datos.sp_unificacion_mock_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('FULL' AS VARCHAR(256)), CAST('1356601' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
 CALL bdm_datos.sp_unificacion_mock_gate_arq(CAST('FULL' AS VARCHAR(16)), 1356601);
 
+-- Ordenamiento FULL de la MISMA corrida: una ejecucion e2e es una unidad
+-- (unificacion -> GEO -> ordenamiento), no componentes sueltos. GEO ya va
+-- dentro de sp_unificacion_mock_ciclo (R1 -> R2 -> GEO -> R3).
+CALL bdm_datos.sp_ordenamiento_ejecucion_mock(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('FULL' AS VARCHAR(256)), CAST('1356601' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
+
 -- ------------------------------------------------------------
 -- (2) DELTA sobre datos SIN MUTAR. Debe dar CERO filas nuevas: es la prueba de
 -- idempotencia, y la que demuestra que el filtro de estado funciona. Antes de
@@ -65,6 +70,10 @@ CALL bdm_datos.sp_unificacion_mock_gate_arq(CAST('FULL' AS VARCHAR(16)), 1356601
 -- ------------------------------------------------------------
 CALL bdm_datos.sp_unificacion_mock_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('DELTA' AS VARCHAR(256)), CAST('1356602' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
 CALL bdm_datos.sp_unificacion_mock_gate_arq(CAST('DELTA1' AS VARCHAR(16)), 1356602);
+
+-- Ordenamiento DELTA de la misma corrida. Sin mutacion, su alcance tambien
+-- debe ser vacio: es la prueba de idempotencia del ordenamiento.
+CALL bdm_datos.sp_ordenamiento_ejecucion_mock(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('DELTA' AS VARCHAR(256)), CAST('1356602' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
 
 -- ------------------------------------------------------------
 -- (3) MUTACION. A 100 personas del ARQ 21 y a 100 del ARQ 22 les LLEGA una
@@ -126,6 +135,10 @@ WHERE n.i < 100;
 -- ------------------------------------------------------------
 CALL bdm_datos.sp_unificacion_mock_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('DELTA' AS VARCHAR(256)), CAST('1356604' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
 CALL bdm_datos.sp_unificacion_mock_gate_arq(CAST('DELTA2' AS VARCHAR(16)), 1356604);
+
+-- Ordenamiento DELTA de la misma corrida, ahora con ventana real: debe
+-- re-puntuar y re-ordenar las 200 personas que mutaron, y solo esas.
+CALL bdm_datos.sp_ordenamiento_ejecucion_mock(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('DELTA' AS VARCHAR(256)), CAST('1356604' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
 
 -- ------------------------------------------------------------
 -- (5) VEREDICTO
