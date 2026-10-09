@@ -151,6 +151,7 @@ todas las direcciones de R2 usan RES, lo que por sí solo las hace inmunes a R1.
 | 36–40 | E4 vía `esc4` | `'OF 301 TO 2'` (conteo 2) / `'LC 2'` (conteo 1), con NIT | nomenclaturas distintas **y** NIT |
 | 41–45 | E5 vía `esc5` | `'BR 5'` (nivel 1) / `'AP 301'` (nivel 7), con NIT | ambos tokens están en el catálogo y aparecen una sola vez → conteo 1 y 1 → empate → `esc4` exige ganador único |
 | 46–50 | E6 vía `esc6` | `'CA 1 LT 2'` (5) / `'CA 3 LT 4'` (5) / `'CA 9'` (3), con NIT | empate en el máximo → `esc4` no dispara; las tres arrancan con `CA` (mismo nivel) → `esc5` tampoco |
+| 51–55 | E7 vía `esc5`, certifica el **motor** | `'BR 5'` (padre, nivel 1) / `'AP 301 TO 2'` / `'AP 302 CS 4'` (hijos, los dos nivel 7), con NIT | empate en el máximo (3 y 3) → `esc4` no dispara; los dos hijos comparten token inicial `AP`, así que `esc5` solo los empareja contra `'BR 5'` y el padre queda **determinista** |
 
 Filas por réplica:
 
@@ -158,10 +159,43 @@ Filas por réplica:
 |---|---:|---:|---:|---:|---:|
 | E1 · E2 · E3 · E4 · E5 | 1 | 1 / **0** | 1 | 1 | 0 |
 | E6 | **2** | 2 / **0** | 2 | 2 | 0 |
+| E7 | 1 | 1 / **0** | 1 | 1 | **1** |
 
 *(FULL / DELTA donde difieren)*
 
-**Totales R2 con N = 1000:** FULL → **35 000** filas · DELTA → **28 000**.
+E7 es el único arquetipo en que `YA_UNIF` **sí** produce fila: tiene tres
+direcciones, así que excluir la hija deja todavía un par y `esc5` sigue
+disparando. En los demás el grupo se queda sin pareja.
+
+**Totales R2 con N = 1000:** FULL → **33 000** filas · DELTA → **25 000**.
+
+> El total anterior (35 000 / 28 000) no concordaba con esta misma tabla:
+> contaba `YA_UNIF` como productiva (5 familias × 1 + E6 × 2 = 7 por réplica,
+> los 7 000 de diferencia). Se corrigió al recalcularlo para añadir E7.
+
+### Direcciones generadas por el motor
+
+Tabla aparte: `bdm_datos.direccion_fisica_generada_mock` y
+`bdm_datos.rpu_generada_mock`. Una dirección **por padre**, no por par ni por
+grupo. La población del motor son los pares que marcaron `esc3` (`n_id = 'L3'`)
+y `esc5` (`n_id = 'E5'`), que son los dos únicos sitios donde el legado crea
+direcciones (`PRO_UnificacionR2.sql:1602` y `:3423`).
+
+| Escenario | complemento generado | DENTRO | FUERA | NULL | CABALLO | YA_UNIF |
+|---|---|---:|---:|---:|---:|---:|
+| E5 | `'BR 5 AP 301'` | 1 | 1 / **0** | 1 | 1 | 0 |
+| E7 | `'BR 5 TO 2 CS 4 AP 301'` | 1 | 1 / **0** | 1 | 1 | **1** |
+| E1 · E2 · E3 · E4 · E6 | — | 0 | 0 | 0 | 0 | 0 |
+
+E3 está en la población (`esc3` marca `'L3'`) pero **no genera**: sus dos
+complementos tienen el mismo `nomen` (`AP`), así que el hijo no aporta ningún
+componente nuevo. E6 no está en la población, igual que en el legado, donde la
+cadena `E06` no contiene `MAX_ID`.
+
+En `YA_UNIF` de E7 el hijo excluido es `'AP 302 CS 4'`, así que desaparece el
+aporte de `CS`: el complemento generado es `'BR 5 TO 2 AP 301'`.
+
+**Totales motor con N = 1000:** FULL → **9 000** · DELTA → **7 000**.
 
 ### Dos hallazgos del diseño
 
@@ -177,17 +211,28 @@ menor frecuencia contra **cada** una de las empatadas, E6 genera 2 filas. No es
 un defecto de la semilla: es el comportamiento del escenario, y queda
 documentado como resultado esperado.
 
-## ARQ 51–55 — no se siembran
+## ARQ 51–55 — E7, el arquetipo del motor
 
-Estaban reservados para el motor
-(`sp_unificacion_mock_r2_motor_nit_empates_nuevas_direcciones`). Ese SP solo
-construye tres tablas de staging (`stg_mock_motor_keys` / `_ranked` / `_insumo`)
-que **nadie consume**: las únicas otras referencias en los tres repos son los
-`DROP TABLE` del propio orquestador de Regla 2. No escribe en
-`unificacion_direccion` ni en ninguna otra tabla observable.
+Antes no se sembraban porque el motor era **inobservable**: se quedaba en
+tablas de staging que nadie consumía y no escribía en ninguna tabla
+certificable. Ya no: persiste en `direccion_fisica_generada_mock` y
+`rpu_generada_mock`, con el UPSERT del legado.
 
-**No hay resultado que certificar.** Queda como hallazgo para el equipo
-funcional: el motor de nuevas direcciones está desconectado, en real y en mock.
+El arquetipo está construido para que el padre sea **determinista**. Con tres
+niveles distintos no lo sería: `'BR 5'` / `'TO 2'` / `'AP 301'` genera los pares
+`(BR,TO)`, `(BR,AP)` y `(TO,AP)`, y como el `UPDATE` de `esc5` lleva
+`AND id_padre IS NULL`, el padre de `AP` depende de cuál fila gane primero. Al
+dar a los dos hijos el mismo token inicial (`AP`) solo se emparejan contra
+`'BR 5'`, porque `esc5` exige `a.nomenclatura_pri <> b.nomenclatura_pri`.
+
+Lo que certifica, en un solo arquetipo:
+
+| | |
+|---|---|
+| Un padre con **varios** hijos | el legado agrupa por padre y agrega todos sus hijos |
+| Deduplicación por `nomen` | `AP` lo aportan los **dos** hijos; se conserva uno, el del hijo de menor `cod_dw_persona_ubic` |
+| Orden por `nivel_complemento` | `TO`(4) → `CS`(5) → `AP`(7) |
+| El complemento del padre se **conserva** | `'BR 5'` encabeza, no se re-ordena todo |
 
 ## ARQ 56 — GEO con coordenadas
 
@@ -200,7 +245,7 @@ generar `Ubicacion_Candidata`**, porque el predicado exige
 
 La matriz de R2 tampoco es una predicción. Se simuló la **cascada completa**
 —los seis escenarios en orden, con su tabla de trabajo y su marcado de estado—
-sobre los 30 arquetipos en FULL y en DELTA. Cada arquetipo resultó consumido por
+sobre los 35 arquetipos en FULL y en DELTA. Cada arquetipo resultó consumido por
 el escenario previsto (`vía esc1`… `vía esc6`), sin que ninguno fuera capturado
 por un escenario anterior.
 
@@ -209,11 +254,12 @@ por un escenario anterior.
 | | FULL | DELTA |
 |---|---:|---:|
 | Regla 1 (ARQ 1–20) | 12 000 | 9 000 |
-| Regla 2 (ARQ 21–50) | 35 000 | 28 000 |
+| Regla 2 (ARQ 21–55) | 33 000 | 25 000 |
 | GEO coords (ARQ 56) | 1 000 | 1 000 |
-| **Total** | **48 000** | **38 000** |
+| **Total `unificacion_direccion`** | **46 000** | **35 000** |
+| Direcciones generadas por el motor | 9 000 | 7 000 |
 
-Personas sembradas: **51 000**. Relaciones: **107 000**.
+Personas sembradas: **56 000**. Relaciones: **122 000**.
 
 ## Pendiente
 

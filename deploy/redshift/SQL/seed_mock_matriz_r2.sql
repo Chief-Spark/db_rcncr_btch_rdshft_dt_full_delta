@@ -1,6 +1,6 @@
 -- ============================================================
 -- seed_mock_matriz_r2.sql
--- Matriz de semillas MOCK -- Regla 2 (ARQ 21..50) + GEO con coordenadas (ARQ 56).
+-- Matriz de semillas MOCK -- Regla 2 (ARQ 21..55) + GEO con coordenadas (ARQ 56).
 -- (repo dt / db_rcncr_btch_rdshft_dt)
 -- Codificacion: UTF-8 sin BOM. Nunca GRANT ... TO PUBLIC.
 -- Prerequisito: strct desplegado y seed_mock_matriz.sql ejecutado antes.
@@ -62,18 +62,62 @@
 --   CONSECUENCIA: esc6 empareja la de menor frecuencia contra CADA una de las
 --   empatadas, asi que produce DOS filas -- una hija con dos padres. No es un
 --   error de la semilla: es el comportamiento del escenario.
---   Los tokens 'ZA'/'ZB' se eligen a proposito porque NO estan en el catalogo
---   bdm_stage.nomenclatura: asi nomenclatura_pri queda NULL y esc5 tampoco los
---   captura. El diccionario (bdm_stage.diccionario_complementos) y el catalogo
---   de niveles (bdm_stage.nomenclatura) son tablas distintas.
+--   Los tres complementos arrancan con el MISMO token (CA) para que
+--   nomenclatura_pri sea igual en los tres y esc5 tampoco los capture: esc5
+--   exige a.nomenclatura_pri <> b.nomenclatura_pri. El diccionario
+--   (bdm_stage.diccionario_complementos) y el catalogo de niveles
+--   (bdm_stage.nomenclatura) son tablas distintas.
 --
--- ARQ 51..55 NO SE SIEMBRAN. Estaban reservados para el motor
--- (sp_unificacion_mock_r2_motor_nit_empates_nuevas_direcciones), pero ese SP
--- solo construye tres tablas de staging (stg_mock_motor_keys / _ranked /
--- _insumo) que NADIE consume: las unicas otras referencias en los tres repos
--- son los DROP TABLE del propio orquestador de Regla 2. No escribe en
--- unificacion_direccion ni en ninguna otra tabla observable, de modo que no hay
--- resultado que certificar. Queda como hallazgo para el equipo funcional.
+--   E7 motor              TRES direcciones, CON NIT: 'BR 5' (padre, BR nivel 1),
+--                          'AP 301 TO 2' y 'AP 302 CS 4' (hijos, los dos
+--                          arrancan con AP nivel 7). Certifica el motor de
+--                          direcciones nuevas, que antes era INOBSERVABLE: el
+--                          SP se quedaba en staging y no escribia en ninguna
+--                          tabla. Ahora persiste en
+--                          bdm_datos.direccion_fisica_generada_mock y
+--                          bdm_datos.rpu_generada_mock.
+--
+-- POR QUE E7 ES ASI
+--   El legado crea direcciones nuevas en DOS sitios (PRO_UnificacionR2.sql
+--   lineas 1602 y 3423, los unicos con REC_MTDAT.MAX_ID), al final de las
+--   cadenas E03 y E051, es decir sobre los pares que marcaron esc3 y esc5. Emite
+--   UNA direccion por PADRE agregando TODOS sus hijos, con complemento
+--   COMPLEMENTO_PADRE || NUEVA_NOMENCLATURA.
+--
+--   Para ejercitar el caso de un padre con VARIOS hijos hace falta que los hijos
+--   NO se emparejen entre si. esc5 empareja con
+--   a.nomenclatura_pri <> b.nomenclatura_pri, asi que los dos hijos comparten
+--   token inicial (AP) y solo se emparejan contra 'BR 5'. Con tres niveles
+--   DISTINTOS el arquetipo seria AMBIGUO: 'BR 5'/'TO 2'/'AP 301' genera los
+--   pares (BR,TO), (BR,AP) y (TO,AP), y como el UPDATE de esc5 lleva
+--   'AND id_padre IS NULL' el padre de AP depende de cual fila gane primero.
+--
+--   Asi queda, con un solo padre y dos hijos:
+--     diccionario  BR:v=5,f=1  AP:v=301,f=2  TO:v=2,f=1  CS:v=4,f=1
+--     conteos      'BR 5'=1  'AP 301 TO 2'=3  'AP 302 CS 4'=3
+--                  -> esc4 empata en el maximo (2 filas) y no dispara
+--     esc5         padre 'BR 5' (nivel 1), hijos los dos AP (nivel 7)
+--     aporte nuevo TO y CS de los hijos, mas AP que el padre no tiene.
+--                  AP lo aportan los DOS hijos: se conserva UNO, el del hijo de
+--                  menor cod_dw_persona_ubic (k=2), que es el caso de
+--                  deduplicacion por 'nomen' que se quiere certificar.
+--     resultado    nueva_nomenclatura = 'TO 2 CS 4 AP 301'  (nivel ASC)
+--                  complemento_motor  = 'BR 5 TO 2 CS 4 AP 301'
+--
+--   OJO con la posicion YA_UNIF (pi=5): marca la ULTIMA direccion (k=nk=3,
+--   'AP 302 CS 4') con ind_unificacion = 1 y el filtro de estado la saca del
+--   insumo. A diferencia del resto de arquetipos, el grupo NO se queda sin
+--   pareja porque quedan dos direcciones: sigue generando, pero sin el aporte
+--   de CS -> complemento_motor = 'BR 5 TO 2 AP 301'.
+--
+-- QUE ARQUETIPOS GENERAN DIRECCION (poblacion del motor: n_id en 'L3','E5')
+--   E3 (esc3, 'L3')  los dos complementos tienen el MISMO nomen (AP), el hijo
+--                    no aporta nada -> NO genera.
+--   E5 (esc5, 'E5')  padre 'BR 5', hijo 'AP 301' -> genera 'BR 5 AP 301'.
+--   E7 (esc5, 'E5')  padre con dos hijos -> genera 'BR 5 TO 2 CS 4 AP 301'.
+--   E1, E2, E4, E6   marcan 'H1', 'K2', 'B5' o no marcan: fuera de la poblacion.
+--                    En particular E6 no genera, igual que en el legado, donde
+--                    la cadena E06 no contiene MAX_ID.
 --
 -- RESULTADO ESPERADO (filas en unificacion_direccion_mock por replica;
 -- multiplicar por N). Verificado por simulacion de la cascada completa antes de
@@ -86,6 +130,15 @@
 --   E4 (via esc4)             1      1*     1        1        0
 --   E5 (via esc5)             1      1*     1        1        0
 --   E6 (via esc6)             2      2*     2        2        0
+--   E7 (via esc5)             1      1*     1        1        1
+--
+--   Direcciones generadas por el motor (filas en direccion_fisica_generada_mock
+--   y rpu_generada_mock por replica; una por PADRE):
+--
+--   escenario            DENTRO  FUERA  NULL  CABALLO  YA_UNIF
+--   E5 (padre 'BR 5')         1      1*     1        1        0
+--   E7 (padre 'BR 5')         1      1*     1        1        1
+--   los demas                 0      0      0        0        0
 --
 --   (*) FUERA produce la fila en el FULL pero 0 en el DELTA: la persona no
 --       tiene ninguna relacion en la ventana y no entra al driver.
@@ -175,7 +228,10 @@ FROM (
   SELECT 4, 2, 2, 'AP 301'      , '3' UNION ALL
   SELECT 5, 1, 3, 'CA 1 LT 2'   , '3' UNION ALL
   SELECT 5, 2, 3, 'CA 3 LT 4'   , '3' UNION ALL
-  SELECT 5, 3, 3, 'CA 9'        , '3'
+  SELECT 5, 3, 3, 'CA 9'        , '3' UNION ALL
+  SELECT 6, 1, 3, 'BR 5'        , '3' UNION ALL
+  SELECT 6, 2, 3, 'AP 301 TO 2' , '3' UNION ALL
+  SELECT 6, 3, 3, 'AP 302 CS 4' , '3'
 ) a
 CROSS JOIN (SELECT 1 AS pi UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) p
 CROSS JOIN bdm_stage.mock_numeros n
@@ -244,7 +300,10 @@ FROM (
   SELECT 4, 2, 'AP 301'       UNION ALL
   SELECT 5, 1, 'CA 1 LT 2'    UNION ALL
   SELECT 5, 2, 'CA 3 LT 4'    UNION ALL
-  SELECT 5, 3, 'CA 9'
+  SELECT 5, 3, 'CA 9'          UNION ALL
+  SELECT 6, 1, 'BR 5'          UNION ALL
+  SELECT 6, 2, 'AP 301 TO 2'   UNION ALL
+  SELECT 6, 3, 'AP 302 CS 4'
 ) a
 CROSS JOIN (SELECT 1 AS pi UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) p
 CROSS JOIN bdm_stage.mock_numeros n
