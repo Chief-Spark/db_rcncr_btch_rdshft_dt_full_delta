@@ -1,3 +1,4 @@
+run_unif_convergencia_mock.sql
 validacion_gates_cierre_e2e.sql
 run_reconocer_e2e_unificacion_ordenamiento_delta.sql
 run_reconocer_e2e_unificacion_ordenamiento.sql

@@ -261,8 +261,84 @@ por un escenario anterior.
 
 Personas sembradas: **56 000**. Relaciones: **122 000**.
 
+## Gate de convergencia (M5)
+
+`run_unif_convergencia_mock.sql` corre la secuencia **FULL → DELTA1 → DELTA2 →
+FULL2**, toma una huella del estado tras cada corrida y deja el veredicto en
+`bdm_stage.mock_unif_ca_result`. La cuarta corrida es un FULL de *reproceso* a
+propósito: es la única que detecta si el FULL parte de un insumo limpio.
+
+| Criterio | Qué comprueba |
+|---|---|
+| `CA-C01` | El FULL es reproducible: `FULL2` reconstruye el estado de `FULL` |
+| `CA-C02` | Convergencia de `unificacion_direccion_mock`: `DELTA2` = `DELTA1` |
+| `CA-C03` | Convergencia de `direccion_fisica_generada_mock` |
+| `CA-C04` | Convergencia de `rpu_generada_mock` |
+| `CA-C05` | Sin cascada: las direcciones generadas no crecen entre DELTAs |
+| `CA-C06` | **Un hijo, un padre**: ningún `cod_dw_persona_ubic` con dos padres |
+| `CA-C07` | **Sin padres huérfanos**: todo padre existe como relación |
+| `CA-C08` | La DELTA no altera el estado del FULL: `DELTA1` = `FULL` |
+
+### Lo que el gate reporta hoy, y por qué
+
+El motor persiste la dirección generada con `ind_unificacion` en NULL, y las
+vistas de insumo la exponen con `UNION ALL`. Por lo tanto **vuelve a entrar al
+insumo de la corrida siguiente**. El legado lo tolera porque al final de la
+carga marca los hijos con `IND_UNIFICACION = 1` sobre la tabla real
+(`P0020_UNIFICACION_DIRECCION_130.TPT`, quinta pasada, líneas 281‑292) y el
+filtro de estado del insumo los saca para siempre. En Redshift **no se puede**:
+el datashare es de solo lectura y las vistas exponen `ind_unificacion` como
+`CAST(NULL AS INTEGER)` fijo.
+
+Simulación de la cascada completa sobre E7 (`'BR 5'` padre, `'AP 301 TO 2'` y
+`'AP 302 CS 4'` hijos):
+
+| Corrida | `unificacion_direccion` | Genera |
+|---|---|---|
+| FULL | `u2→u1`, `u3→u1` | `'BR 5 TO 2 CS 4 AP 301'` |
+| DELTA1 | `u1→G`, `u2→G`, `u3→G` | nada |
+| DELTA2 | igual que DELTA1 | nada |
+
+En DELTA1 la dirección **generada se vuelve el padre**: `esc2` captura a
+`'BR 5'` porque es substring del complemento generado, y `esc4` captura a los
+otros dos porque el generado tiene el conteo máximo — su complemento contiene
+*todos* los tokens del grupo.
+
+De ahí tres consecuencias medibles:
+
+1. **Padres duplicados** (`CA-C06`). La Clave_Unificacion es el **par**
+   `(cod_dw_persona_ubic, cod_dw_direccion_unificada)`, así que el UPSERT no
+   impide que una dirección acabe con dos padres: basta que una corrida
+   posterior le asigne otro. Tras DELTA1, `u2` y `u3` tienen `u1` **y** `G`.
+2. **El estado estable no es el del FULL** (`CA-C08`). Converge en dos
+   corridas, pero al estado «todo → G».
+3. **Padres huérfanos** (`CA-C07`, `CA-C01`). Un FULL de reproceso ya no
+   regenera la dirección —su insumo contiene `G`, `esc2`/`esc4` la capturan y
+   `esc5` nunca dispara— así que el motor borra y no reinserta, y
+   `unificacion_direccion` queda apuntando a una dirección que ya no existe.
+
+Estos fallos **no son del gate: son el hallazgo**. El gate se escribió para
+medirlos en vez de suponerlos.
+
+Como parte de M5 sí se corrigió la **secuencia** del FULL: el borrado del
+histórico de direcciones generadas pasó del motor (que corre al final) al paso 6
+del orquestador, antes de preparar el insumo. Mientras vivía en el motor, el
+insumo del propio FULL alcanzaba a ver las generadas de la corrida anterior, de
+modo que un FULL nunca era un reproceso limpio.
+
 ## Pendiente
 
-- Scripts `run_*`, `reset_mock` y gates de validación (fase 5).
-- El motor de nuevas direcciones (ARQ 51–55) sigue sin cubrir mientras no se
-  conecte su salida.
+- Scripts `reset_mock` y gates de validación restantes (fase 5).
+- **Decisión funcional sobre la realimentación.** Tres opciones, de menor a
+  mayor fidelidad:
+  1. Excluir las direcciones generadas del insumo (`generada_enriquecida = 1`
+     fuera). Hace todo idempotente y el estado estable pasa a ser el del FULL,
+     al coste de no unificar nunca el padre contra la dirección generada.
+  2. Reconstruir el marcado de estado del legado en una **tabla propia**
+     (`unif_estado_rpu`), que el insumo consulta en lugar del `ind_unificacion`
+     del datashare. Es literalmente la quinta pasada del TPT reubicada. Es la
+     opción fiel, pero cambia la semántica DELTA de **todos** los arquetipos:
+     tras un FULL los hijos salen del insumo, así que un DELTA inmediato daría
+     ~0 filas nuevas y habría que re-derivar la matriz de certificación.
+  3. Dejarlo como está y documentarlo. No recomendable: `CA-C06` y `CA-C07`
+     describen corrupción acumulativa, no una diferencia cosmética.

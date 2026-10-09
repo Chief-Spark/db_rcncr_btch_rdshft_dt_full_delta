@@ -19,3 +19,4 @@ validacion_ordenamiento_gates_full_delta.sql
 run_reconocer_e2e_unificacion_ordenamiento.sql
 run_reconocer_e2e_unificacion_ordenamiento_delta.sql
 validacion_gates_cierre_e2e.sql
+run_unif_convergencia_mock.sql
