@@ -17,4 +17,5 @@ run_unificacion_mock_ejecucion_secuencial.sql
 run_unificacion_delta.sql
 run_unificacion_full.sql
 run_unificacion_ejecucion_secuencial.sql
+seed_mock_matriz_r2.sql
 seed_mock_matriz.sql

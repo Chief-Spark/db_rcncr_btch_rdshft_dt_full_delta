@@ -1,0 +1,321 @@
+-- ============================================================
+-- seed_mock_matriz_r2.sql
+-- Matriz de semillas MOCK -- Regla 2 (ARQ 21..50) + GEO con coordenadas (ARQ 56).
+-- (repo dt / db_rcncr_btch_rdshft_dt)
+-- Codificacion: UTF-8 sin BOM. Nunca GRANT ... TO PUBLIC.
+-- Prerequisito: strct desplegado y seed_mock_matriz.sql ejecutado antes.
+-- Spec: unificacion-full-delta -- certificacion con datos mock
+-- ------------------------------------------------------------
+-- SLCOPRBA-1356. Continuacion de seed_mock_matriz.sql (Regla 1, ARQ 1..20);
+-- mismo esquema de identificadores y mismas 5 posiciones respecto al Watermark.
+--
+-- LA CASCADA DE REGLA 2 (lo que condiciona todo este diseno)
+--   Los escenarios de R2 NO son independientes. Se ejecutan en orden
+--       esc1 -> esc2 -> esc3 -> esc4 -> esc5 -> esc6
+--   sobre una tabla de trabajo compartida: esc3..esc6 leen
+--       bdm_tempo.stg_mock_regla2_e2 WHERE ind_unificacion = 'N'
+--   es decir, SOLO lo que los escenarios anteriores no consumieron, y cada uno
+--   marca 'S' lo que toma. Por eso cada arquetipo debe ser INMUNE a todos los
+--   escenarios previos: si cumple el predicado de uno anterior, lo captura ese
+--   y el resultado esperado documentado deja de valer.
+--
+-- PREDICADO BASE, COMUN A LOS SEIS (el emparejamiento):
+--   misma persona, mismo texto_ubicacion, MISMO cod_dw_tipo_ubicacion_dir,
+--   mismo municipio, distinto cod_dw_persona_ubic.
+--   Nota: R2 exige tipo de ubicacion IGUAL, al reves que R1, que lo exige
+--   DISTINTO. Por eso todos los arquetipos de R2 usan RES (1) en todas sus
+--   direcciones: eso por si solo los hace inmunes a Regla 1.
+--
+-- DISCRIMINANTE Y BLINDAJE DE CADA ARQUETIPO
+--   E1 complemento vacio   padre 'AP 301' / hija ''            primero en la
+--                          cadena: no necesita blindaje.
+--   E2 substring           padre 'TO 1 AP 502' / hija 'TO 1'   inmune a esc1:
+--                          ambos complementos no vacios.
+--   E3 misma nomenclatura  'AP 201' / 'AP 202', SIN NIT        inmune a esc1
+--                          (no vacios) y a esc2 (ninguno es substring del otro).
+--   E4 diccionario         'OF 301' (frec 9) / 'LC 2' (frec 1), CON NIT
+--                          inmune a esc3 por dos vias: nomenclaturas distintas
+--                          (OF vs LC) y cod_tipo_ident_fte = '3'.
+--   E5 nivel nomenclatura  'BR 5' (nivel 1) / 'AP 301' (nivel 7), CON NIT,
+--                          SIN filas en el diccionario -> ambos con conteo 0,
+--                          empatan, y esc4 exige ganador UNICO
+--                          (HAVING COUNT(*) = 1): por eso esc4 no lo captura.
+--                          En esc5 gana el de MENOR nivel, que queda de padre.
+--   E6 frecuencia gana     TRES direcciones: 'ZA 1' (frec 10), 'ZA 2' (frec 10)
+--                          y 'ZB 9' (frec 3), CON NIT.
+--
+-- POR QUE E6 NECESITA TRES DIRECCIONES (y no dos)
+--   esc4 y esc6 leen LA MISMA fuente de frecuencia. Con dos direcciones de
+--   frecuencia distinta, esc4 siempre encuentra un maximo unico y dispara
+--   primero, de modo que esc6 nunca llega a ejecutarse: con grupos de dos
+--   direcciones el escenario 6 es INALCANZABLE. Para que esc4 no dispare hace
+--   falta un EMPATE en el maximo, y para que esc6 si lo haga, alguien por
+--   debajo. De ahi las tres direcciones: 10, 10 y 3.
+--   CONSECUENCIA: esc6 empareja la de menor frecuencia contra CADA una de las
+--   empatadas, asi que produce DOS filas -- una hija con dos padres. No es un
+--   error de la semilla: es el comportamiento del escenario.
+--   Los tokens 'ZA'/'ZB' se eligen a proposito porque NO estan en el catalogo
+--   bdm_stage.nomenclatura: asi nomenclatura_pri queda NULL y esc5 tampoco los
+--   captura. El diccionario (bdm_stage.diccionario_complementos) y el catalogo
+--   de niveles (bdm_stage.nomenclatura) son tablas distintas.
+--
+-- ARQ 51..55 NO SE SIEMBRAN. Estaban reservados para el motor
+-- (sp_unificacion_mock_r2_motor_nit_empates_nuevas_direcciones), pero ese SP
+-- solo construye tres tablas de staging (stg_mock_motor_keys / _ranked /
+-- _insumo) que NADIE consume: las unicas otras referencias en los tres repos
+-- son los DROP TABLE del propio orquestador de Regla 2. No escribe en
+-- unificacion_direccion ni en ninguna otra tabla observable, de modo que no hay
+-- resultado que certificar. Queda como hallazgo para el equipo funcional.
+--
+-- RESULTADO ESPERADO (filas en unificacion_direccion_mock por replica;
+-- multiplicar por N). Verificado por simulacion de la cascada completa antes de
+-- escribir este archivo: cada arquetipo es consumido por el escenario previsto.
+--
+--   escenario            DENTRO  FUERA  NULL  CABALLO  YA_UNIF
+--   E1 (via esc1)             1      1*     1        1        0
+--   E2 (via esc2)             1      1*     1        1        0
+--   E3 (via esc3)             1      1*     1        1        0
+--   E4 (via esc4)             1      1*     1        1        0
+--   E5 (via esc5)             1      1*     1        1        0
+--   E6 (via esc6)             2      2*     2        2        0
+--
+--   (*) FUERA produce la fila en el FULL pero 0 en el DELTA: la persona no
+--       tiene ninguna relacion en la ventana y no entra al driver.
+--   YA_UNIF marca la ULTIMA direccion del grupo (la hija) con
+--   ind_unificacion = 1; el filtro de estado del legado la saca del insumo y el
+--   grupo se queda sin pareja. En E6 eso deja a 'ZA 1' y 'ZA 2' empatadas, de
+--   modo que ni esc4 ni esc6 disparan: 0 filas, igual que el resto.
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- Limpieza idempotente del rango que posee este script:
+-- ARQ 21..50 (Regla 2) y ARQ 56 (GEO con coordenadas).
+-- ------------------------------------------------------------
+DELETE FROM bdm_stage.contacto_canal                 WHERE id_buro_persona BETWEEN 9210000 AND 9560999;
+DELETE FROM bdm_stage.diccionario_complementos       WHERE id_buro_persona BETWEEN 9210000 AND 9560999;
+DELETE FROM bdm_stage.ciiu_persona                   WHERE id_buro_persona BETWEEN 9210000 AND 9560999;
+DELETE FROM bdm_stage.reporte_relacion_persona_ubica WHERE cod_dw_persona_ubic BETWEEN 92100000 AND 95609999;
+DELETE FROM bdm_stage.direccion_fisica               WHERE cod_dw_direccion_fisica BETWEEN 92100000 AND 95609999;
+DELETE FROM bdm_stage.ubicacion_estandarizada        WHERE cod_dw_ubic BETWEEN 92100000 AND 95609999;
+DELETE FROM bdm_stage.relacion_persona_ubicacion     WHERE id_buro_persona BETWEEN 9210000 AND 9560999;
+
+-- ============================================================
+-- 0) CATALOGO DE NOMENCLATURAS
+-- ------------------------------------------------------------
+-- 02a crea bdm_stage.nomenclatura pero NO la siembra, y la quiere vacia no
+-- sirve: esc3 la usa para exigir misma nomenclatura inicial y esc5 para
+-- comparar niveles. Se siembran los mismos 12 valores que
+-- bdm_datos.nomenclatura (01_ddl_unificacion_direccion.sql), de modo que la via
+-- mock y la real compartan la misma jerarquia.
+-- Menor nivel = mas general (BR barrio = 1) y es el que queda de PADRE;
+-- mayor nivel = mas especifico (AP apartamento = 7) y queda de hija.
+-- ============================================================
+DELETE FROM bdm_stage.nomenclatura;
+INSERT INTO bdm_stage.nomenclatura (nomenclatura, nivel_complemento)
+SELECT v.nomenclatura, v.nivel_complemento
+FROM (
+  SELECT 'TO' AS nomenclatura, 4 AS nivel_complemento UNION ALL
+  SELECT 'AP', 7 UNION ALL SELECT 'CS', 5 UNION ALL SELECT 'LC', 3 UNION ALL
+  SELECT 'OF', 6 UNION ALL SELECT 'BL', 2 UNION ALL SELECT 'IN', 8 UNION ALL
+  SELECT 'ED', 2 UNION ALL SELECT 'BR', 1 UNION ALL SELECT 'MZ', 3 UNION ALL
+  SELECT 'CA', 4 UNION ALL SELECT 'LT', 5
+) v;
+
+-- ============================================================
+-- 1) RELACIONES: una fila por (arquetipo, replica, direccion)
+-- ------------------------------------------------------------
+-- 'arqdir' define las direcciones de cada escenario (la ULTIMA de cada grupo es
+-- la hija) y 'pos' las cinco posiciones respecto al Watermark.
+--   ARQ = 21 + esc_idx * 5 + (pi - 1)
+-- Todas las direcciones usan cod_dw_tipo_ubicacion_dir = 1 (RES): R2 exige tipo
+-- IGUAL y eso las hace inmunes a Regla 1, que lo exige distinto.
+-- ============================================================
+INSERT INTO bdm_stage.relacion_persona_ubicacion (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, cod_dw_ubic,
+  cod_dw_direccion_fisica, cod_dw_tipo_ubicacion_dir, ind_unificacion,
+  orden_prioridad, fecha_relacion_persona_ubicaci, lote, cod_tipo_ident_fte
+)
+SELECT
+  (9000000 + (21 + a.esc_idx * 5 + p.pi - 1) * 10000 + n.i) * 10 + a.k AS cod_dw_persona_ubic,
+   9000000 + (21 + a.esc_idx * 5 + p.pi - 1) * 10000 + n.i             AS id_buro_persona,
+   9000000 + (21 + a.esc_idx * 5 + p.pi - 1) * 10000 + n.i             AS cod_pin_persona,
+  (9000000 + (21 + a.esc_idx * 5 + p.pi - 1) * 10000 + n.i) * 10 + 1   AS cod_dw_ubic,
+  (9000000 + (21 + a.esc_idx * 5 + p.pi - 1) * 10000 + n.i) * 10 + a.k AS cod_dw_direccion_fisica,
+  1                                                                    AS cod_dw_tipo_ubicacion_dir,
+  CASE WHEN p.pi = 5 AND a.k = a.nk THEN 1 ELSE NULL END               AS ind_unificacion,
+  a.k                                                                  AS orden_prioridad,
+  CASE p.pi
+    WHEN 2 THEN CAST('2024-01-15' AS DATE)
+    WHEN 3 THEN CAST(NULL AS DATE)
+    WHEN 4 THEN CASE WHEN a.k = 1 THEN CAST('2026-03-01' AS DATE) ELSE CAST('2024-01-15' AS DATE) END
+    ELSE        CAST('2026-03-01' AS DATE)
+  END                                                                  AS fecha_relacion_persona_ubicaci,
+  1356301                                                              AS lote,
+  a.nit                                                                AS cod_tipo_ident_fte
+FROM (
+  --  esc_idx  k  nk  complemento      nit
+  SELECT 0 AS esc_idx, 1 AS k, 2 AS nk, 'AP 301'      AS complemento, '1' AS nit UNION ALL
+  SELECT 0, 2, 2, ''            , '1' UNION ALL
+  SELECT 1, 1, 2, 'TO 1 AP 502' , '1' UNION ALL
+  SELECT 1, 2, 2, 'TO 1'        , '1' UNION ALL
+  SELECT 2, 1, 2, 'AP 201'      , '1' UNION ALL
+  SELECT 2, 2, 2, 'AP 202'      , '1' UNION ALL
+  SELECT 3, 1, 2, 'OF 301'      , '3' UNION ALL
+  SELECT 3, 2, 2, 'LC 2'        , '3' UNION ALL
+  SELECT 4, 1, 2, 'BR 5'        , '3' UNION ALL
+  SELECT 4, 2, 2, 'AP 301'      , '3' UNION ALL
+  SELECT 5, 1, 3, 'ZA 1'        , '3' UNION ALL
+  SELECT 5, 2, 3, 'ZA 2'        , '3' UNION ALL
+  SELECT 5, 3, 3, 'ZB 9'        , '3'
+) a
+CROSS JOIN (SELECT 1 AS pi UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) p
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+-- ============================================================
+-- 2) ARQUETIPO 56: GEO CON COORDENADAS (control negativo del Exportador_GEO)
+-- ------------------------------------------------------------
+-- Misma forma que E1 (unifica via esc1), pero su ubicacion SI trae
+-- latitud/longitud. Debe producir su fila de unificacion y NO generar
+-- Ubicacion_Candidata: el predicado de candidatos exige
+-- (sin fila en geo_atributos OR latitud IS NULL OR longitud IS NULL).
+-- ============================================================
+INSERT INTO bdm_stage.relacion_persona_ubicacion (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, cod_dw_ubic,
+  cod_dw_direccion_fisica, cod_dw_tipo_ubicacion_dir, ind_unificacion,
+  orden_prioridad, fecha_relacion_persona_ubicaci, lote, cod_tipo_ident_fte
+)
+SELECT
+  (9560000 + n.i) * 10 + a.k, 9560000 + n.i, 9560000 + n.i,
+  (9560000 + n.i) * 10 + 1,   (9560000 + n.i) * 10 + a.k, 1, NULL, a.k,
+  CAST('2026-03-01' AS DATE), 1356301, '1'
+FROM (SELECT 1 AS k, 'AP 301' AS complemento UNION ALL SELECT 2, '') a
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+-- ============================================================
+-- 3) UBICACION (una por persona). Coordenadas NULL salvo el ARQ 56.
+-- ============================================================
+INSERT INTO bdm_stage.ubicacion_estandarizada (
+  cod_dw_ubic, texto_ubicacion, cod_dw_ciudad, municipio, departamento, latitud, longitud
+)
+SELECT DISTINCT
+  rpu.cod_dw_ubic,
+  'CL ' || CAST(100 + (rpu.id_buro_persona - 9000000) / 10000 AS VARCHAR)
+        || ' # ' || CAST(rpu.id_buro_persona AS VARCHAR) || ' - 20',
+  11001, 'BOGOTA D.C.', 'CUNDINAMARCA',
+  CASE WHEN rpu.id_buro_persona BETWEEN 9560000 AND 9560999
+       THEN CAST( 4.60971000 AS DECIMAL(12,8)) ELSE CAST(NULL AS DECIMAL(12,8)) END,
+  CASE WHEN rpu.id_buro_persona BETWEEN 9560000 AND 9560999
+       THEN CAST(-74.08175000 AS DECIMAL(12,8)) ELSE CAST(NULL AS DECIMAL(12,8)) END
+FROM bdm_stage.relacion_persona_ubicacion rpu
+WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999;
+
+-- ============================================================
+-- 4) DIRECCION FISICA: aqui vive el COMPLEMENTO, que es el criterio de R2.
+-- ============================================================
+INSERT INTO bdm_stage.direccion_fisica (
+  cod_dw_direccion_fisica, complemento, cod_dw_ubic, generada_enriquecida
+)
+SELECT
+  (9000000 + (21 + a.esc_idx * 5 + p.pi - 1) * 10000 + n.i) * 10 + a.k,
+  a.complemento,
+  (9000000 + (21 + a.esc_idx * 5 + p.pi - 1) * 10000 + n.i) * 10 + 1,
+  0
+FROM (
+  SELECT 0 AS esc_idx, 1 AS k, 'AP 301'      AS complemento UNION ALL
+  SELECT 0, 2, ''             UNION ALL
+  SELECT 1, 1, 'TO 1 AP 502'  UNION ALL
+  SELECT 1, 2, 'TO 1'         UNION ALL
+  SELECT 2, 1, 'AP 201'       UNION ALL
+  SELECT 2, 2, 'AP 202'       UNION ALL
+  SELECT 3, 1, 'OF 301'       UNION ALL
+  SELECT 3, 2, 'LC 2'         UNION ALL
+  SELECT 4, 1, 'BR 5'         UNION ALL
+  SELECT 4, 2, 'AP 301'       UNION ALL
+  SELECT 5, 1, 'ZA 1'         UNION ALL
+  SELECT 5, 2, 'ZA 2'         UNION ALL
+  SELECT 5, 3, 'ZB 9'
+) a
+CROSS JOIN (SELECT 1 AS pi UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) p
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+INSERT INTO bdm_stage.direccion_fisica (
+  cod_dw_direccion_fisica, complemento, cod_dw_ubic, generada_enriquecida
+)
+SELECT (9560000 + n.i) * 10 + a.k, a.complemento, (9560000 + n.i) * 10 + 1, 0
+FROM (SELECT 1 AS k, 'AP 301' AS complemento UNION ALL SELECT 2, '') a
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+-- ============================================================
+-- 5) DICCIONARIO DE COMPLEMENTOS (frecuencias de esc4 y esc6)
+-- ------------------------------------------------------------
+-- Solo para los arquetipos que lo necesitan. E5 queda deliberadamente FUERA:
+-- sin filas aqui sus dos direcciones empatan en conteo 0 y esc4 no las captura,
+-- que es lo que deja que llegue a esc5.
+-- El join de los SP es
+--   dc.cod_dw_ubic = a.cod_dw_ubic AND dc.id_buro_persona = a.id_buro_persona
+--   AND a.complemento LIKE '%' || dc.nomenclatura || '%'
+-- por lo que 'nomenclatura' aqui es el TEXTO a buscar dentro del complemento,
+-- no una entrada del catalogo de niveles.
+-- ============================================================
+INSERT INTO bdm_stage.diccionario_complementos (
+  id_buro_persona, cod_dw_ubic, nomenclatura, frecuencia
+)
+SELECT
+   9000000 + (21 + a.esc_idx * 5 + p.pi - 1) * 10000 + n.i,
+  (9000000 + (21 + a.esc_idx * 5 + p.pi - 1) * 10000 + n.i) * 10 + 1,
+  a.complemento,
+  a.frecuencia
+FROM (
+  SELECT 3 AS esc_idx, 'OF 301' AS complemento,  9 AS frecuencia UNION ALL
+  SELECT 3, 'LC 2',  1 UNION ALL
+  SELECT 5, 'ZA 1', 10 UNION ALL
+  SELECT 5, 'ZA 2', 10 UNION ALL
+  SELECT 5, 'ZB 9',  3
+) a
+CROSS JOIN (SELECT 1 AS pi UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) p
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+-- ============================================================
+-- 6) REPORTES, CIIU Y CONTACTOS
+-- ------------------------------------------------------------
+-- numero_entidades_reportan no es criterio en R2; una entidad por relacion.
+-- El CIIU se fija en '99' (no esta en 10 / 81 / 82 / 90): esos arquetipos
+-- caerian en el escenario 3 de Regla 1, pero R1 exige tipo de ubicacion
+-- DISTINTO y aqui todas las direcciones son RES, asi que R1 no los toca. El
+-- valor se deja explicito para que la inmunidad sea visible en los datos.
+-- ============================================================
+INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
+  cod_dw_persona_ubic, id_buro_suscriptor, fecha_reporte
+)
+SELECT rpu.cod_dw_persona_ubic, 1001, CAST('2026-02-01' AS DATE)
+FROM bdm_stage.relacion_persona_ubicacion rpu
+WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999;
+
+INSERT INTO bdm_stage.ciiu_persona (id_buro_persona, cod_act_econo_ciiu_fte)
+SELECT DISTINCT rpu.id_buro_persona, '99'
+FROM bdm_stage.relacion_persona_ubicacion rpu
+WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999;
+
+INSERT INTO bdm_stage.contacto_canal (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, contact_type,
+  valor_contacto, texto_ubicacion_vinculo, cod_dane_ciudad, fecha_contacto,
+  id_buro_suscriptor
+)
+SELECT
+  rpu.cod_dw_persona_ubic, rpu.id_buro_persona, rpu.cod_pin_persona, c.contact_type,
+  CASE c.contact_type
+    WHEN '4'  THEN '601' || LPAD(CAST(rpu.id_buro_persona % 10000000 AS VARCHAR), 7, '0')
+    WHEN '9'  THEN '310' || LPAD(CAST(rpu.id_buro_persona % 10000000 AS VARCHAR), 7, '0')
+    ELSE           'mock' || CAST(rpu.id_buro_persona AS VARCHAR) || '@gmail.com'
+  END,
+  ubi.texto_ubicacion, 11001, CAST('2026-02-15' AS DATE), 1001
+FROM bdm_stage.relacion_persona_ubicacion rpu
+JOIN bdm_stage.ubicacion_estandarizada ubi ON ubi.cod_dw_ubic = rpu.cod_dw_ubic
+CROSS JOIN (SELECT '4' AS contact_type UNION ALL SELECT '9' UNION ALL SELECT '10') c
+WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999
+  AND rpu.cod_dw_persona_ubic % 10 = 1;
