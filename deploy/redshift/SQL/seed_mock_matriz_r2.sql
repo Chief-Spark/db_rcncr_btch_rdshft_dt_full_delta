@@ -390,7 +390,32 @@ WHERE n.i < 1000;
 -- ============================================================
 -- 6) REPORTES, CIIU Y CONTACTOS
 -- ------------------------------------------------------------
--- numero_entidades_reportan no es criterio en R2; una entidad por relacion.
+-- SLCOPRBA-1356: una entidad base por relacion, MAS una segunda entidad para
+-- el padre de esc3. Antes este comentario decia "numero_entidades_reportan no
+-- es criterio en R2" y eso era FALSO: esc3 elige al padre por ID, y
+--
+--   ID = fecha_relacion_como_numero + numero_entidades_reportan + 10000000
+--
+-- (Tmp_Unificacion_E03_A, linea 530 de PRO_UnificacionR2.sql). El par se forma
+-- en Tmp_Unificacion_E03_E1 con 'A.ID > B.ID' (linea 607), comparacion
+-- ESTRICTA que el codigo reproduce fielmente. Con una sola entidad en todo el
+-- mock, el ID quedaba determinado solo por la fecha, y en las posiciones
+-- DENTRO, FUERA y NULL las dos direcciones del arquetipo comparten fecha: IDs
+-- identicos, la desigualdad falla en los dos sentidos y NO se forma par. Por
+-- eso ARQ 31, 32 y 33 daban 0 en el job #302 mientras ARQ 34 (CABALLO, fechas
+-- distintas) si unificaba. El defecto estaba en el fixture, no en la logica.
+--
+-- El empate perfecto NO unifica, y eso es comportamiento legitimo del legado;
+-- lo que no era legitimo es que el fixture lo provocara en tres posiciones que
+-- existen para probar la VENTANA, no el desempate.
+--
+-- La segunda entidad va al k = 1 de esc_idx = 2, que es el padre que la semilla
+-- ya documenta ("la ULTIMA de cada grupo es la hija", nk = 2). Con eso el padre
+-- gana por entidades en las tres posiciones de fecha igual, y en CABALLO sigue
+-- ganando -- ya ganaba por fecha -- de modo que el padre es el mismo en las
+-- cuatro. El alcance esta acotado a las personas de ARQ 31..35 para no mover el
+-- ID de ningun otro escenario ni el id_orden del motor.
+--
 -- El CIIU se fija en '99' (no esta en 10 / 81 / 82 / 90): esos arquetipos
 -- caerian en el escenario 3 de Regla 1, pero R1 exige tipo de ubicacion
 -- DISTINTO y aqui todas las direcciones son RES, asi que R1 no los toca. El
@@ -402,6 +427,18 @@ INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
 SELECT rpu.cod_dw_persona_ubic, 1001, CAST('2026-02-01' AS DATE)
 FROM bdm_stage.relacion_persona_ubicacion rpu
 WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999;
+
+-- Segunda entidad SOLO para el padre de esc3 (ARQ 31..35, k = 1).
+-- k = 1 es la direccion cuyo cod_dw_persona_ubic coincide con su cod_dw_ubic,
+-- porque ambos se construyen como (persona * 10 + 1).
+-- ARQ 31 -> personas 9310000..9310999 ; ARQ 35 -> 9350000..9350999.
+INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
+  cod_dw_persona_ubic, id_buro_suscriptor, fecha_reporte
+)
+SELECT rpu.cod_dw_persona_ubic, 1002, CAST('2026-02-15' AS DATE)
+FROM bdm_stage.relacion_persona_ubicacion rpu
+WHERE rpu.id_buro_persona BETWEEN 9310000 AND 9350999
+  AND rpu.cod_dw_persona_ubic = rpu.cod_dw_ubic;
 
 INSERT INTO bdm_stage.ciiu_persona (id_buro_persona, cod_act_econo_ciiu_fte)
 SELECT DISTINCT rpu.id_buro_persona, '99'

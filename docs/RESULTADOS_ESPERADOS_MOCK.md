@@ -157,6 +157,28 @@ todas las direcciones de R2 usan RES, lo que por sí solo las hace inmunes a R1.
 | 46–50 | E6 vía `esc6` | `'CA 1 LT 2'` (5) / `'CA 3 LT 4'` (5) / `'CA 9'` (3), con NIT | empate en el máximo → `esc4` no dispara; las tres arrancan con `CA` (mismo nivel) → `esc5` tampoco |
 | 51–55 | E7 vía **`X4`**, certifica el **motor** | `'AP 9'` (padre) / `'AP 301 TO 2 CS 4'` / `'AP 302 TO 5'` (hijos), las tres con `AP` inicial y con NIT | corre antes de `esc4`; `'AP 9'` no es substring de ningún hijo, así que `esc2` no lo consume |
 
+> **`esc3` exige `ID` distinto entre las dos direcciones.** Elige al padre con
+> `A.ID > B.ID` (comparación **estricta**, `Tmp_Unificacion_E03_E1`, línea 607
+> de `PRO_UnificacionR2.sql`), donde
+>
+> ```
+> ID = fecha_relacion_como_numero + numero_entidades_reportan + 10000000
+> ```
+>
+> Una fecha y un día más pesan lo mismo que una entidad reportando más: ambos
+> suman 1. Con un empate perfecto de `ID` la desigualdad falla en los dos
+> sentidos y **no se forma par** — comportamiento legítimo del legado, que
+> además calcula `COUNT_EMPATE` / `EMPATE` para detectarlo y deja el
+> `QUALIFY EMPATE=1` comentado.
+>
+> Por eso la semilla le da al padre de estos arquetipos (`k = 1`, `'AP 201'`)
+> una **segunda entidad reportando**. Sin ella, DENTRO, FUERA y NULL comparten
+> fecha, los `ID` quedan idénticos y `esc3` no dispara: así salieron 0 en el
+> job #302, mientras CABALLO —la única posición con fechas distintas— sí
+> unificaba. El empate perfecto es un caso real que vale certificar, pero con
+> su propio arquetipo; estas cuatro posiciones existen para probar la
+> **ventana**, no el desempate.
+
 Filas por réplica:
 
 | Escenario | DENTRO | FUERA | NULL | CABALLO | YA_UNIF |
