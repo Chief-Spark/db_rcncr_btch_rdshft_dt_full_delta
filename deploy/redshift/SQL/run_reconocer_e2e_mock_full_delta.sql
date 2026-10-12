@@ -66,7 +66,7 @@ CALL bdm_datos.sp_ordenamiento_ejecucion_mock(CAST('' AS VARCHAR(256)), CAST('' 
 -- ------------------------------------------------------------
 -- (2) DELTA sobre datos SIN MUTAR. Debe dar CERO filas nuevas: es la prueba de
 -- idempotencia, y la que demuestra que el filtro de estado funciona. Antes de
--- M7 esta corrida re-procesaba las 55 000.
+-- M7 esta corrida re-procesaba las 51 000.
 -- ------------------------------------------------------------
 CALL bdm_datos.sp_unificacion_mock_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('DELTA' AS VARCHAR(256)), CAST('1356602' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
 CALL bdm_datos.sp_unificacion_mock_gate_arq(CAST('DELTA1' AS VARCHAR(16)), 1356602);

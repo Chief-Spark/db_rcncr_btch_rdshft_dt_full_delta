@@ -58,19 +58,28 @@
 --   primero, de modo que esc6 nunca llega a ejecutarse: con grupos de dos
 --   direcciones el escenario 6 es INALCANZABLE. Para que esc4 no dispare hace
 --   falta un EMPATE en el maximo, y para que esc6 si lo haga, alguien por
---   debajo. De ahi las tres direcciones: 10, 10 y 3.
---   CONSECUENCIA: esc6 empareja la de menor frecuencia contra CADA una de las
---   empatadas, asi que produce DOS filas -- una hija con dos padres. No es un
---   error de la semilla: es el comportamiento del escenario.
+--   debajo. De ahi las tres direcciones: 5, 5 y 3.
 --   Los tres complementos arrancan con el MISMO token (CA) para que
 --   nomenclatura_pri sea igual en los tres y esc5 tampoco los capture: esc5
 --   exige a.nomenclatura_pri <> b.nomenclatura_pri. El diccionario
 --   (bdm_stage.diccionario_complementos) y el catalogo de niveles
 --   (bdm_stage.nomenclatura) son tablas distintas.
 --
---   E7 motor NIT          TRES direcciones, CON NIT, las tres arrancan con la
---                          MISMA nomenclatura (AP): 'AP 9' (padre),
---                          'AP 301 TO 2 CS 4' y 'AP 302 TO 5' (hijos).
+--   CUANTAS FILAS PRODUCE. 'CA 1 LT 2' y 'CA 3 LT 4' empatan en el maximo y
+--   ninguna puede ser hija de la otra; solo 'CA 9' tiene por encima a alguien
+--   estrictamente mayor. Tras SLCOPRBA-1355 (C) esc6 deja UN SOLO padre por
+--   hija, asi que el arquetipo produce UNA fila: 'CA 9' contra 'CA 1 LT 2'.
+--   Antes producia dos -- la misma hija contra CADA una de las empatadas -- y
+--   eso era un dato corrupto, no el comportamiento del escenario.
+--
+--   LO QUE E6 TODAVIA NO CERTIFICA: con que criterio el legado rompe el empate
+--   5/5. La frecuencia no lo rompe, y el 'esc6' del legado no es un escenario
+--   de emparejamiento sino el SITIO 2 de creacion de direcciones (ver abajo).
+--   Hasta decodificar ese pivote, el arquetipo mide una fila consistente y
+--   declara que falta la otra.
+--   E7 motor NIT           TRES direcciones, CON NIT, las tres arrancan con la
+--                          MISMA nomenclatura (TO): 'TO 2 CS 4' (padre),
+--                          'TO 9 AP 1' y 'TO 7 AP 1' (hijas).
 --                          Certifica el motor de direcciones nuevas, sitio 1
 --                          del legado (marca 'X4').
 --
@@ -82,41 +91,68 @@
 --   mas el auto-join de Tmp_Unificacion_E03_B (linea 703): mismo grupo,
 --   complemento distinto y MISMA nomenclatura inicial. Es el complemento exacto
 --   de esc3, que resuelve "SIN NIT, misma nomenclatura" uniendo contra un padre
---   real. De ahi que las tres direcciones arranquen con AP y lleven NIT.
+--   real. De ahi que las tres direcciones arranquen con TO y lleven NIT.
 --
---   El padre es el de ORDEN 1 por el ID del legado (linea 712), que combina
---   Fecha_Relacion_Persona_Ubicaci y Numero_entidades_que_Reportan. En la
---   semilla las tres direcciones de una persona comparten fecha y entidades, de
---   modo que desempata cod_dw_persona_ubic y el padre es SIEMPRE k=1.
+--   QUIEN ES EL PADRE: el de MAYOR JERARQUIA por MDIR, no el de fecha mas
+--   antigua. Tmp_Unificacion_E031_codigo (linea 1491) -- de donde sale
+--   COMPLEMENTO_PADRE -- se arma FROM Tmp_Unificacion_E051_P (el padre) LEFT
+--   JOIN Tmp_Unificacion_E051_H (la hija), y E051_P (linea 1337) es
+--   ROW_NUMBER() OVER (... ORDER BY MDIR, ORDEN) = 1: MDIR primero, la fecha
+--   solo como desempate.
 --
---   'AP 9' como padre y no 'AP 301': 'AP 301' ES substring de
---   'AP 301 TO 2 CS 4', y esc2 corre ANTES del motor, asi que se lo comeria.
+--   QUE ES MDIR (linea 891, "ID para identificar la direccion de mayor
+--   jerarquia"): el SQL dinamico de Tmp_Unificacion_E03_Bx pivota los
+--   componentes de cada direccion y ordena ASCENDENTE por el nivel del 1er
+--   componente mas bajo, el del 2o, el del 3o..., rellenando con 99 los slots
+--   que la direccion no tiene. El relleno con 99 manda al FINAL a las
+--   direcciones con POCOS componentes, de modo que MDIR = 1 es la direccion
+--   con MAS componentes y de nivel MAS BAJO: la mas RICA.
+--
+--   POR ESO ESTE ARQUETIPO CAMBIO. Hasta SLCOPRBA-1355 era 'AP 9' (padre) /
+--   'AP 301 TO 2 CS 4' / 'AP 302 TO 5', construido sobre la premisa de que el
+--   padre es el complemento mas POBRE y las hijas lo enriquecen. Con MDIR leido
+--   bien el padre habria sido 'AP 301 TO 2 CS 4' -- la mas rica -- y entonces
+--   NINGUNA hija puede aportarle nada: el motor no generaria nunca y el
+--   arquetipo no certificaria nada. El arquetipo tiene que tener al padre
+--   arriba en la jerarquia Y una hija con un componente que al padre le falte.
 --
 --   Lo que certifica, en un solo arquetipo:
---     diccionario  AP:v=9,f=3   TO:v=2,f=2   CS:v=4,f=1
---     padre        'AP 9'            aporta AP
---     hijo k=2     'AP 301 TO 2 CS 4' aporta TO y CS
---     hijo k=3     'AP 302 TO 5'      aporta TO -> ya esta, se DEDUPLICA
---     resultado    nueva_nomenclatura = 'TO 2 CS 4'   (nivel TO=4, CS=5)
---                  complemento_motor  = 'AP 9 TO 2 CS 4'
+--     catalogo     TO=4   CS=5   AP=7
+--     padre        'TO 2 CS 4'   niveles (4,5,99)   <- MDIR 1, la mas rica
+--     hija k=2     'TO 9 AP 1'   niveles (4,7,99)   aporta AP 1
+--     hija k=3     'TO 7 AP 1'   niveles (4,7,99)   aporta AP 1 -> se DEDUPLICA
+--     resultado    nueva_nomenclatura = 'AP 1'
+--                  complemento_motor  = 'TO 2 CS 4 AP 1'
 --     y las TRES direcciones, INCLUIDO EL PADRE, quedan unificadas contra la
 --     generada con n_id = 'X4'. Eso es textual del legado (linea 757):
 --     "este nuevo registro correspondera a la direccion unificada y las dos
 --      direcciones evaluadas deben ser unidas a esta ultima".
 --
+--   Las dos hijas aportan AP con el MISMO valor a proposito: asi el complemento
+--   fusionado NO depende de con que criterio se desempata la deduplicacion, que
+--   el legado resuelve con un XMLAGG ... ORDER BY MDIR DESC que no se porto.
+--
+--   Ningun complemento es substring de otro, de modo que esc2 no se los come
+--   antes de llegar al motor.
+--
 --   OJO con la posicion YA_UNIF (pi=5): marca la ULTIMA direccion (k=nk=3) con
 --   ind_unificacion = 1 y el filtro de estado la saca del insumo. Quedan dos
---   direcciones, el grupo sigue en pie y sigue generando, pero sin el aporte
---   duplicado de TO del tercer hijo: el resultado es el mismo complemento
---   'AP 9 TO 2 CS 4' con DOS filas de unificacion en vez de tres.
---
+--   direcciones, el grupo sigue en pie y sigue generando, y como lo que se
+--   pierde es el aporte DUPLICADO de AP el resultado es el MISMO complemento
+--   'TO 2 CS 4 AP 1' con DOS filas de unificacion en vez de tres.
 -- QUE ARQUETIPOS GENERAN DIRECCION (poblacion del sitio 1: CON NIT, misma
 -- nomenclatura inicial, y que los hijos aporten algo nuevo)
 --   E7               si. Es el unico construido para esta ruta.
---   E6               no, aunque las tres arrancan con CA y llevan NIT: los
---                    hijos no aportan NINGUN componente que el padre no tenga,
---                    de modo que no se crea direccion NI se marca, y el grupo
---                    sigue su camino hasta esc6 como antes.
+--   E6               no, aunque las tres arrancan con CA y llevan NIT. Por
+--                    MDIR el padre es 'CA 1 LT 2' (niveles 4,5; empata con
+--                    'CA 3 LT 4' y desempata el valor, 1 < 3) y ni 'CA 3 LT 4'
+--                    ni 'CA 9' le aportan un componente que no tenga: no se
+--                    crea direccion NI se marca, y el grupo sigue su camino
+--                    hasta esc6.
+--                    Esto es exactamente lo que el job #305 desmintio cuando el
+--                    motor ordenaba al reves: con el padre en 'CA 9' las hijas
+--                    si aportaban LT, E6 generaba, y ARQ 46-49 subian de 1000 a
+--                    3000 filas cada uno.
 --   E4, E5           no: sus nomenclaturas iniciales son distintas (OF/LC,
 --                    BR/AP), asi que no entran al sitio 1.
 --   E1, E2, E3       no: no llevan NIT.
@@ -136,7 +172,7 @@
 --   E3 (via esc3)             1      1*     1        1        0
 --   E4 (via esc4)             1      1*     1        1        0
 --   E5 (via esc5)             1      1*     1        1        0
---   E6 (via esc6)             2      2*     2        2        0
+--   E6 (via esc6)             1      1*     1        1        0
 --   E7 (via X4)               3      3*     3        3        2
 --
 --   E7 produce TRES filas porque el motor unifica el grupo COMPLETO contra la
@@ -147,7 +183,7 @@
 --   y rpu_generada_mock por replica; una por PADRE):
 --
 --   escenario            DENTRO  FUERA  NULL  CABALLO  YA_UNIF
---   E7 (padre 'AP 9')         1      1*     1        1        1
+--   E7 (padre 'TO 2 CS 4')    1      1*     1        1        1
 --   los demas                 0      0      0        0        0
 --
 --   (*) FUERA produce la fila en el FULL pero 0 en el DELTA: la persona no
@@ -156,7 +192,11 @@
 --   ind_unificacion = 1; el filtro de estado del legado la saca del insumo y el
 --   grupo se queda sin pareja. En E6 eso deja a 'CA 1 LT 2' y 'CA 3 LT 4'
 --   empatadas, de modo que ni esc4 ni esc6 disparan: 0 filas, igual que el
---   resto.
+--   resto. En E7 no: el grupo se queda con dos y sigue generando.
+--
+--   TOTAL de la matriz completa (R1 + R2 + GEO), que es lo que mide CA-U02:
+--   51 filas por replica -> 51000. Baja de 55000 porque E6 pasa de 2 filas a 1
+--   en sus cuatro posiciones.
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -245,9 +285,9 @@ FROM (
   SELECT 5, 1, 3, 'CA 1 LT 2'   , '3' UNION ALL
   SELECT 5, 2, 3, 'CA 3 LT 4'   , '3' UNION ALL
   SELECT 5, 3, 3, 'CA 9'        , '3' UNION ALL
-  SELECT 6, 1, 3, 'AP 9'            , '3' UNION ALL
-  SELECT 6, 2, 3, 'AP 301 TO 2 CS 4', '3' UNION ALL
-  SELECT 6, 3, 3, 'AP 302 TO 5'     , '3'
+  SELECT 6, 1, 3, 'TO 2 CS 4'   , '3' UNION ALL
+  SELECT 6, 2, 3, 'TO 9 AP 1'   , '3' UNION ALL
+  SELECT 6, 3, 3, 'TO 7 AP 1'   , '3'
 ) a
 CROSS JOIN (SELECT 1 AS pi UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) p
 CROSS JOIN bdm_stage.mock_numeros n
@@ -331,9 +371,9 @@ FROM (
   SELECT 5, 1, 'CA 1 LT 2'    UNION ALL
   SELECT 5, 2, 'CA 3 LT 4'    UNION ALL
   SELECT 5, 3, 'CA 9'          UNION ALL
-  SELECT 6, 1, 'AP 9'             UNION ALL
-  SELECT 6, 2, 'AP 301 TO 2 CS 4' UNION ALL
-  SELECT 6, 3, 'AP 302 TO 5'
+  SELECT 6, 1, 'TO 2 CS 4'    UNION ALL
+  SELECT 6, 2, 'TO 9 AP 1'    UNION ALL
+  SELECT 6, 3, 'TO 7 AP 1'
 ) a
 CROSS JOIN (SELECT 1 AS pi UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) p
 CROSS JOIN bdm_stage.mock_numeros n
