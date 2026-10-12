@@ -57,6 +57,10 @@ DELETE FROM bdm_stage.relacion_persona_ubicacion
 -- ------------------------------------------------------------
 CALL bdm_datos.sp_unificacion_mock_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('FULL' AS VARCHAR(256)), CAST('1356601' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
 CALL bdm_datos.sp_unificacion_mock_gate_arq(CAST('FULL' AS VARCHAR(16)), 1356601);
+-- Tablero de certificacion: los 51 criterios de los documentos, con el ID del
+-- documento como clave. Corre despues del gate por arquetipo porque consolida
+-- su veredicto y el del gate de convergencia.
+CALL bdm_datos.sp_cert_evaluar_criterios_mock(CAST('FULL' AS VARCHAR(16)), 1356601);
 
 -- Ordenamiento FULL de la MISMA corrida: una ejecucion e2e es una unidad
 -- (unificacion -> GEO -> ordenamiento), no componentes sueltos. GEO ya va
@@ -70,6 +74,10 @@ CALL bdm_datos.sp_ordenamiento_ejecucion_mock(CAST('' AS VARCHAR(256)), CAST('' 
 -- ------------------------------------------------------------
 CALL bdm_datos.sp_unificacion_mock_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('DELTA' AS VARCHAR(256)), CAST('1356602' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
 CALL bdm_datos.sp_unificacion_mock_gate_arq(CAST('DELTA1' AS VARCHAR(16)), 1356602);
+-- Tablero de certificacion: los 51 criterios de los documentos, con el ID del
+-- documento como clave. Corre despues del gate por arquetipo porque consolida
+-- su veredicto y el del gate de convergencia.
+CALL bdm_datos.sp_cert_evaluar_criterios_mock(CAST('DELTA1' AS VARCHAR(16)), 1356602);
 
 -- Ordenamiento DELTA de la misma corrida. Sin mutacion, su alcance tambien
 -- debe ser vacio: es la prueba de idempotencia del ordenamiento.
@@ -146,6 +154,10 @@ WHERE n.i < 100;
 -- ------------------------------------------------------------
 CALL bdm_datos.sp_unificacion_mock_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('DELTA' AS VARCHAR(256)), CAST('1356604' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
 CALL bdm_datos.sp_unificacion_mock_gate_arq(CAST('DELTA2' AS VARCHAR(16)), 1356604);
+-- Tablero de certificacion: los 51 criterios de los documentos, con el ID del
+-- documento como clave. Corre despues del gate por arquetipo porque consolida
+-- su veredicto y el del gate de convergencia.
+CALL bdm_datos.sp_cert_evaluar_criterios_mock(CAST('DELTA2' AS VARCHAR(16)), 1356604);
 
 -- Ordenamiento DELTA de la misma corrida, ahora con ventana real: debe
 -- re-puntuar y re-ordenar las 200 personas que mutaron, y solo esas.

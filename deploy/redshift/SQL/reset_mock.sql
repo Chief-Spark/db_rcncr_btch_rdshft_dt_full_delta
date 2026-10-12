@@ -50,3 +50,8 @@ TRUNCATE TABLE bdm_stage.mock_ord_escenario;
 TRUNCATE TABLE bdm_stage.mock_ord_control_etapa;
 TRUNCATE TABLE bdm_stage.mock_ord_control;
 TRUNCATE TABLE bdm_stage.mock_ord_ca_result;
+
+-- Tablero de certificacion de los 51 criterios (SLCOPRBA-1355). El gate ya
+-- es idempotente por (lote, modo), pero la bateria debe arrancar sin veredictos
+-- de corridas anteriores: un PASSED viejo junto a un lote nuevo se lee mal.
+TRUNCATE TABLE bdm_datos.cert_resultado;

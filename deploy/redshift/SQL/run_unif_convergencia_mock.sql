@@ -52,6 +52,14 @@ CALL bdm_datos.sp_unif_gate_convergencia_snapshot(CAST('FULL2' AS VARCHAR(32)), 
 
 CALL bdm_datos.sp_unif_gate_convergencia_evaluar();
 
+-- ============================================================
+-- Evaluacion FINAL del tablero de certificacion.
+-- Va aqui, y no antes, porque G-06 (idempotencia) consolida el veredicto
+-- de CA-C01..CA-C08, que los escribe el gate de convergencia que acaba de
+-- correr. Evaluado antes, G-06 saldria SIN_DATO.
+-- ============================================================
+CALL bdm_datos.sp_cert_evaluar_criterios_mock(CAST('FULL2' AS VARCHAR(16)), 1356504);
+
 -- Veredicto.
 SELECT criterio_ca, estado, detalle
 FROM   bdm_stage.mock_unif_ca_result
