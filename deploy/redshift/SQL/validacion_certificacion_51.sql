@@ -28,6 +28,9 @@
 --                    (extracto de Teradata, COPY desde S3, ArcGIS).
 --   REVISION_MANUAL  propiedad de diseno o de proceso; no hay consulta que la
 --                    pueda afirmar. Se revisa leyendo codigo o actas.
+--   FUERA_DE_ALCANCE no es responsabilidad de este desarrollo. Se muestra para
+--                    que el tablero siga mapeando 1:1 con el documento, pero NO
+--                    cuenta para la certificacion QA.
 --   NO_APLICA        el criterio no se evalua en esta fase. Un escenario de la
 --                    Regla 2 en un DELTA sobre datos sin mutar produce cero
 --                    unificaciones, y eso es CORRECTO: se certifica en el FULL.
@@ -47,7 +50,31 @@
 -- ------------------------------------------------------------
 
 -- ------------------------------------------------------------
--- 1) EL TABLERO. 51 filas, siempre.
+-- 1) EL NUMERO DE LA CERTIFICACION QA.
+--
+--    ALCANCE = 45 criterios: los 51 de los documentos, menos los 5 de GEO
+--    (CA-01..CA-05, que todavia no se pueden probar: el Cargador y el
+--    Reenganchador no tienen variante mock y el rol IAM de GEO no esta
+--    asociado al cluster) y menos GOB-03 (acta de aprobacion del area de
+--    negocio, fuera del alcance de este desarrollo).
+--
+--    Esta es la fila que se reporta. Si certificados = 45, la unificacion
+--    cumple los criterios de aceptacion que QA puede probar hoy.
+-- ------------------------------------------------------------
+SELECT
+  45                                                                  AS alcance_qa,
+  SUM(CASE WHEN r.estado IN ('PASSED', 'NO_APLICA') THEN 1 ELSE 0 END) AS certificados,
+  SUM(CASE WHEN r.estado NOT IN ('PASSED', 'NO_APLICA') OR r.estado IS NULL
+           THEN 1 ELSE 0 END)                                          AS pendientes,
+  LISTAGG(CASE WHEN r.estado NOT IN ('PASSED', 'NO_APLICA') OR r.estado IS NULL
+               THEN c.criterio END, ', ') WITHIN GROUP (ORDER BY c.criterio) AS cuales_faltan
+FROM            bdm_datos.cert_criterio  c
+LEFT JOIN       bdm_datos.v_cert_ultimo  r ON r.criterio = c.criterio
+WHERE c.bloque <> 'GEO'
+  AND c.criterio <> 'GOB-03';
+
+-- ------------------------------------------------------------
+-- 2) EL TABLERO. 51 filas, siempre.
 --    El LEFT JOIN contra el catalogo es lo que garantiza las 51: un criterio
 --    que el gate no evalue sale SIN_EVALUAR de forma explicita, no ausente.
 -- ------------------------------------------------------------
@@ -68,7 +95,7 @@ ORDER BY
   c.criterio;
 
 -- ------------------------------------------------------------
--- 2) RESUMEN POR ESTADO. Es el numero que se reporta.
+-- 3) RESUMEN POR ESTADO. Es el numero que se reporta.
 -- ------------------------------------------------------------
 SELECT
   COALESCE(r.estado, 'SIN_EVALUAR') AS estado,
@@ -82,10 +109,11 @@ ORDER BY
   CASE COALESCE(r.estado, 'SIN_EVALUAR')
     WHEN 'FAILED' THEN 1 WHEN 'SIN_EVALUAR' THEN 2 WHEN 'NO_IMPLEMENTADO' THEN 3
     WHEN 'SIN_DATO' THEN 4 WHEN 'BLOQUEADO' THEN 5 WHEN 'REVISION_MANUAL' THEN 6
-    WHEN 'NO_APLICA' THEN 7 WHEN 'PASSED' THEN 8 ELSE 9 END;
+    WHEN 'NO_APLICA' THEN 7 WHEN 'FUERA_DE_ALCANCE' THEN 8
+    WHEN 'PASSED' THEN 9 ELSE 10 END;
 
 -- ------------------------------------------------------------
--- 3) RESUMEN POR BLOQUE. Dice que regla esta lista y que regla no.
+-- 4) RESUMEN POR BLOQUE. Dice que regla esta lista y que regla no.
 -- ------------------------------------------------------------
 SELECT
   c.bloque,
@@ -97,6 +125,7 @@ SELECT
   SUM(CASE WHEN r.estado = 'BLOQUEADO'       THEN 1 ELSE 0 END)            AS bloqueado,
   SUM(CASE WHEN r.estado = 'REVISION_MANUAL' THEN 1 ELSE 0 END)            AS revision_manual,
   SUM(CASE WHEN r.estado = 'NO_APLICA'       THEN 1 ELSE 0 END)            AS no_aplica,
+  SUM(CASE WHEN r.estado = 'FUERA_DE_ALCANCE' THEN 1 ELSE 0 END)           AS fuera_alcance,
   SUM(CASE WHEN r.estado IS NULL             THEN 1 ELSE 0 END)            AS sin_evaluar
 FROM            bdm_datos.cert_criterio c
 LEFT JOIN       bdm_datos.v_cert_ultimo r
@@ -107,7 +136,7 @@ ORDER BY
                 WHEN 'GENERAL' THEN 4 WHEN 'GEO' THEN 5 ELSE 6 END;
 
 -- ------------------------------------------------------------
--- 4) SOLO LO QUE NO PASO. La lista de trabajo.
+-- 5) SOLO LO QUE NO PASO. La lista de trabajo.
 -- ------------------------------------------------------------
 SELECT c.criterio, r.estado, c.enunciado, r.detalle, c.evidencia
 FROM            bdm_datos.cert_criterio c
@@ -115,14 +144,14 @@ INNER JOIN      bdm_datos.v_cert_ultimo r
              ON r.criterio = c.criterio
 -- NO_APLICA no entra: no es trabajo pendiente, es un criterio que esta fase no
 -- evalua y que la fase FULL si certifica.
-WHERE r.estado NOT IN ('PASSED', 'NO_APLICA')
+WHERE r.estado NOT IN ('PASSED', 'NO_APLICA', 'FUERA_DE_ALCANCE')
 ORDER BY
   CASE r.estado WHEN 'FAILED' THEN 1 WHEN 'NO_IMPLEMENTADO' THEN 2
                 WHEN 'SIN_DATO' THEN 3 WHEN 'BLOQUEADO' THEN 4 ELSE 5 END,
   c.criterio;
 
 -- ------------------------------------------------------------
--- 5) EVOLUCION POR FASE. El mismo criterio en FULL, DELTA1, DELTA2 y FULL2.
+-- 6) EVOLUCION POR FASE. El mismo criterio en FULL, DELTA1, DELTA2 y FULL2.
 --    Un criterio que pasa en FULL y falla en DELTA2 es un defecto de
 --    incrementalidad, no de la regla.
 -- ------------------------------------------------------------
@@ -140,7 +169,7 @@ ORDER  BY criterio;
 -- Lo que QA mira cuando una fila del tablero no cuadra.
 -- ============================================================
 
--- 6) Traza de la corrida: orden de las etapas y duracion de cada una.
+-- 7) Traza de la corrida: orden de las etapas y duracion de cada una.
 --    Respalda G-01 (cascada estricta).
 SELECT c.corrida_id, c.lote, c.modo, c.estado,
        e.etapa, e.estado AS estado_etapa,
@@ -150,20 +179,20 @@ FROM            bdm_datos.unif_control_mock c
 LEFT JOIN       bdm_datos.unif_control_etapa_mock e ON e.corrida_id = c.corrida_id
 ORDER BY c.corrida_id, e.fecha_hora_inicio;
 
--- 7) Censo de escenarios: cuantas direcciones resolvio cada sello del legado y
+-- 8) Censo de escenarios: cuantas direcciones resolvio cada sello del legado y
 --    cuantas quedaron sin resolver. Respalda R2-01..R2-07 y R2-14.
 SELECT lote, modo, COALESCE(n_id, '-') AS n_id, escenario, ref_legado,
        direcciones, personas
 FROM   bdm_datos.unif_escenario_censo_mock
 ORDER  BY lote, direcciones DESC, n_id;
 
--- 8) Convergencia: los checksums de las cuatro corridas. Respalda G-06.
+-- 9) Convergencia: los checksums de las cuatro corridas. Respalda G-06.
 SELECT criterio_ca, estado, detalle
 FROM   bdm_stage.mock_unif_ca_result
 WHERE  criterio_ca LIKE '%CA-C%'
 ORDER  BY 1;
 
--- 9) Gate por arquetipo: la evidencia fina, escenario por escenario.
+-- 10) Gate por arquetipo: la evidencia fina, escenario por escenario.
 SELECT criterio_ca, estado, detalle
 FROM   bdm_stage.mock_unif_ca_result
 WHERE  criterio_ca NOT LIKE '%CA-C%'
