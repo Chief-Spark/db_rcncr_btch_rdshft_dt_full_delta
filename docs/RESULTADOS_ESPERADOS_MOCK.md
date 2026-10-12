@@ -472,8 +472,46 @@ deduciéndolo.
 | `*/CA-U06` | sin padres huérfanos |
 
 `CA-U04` es el que distingue «el motor corrió» de «el motor fusionó bien»: lleva
-el complemento del padre al frente, el aporte de los hijos ordenado por nivel
-(`TO`=4, `CS`=5) y `TO` deduplicado, que lo aportan los **dos** hijos.
+el complemento del padre al frente y el aporte de las hijas deduplicado.
+
+### Lo que `CA-U08`/`CA-U09`/`CA-U10` acabaron encontrando
+
+Los tres estuvieron en rojo desde el job **#302** hasta el **#307**: el DELTA2
+daba **0** filas en vez de 200. No eran tres defectos, era uno, y no estaba en
+el DELTA.
+
+El insumo de las Reglas 1 y 2 unía `reporte_relacion_persona_ubica` con **`INNER
+JOIN`**. Una dirección **sin ninguna entidad que la reporte** quedaba fuera del
+insumo y no podía unificarse nunca — ni en FULL ni en DELTA, ni en esa corrida
+ni en las siguientes. No daba error: daba cero, en silencio.
+
+El paso de mutación no le siembra reporte a las 200 direcciones nuevas, porque
+el escenario 1 no mira entidades. Eso las hacía invisibles. Y la huella quedaba
+en `unif_control`, a la vista: la persona **sí** entraba al driver —que lee la
+vista sin ese join— de modo que `personas_distintas` subía 100 y
+`relaciones_entrada` 300, mientras `total_unificaciones` seguía en 0. El dato
+entraba y no se unificaba.
+
+**El legado trata el conteo como nullable**, y por tanto admite la dirección sin
+reporte: en `PRO_UnificacionR2.sql` todo uso aritmético de
+`Numero_entidades_que_Reportan` va envuelto en `COALESCE(...,0)` —líneas 531 y
+712, que son la fórmula del `ID` que ordena `ORDEN` y desempata al padre del
+motor— y las direcciones que el propio proceso crea se insertan con
+`CAST(NULL AS INTEGER)` en esa columna (líneas 1679, 1701, 1725, 3507, 3529).
+
+`SLCOPRBA-1355` lo pasó a `LEFT JOIN` en los cuatro insumos (R1 y R2, real y
+mock). El `COALESCE(COUNT(DISTINCT …), 0)` que ya estaba escrito lo delataba:
+con un `INNER JOIN` ese conteo nunca puede ser 0, así que era código muerto —
+la agregación estaba escrita para un `LEFT JOIN` y el join no.
+
+> **Lo que importa de esto no es el mock.** En datos reales toda dirección sin
+> entidad reportante estaba excluida de las Reglas 1 y 2. Entre ellas, las que
+> el **motor** crea: `rpu_generada` nace sin fila de reporte, de modo que la
+> dirección fusionada no volvía a entrar al insumo nunca.
+
+Dejar esas 200 direcciones sin reporte es lo que convierte a estos tres
+criterios en la **prueba de regresión** del defecto: si alguien vuelve a poner
+`INNER`, los tres caen.
 
 ### Por qué la mutación toca el ARQ 22 y no solo el 21
 

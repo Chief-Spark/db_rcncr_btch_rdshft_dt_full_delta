@@ -95,6 +95,17 @@ CALL bdm_datos.sp_ordenamiento_ejecucion_mock(CAST('' AS VARCHAR(256)), CAST('' 
 --
 -- No se siembran reporte_relacion_persona_ubica ni ciiu_persona para estas
 -- direcciones: el escenario 1 no mira numero de entidades ni CIIU.
+--
+-- Y ESA OMISION ES, AHORA, LO MAS VALIOSO DE ESTE PASO. El insumo de las
+-- Reglas 1 y 2 unia el reporte con INNER JOIN, de modo que una direccion sin
+-- entidad reportante quedaba fuera y no podia unificarse NUNCA. Por eso el
+-- DELTA2 daba 0 filas en vez de 200 en los jobs #302 a #307: la persona si
+-- entraba al driver -- que lee la vista sin ese join, y de ahi que
+-- personas_distintas subiera 100 y relaciones_entrada 300 -- pero la direccion
+-- nueva no llegaba a ningun escenario. SLCOPRBA-1355 lo paso a LEFT JOIN.
+-- Dejar estas 200 direcciones sin reporte es lo que convierte a CA-U08/U09/U10
+-- en la prueba de regresion de ese defecto: si alguien vuelve a poner INNER,
+-- los tres criterios caen.
 -- ------------------------------------------------------------
 INSERT INTO bdm_stage.relacion_persona_ubicacion (
   cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, cod_dw_ubic,
