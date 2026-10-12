@@ -27,3 +27,15 @@ FROM bdm_datos.unificacion_direccion_mock u
 WHERE u.cod_dw_persona_ubic BETWEEN 90100000 AND 95609999
 GROUP BY 1
 ORDER BY 1;
+
+-- ============================================================
+-- Censo de escenarios de la Regla 2 (SLCOPRBA-1355).
+-- Cuantas direcciones resolvio cada etapa y cuantas no resolvio ninguna.
+-- 'A6' sale con 0 a proposito: es el sitio 2 del legado, sin implementar, y
+-- un cero explicito dice "se midio" donde una fila ausente diria "no hay dato".
+-- La fila SIN_RESOLVER es la BRECHA: tenia pareja posible y nadie la unifico.
+-- ============================================================
+SELECT lote, modo, COALESCE(n_id, '-') AS n_id, escenario, ref_legado,
+       direcciones, personas
+FROM   bdm_datos.unif_escenario_censo_mock
+ORDER  BY lote, direcciones DESC, n_id;

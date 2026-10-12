@@ -32,6 +32,7 @@ TRUNCATE TABLE bdm_stage.diccionario_complementos;
 -- Control y traza de Unificacion (aqui vive el Watermark)
 TRUNCATE TABLE bdm_datos.unif_control_etapa_mock;
 TRUNCATE TABLE bdm_datos.unif_control_mock;
+TRUNCATE TABLE bdm_datos.unif_escenario_censo_mock;
 
 -- Ciclo GEO mock
 TRUNCATE TABLE bdm_datos.geo_atributos_mock;
