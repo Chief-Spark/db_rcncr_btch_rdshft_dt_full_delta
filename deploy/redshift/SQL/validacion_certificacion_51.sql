@@ -28,6 +28,10 @@
 --                    (extracto de Teradata, COPY desde S3, ArcGIS).
 --   REVISION_MANUAL  propiedad de diseno o de proceso; no hay consulta que la
 --                    pueda afirmar. Se revisa leyendo codigo o actas.
+--   NO_APLICA        el criterio no se evalua en esta fase. Un escenario de la
+--                    Regla 2 en un DELTA sobre datos sin mutar produce cero
+--                    unificaciones, y eso es CORRECTO: se certifica en el FULL.
+--                    No es un defecto.
 --   SIN_EVALUAR      el gate no escribio fila para ese criterio. Si aparece,
 --                    es un defecto DEL TABLERO, no del proceso: avisar.
 -- ============================================================
@@ -78,7 +82,7 @@ ORDER BY
   CASE COALESCE(r.estado, 'SIN_EVALUAR')
     WHEN 'FAILED' THEN 1 WHEN 'SIN_EVALUAR' THEN 2 WHEN 'NO_IMPLEMENTADO' THEN 3
     WHEN 'SIN_DATO' THEN 4 WHEN 'BLOQUEADO' THEN 5 WHEN 'REVISION_MANUAL' THEN 6
-    WHEN 'PASSED' THEN 7 ELSE 8 END;
+    WHEN 'NO_APLICA' THEN 7 WHEN 'PASSED' THEN 8 ELSE 9 END;
 
 -- ------------------------------------------------------------
 -- 3) RESUMEN POR BLOQUE. Dice que regla esta lista y que regla no.
@@ -92,6 +96,7 @@ SELECT
   SUM(CASE WHEN r.estado = 'SIN_DATO'        THEN 1 ELSE 0 END)            AS sin_dato,
   SUM(CASE WHEN r.estado = 'BLOQUEADO'       THEN 1 ELSE 0 END)            AS bloqueado,
   SUM(CASE WHEN r.estado = 'REVISION_MANUAL' THEN 1 ELSE 0 END)            AS revision_manual,
+  SUM(CASE WHEN r.estado = 'NO_APLICA'       THEN 1 ELSE 0 END)            AS no_aplica,
   SUM(CASE WHEN r.estado IS NULL             THEN 1 ELSE 0 END)            AS sin_evaluar
 FROM            bdm_datos.cert_criterio c
 LEFT JOIN       bdm_datos.v_cert_ultimo r
@@ -108,7 +113,9 @@ SELECT c.criterio, r.estado, c.enunciado, r.detalle, c.evidencia
 FROM            bdm_datos.cert_criterio c
 INNER JOIN      bdm_datos.v_cert_ultimo r
              ON r.criterio = c.criterio
-WHERE r.estado <> 'PASSED'
+-- NO_APLICA no entra: no es trabajo pendiente, es un criterio que esta fase no
+-- evalua y que la fase FULL si certifica.
+WHERE r.estado NOT IN ('PASSED', 'NO_APLICA')
 ORDER BY
   CASE r.estado WHEN 'FAILED' THEN 1 WHEN 'NO_IMPLEMENTADO' THEN 2
                 WHEN 'SIN_DATO' THEN 3 WHEN 'BLOQUEADO' THEN 4 ELSE 5 END,
