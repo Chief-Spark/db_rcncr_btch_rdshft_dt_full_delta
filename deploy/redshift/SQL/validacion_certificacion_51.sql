@@ -33,6 +33,16 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
+-- Nota sobre bdm_datos.v_cert_ultimo (definida en strct/13_ddl_cert_criterios):
+-- es el ULTIMO veredicto de cada criterio, tomado por fecha_hora y NO por
+-- numero de lote. El numero de lote no ordena las corridas en el tiempo: la
+-- bateria corre primero el e2e (1356601, 1356602, 1356604) y despues la
+-- convergencia (1356501..1356504), que son numericamente MENORES. Con
+-- MAX(lote) el tablero mostraria la evaluacion del e2e, donde G-06 sale
+-- SIN_DATO porque CA-C01..CA-C08 aun no se habian escrito.
+-- ------------------------------------------------------------
+
+-- ------------------------------------------------------------
 -- 1) EL TABLERO. 51 filas, siempre.
 --    El LEFT JOIN contra el catalogo es lo que garantiza las 51: un criterio
 --    que el gate no evalue sale SIN_EVALUAR de forma explicita, no ausente.
@@ -46,9 +56,8 @@ SELECT
   COALESCE(r.detalle, '(el gate no escribio fila)') AS detalle,
   c.evidencia
 FROM            bdm_datos.cert_criterio c
-LEFT JOIN       bdm_datos.cert_resultado r
+LEFT JOIN       bdm_datos.v_cert_ultimo r
              ON r.criterio = c.criterio
-            AND r.lote = ( SELECT MAX(lote) FROM bdm_datos.cert_resultado )
 ORDER BY
   CASE c.bloque WHEN 'REGLA1' THEN 1 WHEN 'REGLA2' THEN 2 WHEN 'REGLA3' THEN 3
                 WHEN 'GENERAL' THEN 4 WHEN 'GEO' THEN 5 ELSE 6 END,
@@ -62,9 +71,8 @@ SELECT
   COUNT(*)                          AS criterios,
   LISTAGG(c.criterio, ', ') WITHIN GROUP (ORDER BY c.criterio) AS cuales
 FROM            bdm_datos.cert_criterio c
-LEFT JOIN       bdm_datos.cert_resultado r
+LEFT JOIN       bdm_datos.v_cert_ultimo r
              ON r.criterio = c.criterio
-            AND r.lote = ( SELECT MAX(lote) FROM bdm_datos.cert_resultado )
 GROUP BY 1
 ORDER BY
   CASE COALESCE(r.estado, 'SIN_EVALUAR')
@@ -86,9 +94,8 @@ SELECT
   SUM(CASE WHEN r.estado = 'REVISION_MANUAL' THEN 1 ELSE 0 END)            AS revision_manual,
   SUM(CASE WHEN r.estado IS NULL             THEN 1 ELSE 0 END)            AS sin_evaluar
 FROM            bdm_datos.cert_criterio c
-LEFT JOIN       bdm_datos.cert_resultado r
+LEFT JOIN       bdm_datos.v_cert_ultimo r
              ON r.criterio = c.criterio
-            AND r.lote = ( SELECT MAX(lote) FROM bdm_datos.cert_resultado )
 GROUP BY 1
 ORDER BY
   CASE c.bloque WHEN 'REGLA1' THEN 1 WHEN 'REGLA2' THEN 2 WHEN 'REGLA3' THEN 3
@@ -99,9 +106,8 @@ ORDER BY
 -- ------------------------------------------------------------
 SELECT c.criterio, r.estado, c.enunciado, r.detalle, c.evidencia
 FROM            bdm_datos.cert_criterio c
-INNER JOIN      bdm_datos.cert_resultado r
+INNER JOIN      bdm_datos.v_cert_ultimo r
              ON r.criterio = c.criterio
-            AND r.lote = ( SELECT MAX(lote) FROM bdm_datos.cert_resultado )
 WHERE r.estado <> 'PASSED'
 ORDER BY
   CASE r.estado WHEN 'FAILED' THEN 1 WHEN 'NO_IMPLEMENTADO' THEN 2
