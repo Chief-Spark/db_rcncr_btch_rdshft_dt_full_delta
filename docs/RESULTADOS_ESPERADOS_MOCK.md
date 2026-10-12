@@ -542,3 +542,55 @@ de ningún otro escenario.
 - **Del cliente**: el fuente de `PRO_CreaDicNomenclaturaReg2`, y si el `conteo`
   del diccionario es por persona o global por `cod_dw_ubic`. En mock es
   indistinguible; en datos reales cambia resultados.
+
+---
+
+## Arquetipos del Grupo A (SLCOPRBA-1355)
+
+Tres arquetipos nuevos para cerrar los criterios que el codigo contemplaba pero
+ningun dato ejercitaba. Van en la banda `9570000..9590999`, **disjunta** de R1
+(`9010000..9200999`) y de R2 (`9210000..9560999`), para que el orden de
+ejecucion de los dos seeds no importe: ningun `DELETE` de uno pisa las filas
+del otro.
+
+| ARQ | Caso | Forma | Parejas esperadas | Cierra |
+|-----|------|-------|-------------------|--------|
+| 57 | CIIU **82** | padre CRR, hija LAB, 1 entidad cada una | **1** por persona | R1-07 |
+| 58 | CIIU **90** | padre CRR, hija LAB, 1 entidad cada una | **1** por persona | R1-07 |
+| 59 | hija **BLOQUEADA** | CIIU 10, padre CRR, hija RES, `bloqueado = 1` | **0** | R1-06, G-04 |
+
+### Por que el 0 del ARQ 59 es la afirmacion
+
+El filtro `COALESCE(bloqueado, 0) = 0` del insumo saca a la hija, el grupo se
+queda con un solo miembro y no hay nada que unificar. El padre sigue vigente: el
+criterio excluye la **direccion** bloqueada, no a la persona. Se bloquea la hija
+y no el padre a proposito — sin padre el grupo no tiene con que unificar, y la
+ausencia de pareja no distinguiria "el filtro funciono" de "no habia caso".
+
+### Dos trampas que costaron un diagnostico
+
+**La columna `ciiu` de la matriz es decoracion.** Nada la lee: el `INSERT` de
+`relacion_persona_ubicacion` solo usa `arq`, `tipo_*`, `fecha_*` e
+`indunif_hija`. El CIIU se deriva de un `CASE` sobre el numero de arquetipo en
+el `INSERT` de `ciiu_persona`. Agregar un arquetipo con CIIU nuevo **sin tocar
+ese CASE** lo hace nacer con `'10'`: ARQ 57 y 58 habrian salido CIIU 10 con
+padre CRR y hija LAB, o sea los dos tipos preferidos, habrian empatado y
+producido 0 parejas donde el gate espera 1.
+
+**`bloqueado` no existia en la tabla mock.** Hubo que agregarla al contrato de
+`bdm_stage.relacion_persona_ubicacion` y propagarla en
+`v_mock_relacion_persona_ubicacion`, que la fijaba en `CAST(0 AS SMALLINT)`.
+Mientras fue constante, el filtro de bloqueo era siempre verdadero y R1-06 y
+G-04 no se podian afirmar.
+
+### Cifras que se mueven
+
+| Gate | Antes | Ahora |
+|------|-------|-------|
+| `CA-U02` total del FULL | 51 000 | **53 000** (+2 000 de ARQ 57 y 58) |
+| `CA-U10` total tras la mutacion | 51 200 | **53 200** |
+| Rango de la semilla en el gate | `..95609999` | **`..95909999`** |
+
+Los **checksums de convergencia no se mueven**: `sp_unif_gate_convergencia_evaluar`
+compara FULL contra FULL2 y DELTA1 contra DELTA2 **entre si**, sin un solo valor
+cableado. Los 8/8 se mantienen.

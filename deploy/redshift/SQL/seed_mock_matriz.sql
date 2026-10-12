@@ -90,12 +90,18 @@
 -- Limpieza idempotente del rango que posee este script (ARQ 1..20).
 -- Se borra por rango de id para no tocar semillas de otros arquetipos.
 -- ------------------------------------------------------------
-DELETE FROM bdm_stage.contacto_canal             WHERE id_buro_persona BETWEEN 9010000 AND 9200999;
-DELETE FROM bdm_stage.ciiu_persona               WHERE id_buro_persona BETWEEN 9010000 AND 9200999;
-DELETE FROM bdm_stage.reporte_relacion_persona_ubica WHERE cod_dw_persona_ubic BETWEEN 90100000 AND 92009999;
-DELETE FROM bdm_stage.direccion_fisica           WHERE cod_dw_direccion_fisica BETWEEN 90100000 AND 92009999;
-DELETE FROM bdm_stage.ubicacion_estandarizada    WHERE cod_dw_ubic BETWEEN 90100000 AND 92009999;
-DELETE FROM bdm_stage.relacion_persona_ubicacion WHERE id_buro_persona BETWEEN 9010000 AND 9200999;
+DELETE FROM bdm_stage.contacto_canal             WHERE id_buro_persona BETWEEN 9010000 AND 9200999
+    OR id_buro_persona BETWEEN 9570000 AND 9590999;
+DELETE FROM bdm_stage.ciiu_persona               WHERE id_buro_persona BETWEEN 9010000 AND 9200999
+    OR id_buro_persona BETWEEN 9570000 AND 9590999;
+DELETE FROM bdm_stage.reporte_relacion_persona_ubica WHERE cod_dw_persona_ubic BETWEEN 90100000 AND 92009999
+    OR cod_dw_persona_ubic BETWEEN 95700000 AND 95909999;
+DELETE FROM bdm_stage.direccion_fisica           WHERE cod_dw_direccion_fisica BETWEEN 90100000 AND 92009999
+    OR cod_dw_direccion_fisica BETWEEN 95700000 AND 95909999;
+DELETE FROM bdm_stage.ubicacion_estandarizada    WHERE cod_dw_ubic BETWEEN 90100000 AND 92009999
+    OR cod_dw_ubic BETWEEN 95700000 AND 95909999;
+DELETE FROM bdm_stage.relacion_persona_ubicacion WHERE id_buro_persona BETWEEN 9010000 AND 9200999
+    OR id_buro_persona BETWEEN 9570000 AND 9590999;
 
 -- ============================================================
 -- 1) PERSONAS Y SUS DOS DIRECCIONES (padre k=1, hija k=2)
@@ -114,7 +120,8 @@ DELETE FROM bdm_stage.relacion_persona_ubicacion WHERE id_buro_persona BETWEEN 9
 INSERT INTO bdm_stage.relacion_persona_ubicacion (
   cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, cod_dw_ubic,
   cod_dw_direccion_fisica, cod_dw_tipo_ubicacion_dir, ind_unificacion,
-  orden_prioridad, fecha_relacion_persona_ubicaci, lote, cod_tipo_ident_fte
+  orden_prioridad, fecha_relacion_persona_ubicaci, lote, cod_tipo_ident_fte,
+  bloqueado
 )
 SELECT
   (9000000 + arq.arq * 10000 + n.i) * 10 + d.k            AS cod_dw_persona_ubic,
@@ -127,29 +134,53 @@ SELECT
   d.k                                                     AS orden_prioridad,
   CASE WHEN d.k = 1 THEN arq.fecha_padre ELSE arq.fecha_hija END AS fecha_relacion_persona_ubicaci,
   1356301                                                 AS lote,
-  '1'                                                     AS cod_tipo_ident_fte
+  '1'                                                     AS cod_tipo_ident_fte,
+  -- Solo la HIJA puede nacer bloqueada. Bloquear al padre no probaria nada:
+  -- sin padre el grupo no tiene con que unificar, y la ausencia de pareja no
+  -- distingue "el filtro funciono" de "no habia caso".
+  CASE WHEN d.k = 2 THEN arq.bloq_hija ELSE 0 END          AS bloqueado
 FROM (
-  --   arq  ciiu  tipo_padre tipo_hija  ent_padre ent_hija  fecha_padre     fecha_hija      indunif_hija
-  SELECT  1 AS arq, '10' AS ciiu, 3 AS tipo_padre, 1 AS tipo_hija, 1 AS ent_padre, 1 AS ent_hija, CAST('2026-03-01' AS DATE) AS fecha_padre, CAST('2026-03-01' AS DATE) AS fecha_hija, 0 AS indunif_hija UNION ALL
-  SELECT  2, '10', 3, 1, 1, 1, CAST('2024-01-15' AS DATE), CAST('2024-01-15' AS DATE), 0 UNION ALL
-  SELECT  3, '10', 3, 1, 1, 1, CAST(NULL AS DATE),         CAST(NULL AS DATE),         0 UNION ALL
-  SELECT  4, '10', 3, 1, 1, 1, CAST('2026-03-01' AS DATE), CAST('2024-01-15' AS DATE), 0 UNION ALL
-  SELECT  5, '10', 3, 1, 1, 1, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 1 UNION ALL
-  SELECT  6, '81', 3, 2, 1, 1, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 0 UNION ALL
-  SELECT  7, '81', 3, 2, 1, 1, CAST('2024-01-15' AS DATE), CAST('2024-01-15' AS DATE), 0 UNION ALL
-  SELECT  8, '81', 3, 2, 1, 1, CAST(NULL AS DATE),         CAST(NULL AS DATE),         0 UNION ALL
-  SELECT  9, '81', 3, 2, 1, 1, CAST('2026-03-01' AS DATE), CAST('2024-01-15' AS DATE), 0 UNION ALL
-  SELECT 10, '81', 3, 2, 1, 1, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 1 UNION ALL
-  SELECT 11, '47', 3, 1, 3, 1, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 0 UNION ALL
-  SELECT 12, '47', 3, 1, 3, 1, CAST('2024-01-15' AS DATE), CAST('2024-01-15' AS DATE), 0 UNION ALL
-  SELECT 13, '47', 3, 1, 3, 1, CAST(NULL AS DATE),         CAST(NULL AS DATE),         0 UNION ALL
-  SELECT 14, '47', 3, 1, 3, 1, CAST('2026-03-01' AS DATE), CAST('2024-01-15' AS DATE), 0 UNION ALL
-  SELECT 15, '47', 3, 1, 3, 1, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 1 UNION ALL
-  SELECT 16, '10', 2, 3, 5, 5, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 0 UNION ALL
-  SELECT 17, '10', 2, 3, 5, 5, CAST('2024-01-15' AS DATE), CAST('2024-01-15' AS DATE), 0 UNION ALL
-  SELECT 18, '10', 2, 3, 5, 5, CAST(NULL AS DATE),         CAST(NULL AS DATE),         0 UNION ALL
-  SELECT 19, '10', 2, 3, 5, 5, CAST('2026-03-01' AS DATE), CAST('2024-01-15' AS DATE), 0 UNION ALL
-  SELECT 20, '10', 2, 3, 5, 5, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 1
+  --   arq  ciiu  tipo_padre tipo_hija  ent_padre ent_hija  fecha_padre     fecha_hija      indunif_hija  bloq_hija
+  SELECT  1 AS arq, '10' AS ciiu, 3 AS tipo_padre, 1 AS tipo_hija, 1 AS ent_padre, 1 AS ent_hija, CAST('2026-03-01' AS DATE) AS fecha_padre, CAST('2026-03-01' AS DATE) AS fecha_hija, 0 AS indunif_hija, 0 AS bloq_hija UNION ALL
+  SELECT  2, '10', 3, 1, 1, 1, CAST('2024-01-15' AS DATE), CAST('2024-01-15' AS DATE), 0, 0 UNION ALL
+  SELECT  3, '10', 3, 1, 1, 1, CAST(NULL AS DATE),         CAST(NULL AS DATE),         0, 0 UNION ALL
+  SELECT  4, '10', 3, 1, 1, 1, CAST('2026-03-01' AS DATE), CAST('2024-01-15' AS DATE), 0, 0 UNION ALL
+  SELECT  5, '10', 3, 1, 1, 1, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 1, 0 UNION ALL
+  SELECT  6, '81', 3, 2, 1, 1, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 0, 0 UNION ALL
+  SELECT  7, '81', 3, 2, 1, 1, CAST('2024-01-15' AS DATE), CAST('2024-01-15' AS DATE), 0, 0 UNION ALL
+  SELECT  8, '81', 3, 2, 1, 1, CAST(NULL AS DATE),         CAST(NULL AS DATE),         0, 0 UNION ALL
+  SELECT  9, '81', 3, 2, 1, 1, CAST('2026-03-01' AS DATE), CAST('2024-01-15' AS DATE), 0, 0 UNION ALL
+  SELECT 10, '81', 3, 2, 1, 1, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 1, 0 UNION ALL
+  SELECT 11, '47', 3, 1, 3, 1, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 0, 0 UNION ALL
+  SELECT 12, '47', 3, 1, 3, 1, CAST('2024-01-15' AS DATE), CAST('2024-01-15' AS DATE), 0, 0 UNION ALL
+  SELECT 13, '47', 3, 1, 3, 1, CAST(NULL AS DATE),         CAST(NULL AS DATE),         0, 0 UNION ALL
+  SELECT 14, '47', 3, 1, 3, 1, CAST('2026-03-01' AS DATE), CAST('2024-01-15' AS DATE), 0, 0 UNION ALL
+  SELECT 15, '47', 3, 1, 3, 1, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 1, 0 UNION ALL
+  SELECT 16, '10', 2, 3, 5, 5, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 0, 0 UNION ALL
+  SELECT 17, '10', 2, 3, 5, 5, CAST('2024-01-15' AS DATE), CAST('2024-01-15' AS DATE), 0, 0 UNION ALL
+  SELECT 18, '10', 2, 3, 5, 5, CAST(NULL AS DATE),         CAST(NULL AS DATE),         0, 0 UNION ALL
+  SELECT 19, '10', 2, 3, 5, 5, CAST('2026-03-01' AS DATE), CAST('2024-01-15' AS DATE), 0, 0 UNION ALL
+  SELECT 20, '10', 2, 3, 5, 5, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 1, 0 UNION ALL
+  -- ------------------------------------------------------------------
+  -- SLCOPRBA-1355: arquetipos del Grupo A. Van en la banda 9570000..9590999,
+  -- DISJUNTA de R1 (9010000..9200999) y de R2 (9210000..9560999), para que el
+  -- orden de ejecucion de los dos seeds no importe: ningun DELETE de uno pisa
+  -- las filas del otro.
+  --
+  -- ARQ 57 y 58 cierran R1-07. El baseline del documento es CIIU 10, 81, 82 y
+  -- 90, y el universo solo tenia 10, 81 y 47: el codigo contemplaba 82 y 90
+  -- (IN ('81','82','90')) pero ningun dato los ejercitaba, de modo que dos
+  -- terceras partes del baseline no se podian afirmar. Misma forma que ARQ 6:
+  -- padre CRR, hija LAB, una entidad cada una. Esperado: 1 pareja por persona.
+  --
+  -- ARQ 59 cierra R1-06 y G-04. La hija nace BLOQUEADA, de modo que el filtro
+  -- COALESCE(bloqueado,0) = 0 del insumo la saca y el grupo se queda con un
+  -- solo miembro. Esperado: 0 parejas. El padre sigue vigente: el criterio
+  -- excluye la direccion bloqueada, no a la persona.
+  -- ------------------------------------------------------------------
+  SELECT 57, '82', 3, 2, 1, 1, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 0, 0 UNION ALL
+  SELECT 58, '90', 3, 2, 1, 1, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 0, 0 UNION ALL
+  SELECT 59, '10', 3, 1, 1, 1, CAST('2026-03-01' AS DATE), CAST('2026-03-01' AS DATE), 0, 1
 ) arq
 CROSS JOIN (SELECT 1 AS k UNION ALL SELECT 2) d
 CROSS JOIN bdm_stage.mock_numeros n
@@ -174,7 +205,8 @@ SELECT DISTINCT
   CAST(NULL AS DECIMAL(12,8)) AS latitud,
   CAST(NULL AS DECIMAL(12,8)) AS longitud
 FROM bdm_stage.relacion_persona_ubicacion rpu
-WHERE rpu.id_buro_persona BETWEEN 9010000 AND 9200999;
+WHERE (rpu.id_buro_persona BETWEEN 9010000 AND 9200999
+    OR rpu.id_buro_persona BETWEEN 9570000 AND 9590999);
 
 -- ============================================================
 -- 3) DIRECCION FISICA (una por relacion, con su propio complemento)
@@ -192,7 +224,8 @@ SELECT
   rpu.cod_dw_ubic,
   0
 FROM bdm_stage.relacion_persona_ubicacion rpu
-WHERE rpu.id_buro_persona BETWEEN 9010000 AND 9200999;
+WHERE (rpu.id_buro_persona BETWEEN 9010000 AND 9200999
+    OR rpu.id_buro_persona BETWEEN 9570000 AND 9590999);
 
 -- ============================================================
 -- 4) REPORTES POR RELACION  -> numero_entidades_reportan
@@ -212,7 +245,8 @@ SELECT
   CAST('2026-02-01' AS DATE)       AS fecha_reporte
 FROM bdm_stage.relacion_persona_ubicacion rpu
 CROSS JOIN (SELECT 1 AS j UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) j
-WHERE rpu.id_buro_persona BETWEEN 9010000 AND 9200999
+WHERE (rpu.id_buro_persona BETWEEN 9010000 AND 9200999
+    OR rpu.id_buro_persona BETWEEN 9570000 AND 9590999)
   AND j.j <= CASE
         -- E3 (ARQ 11..15): el padre (k=1, cod_dw_persona_ubic impar en su
         -- ultimo digito = 1) reporta 3 entidades y la hija 1.
@@ -235,13 +269,25 @@ WHERE rpu.id_buro_persona BETWEEN 9010000 AND 9200999
 INSERT INTO bdm_stage.ciiu_persona (id_buro_persona, cod_act_econo_ciiu_fte)
 SELECT DISTINCT
   rpu.id_buro_persona,
+  -- OJO: el CIIU se deriva AQUI, del numero de arquetipo. La columna 'ciiu' de
+  -- la matriz es documentacion y nada la lee -- lo comprobe con un grep de
+  -- arq.*: el INSERT de relacion_persona_ubicacion solo usa arq, tipo_*,
+  -- fecha_* e indunif_hija. Si se agrega un arquetipo con un CIIU nuevo y no se
+  -- toca este CASE, el arquetipo nace con '10' y se comporta como otro
+  -- escenario: ARQ 57 y 58 habrian salido CIIU 10 con padre CRR y hija LAB, es
+  -- decir los dos tipos preferidos, habrian EMPATADO y producido 0 parejas
+  -- donde el gate espera 1.
   CASE
     WHEN (rpu.id_buro_persona - 9000000) / 10000 BETWEEN  6 AND 10 THEN '81'
     WHEN (rpu.id_buro_persona - 9000000) / 10000 BETWEEN 11 AND 15 THEN '47'
+    -- Grupo A: completan el baseline del documento (R1-07).
+    WHEN (rpu.id_buro_persona - 9000000) / 10000 = 57              THEN '82'
+    WHEN (rpu.id_buro_persona - 9000000) / 10000 = 58              THEN '90'
     ELSE '10'
   END AS cod_act_econo_ciiu_fte
 FROM bdm_stage.relacion_persona_ubicacion rpu
-WHERE rpu.id_buro_persona BETWEEN 9010000 AND 9200999;
+WHERE (rpu.id_buro_persona BETWEEN 9010000 AND 9200999
+    OR rpu.id_buro_persona BETWEEN 9570000 AND 9590999);
 
 -- ============================================================
 -- 6) CONTACTOS DE CANAL (TEL / CEL / EMA) PARA EL ORDENAMIENTO
@@ -278,5 +324,6 @@ FROM bdm_stage.relacion_persona_ubicacion rpu
 JOIN bdm_stage.ubicacion_estandarizada ubi
   ON ubi.cod_dw_ubic = rpu.cod_dw_ubic
 CROSS JOIN (SELECT '4' AS contact_type UNION ALL SELECT '9' UNION ALL SELECT '10') c
-WHERE rpu.id_buro_persona BETWEEN 9010000 AND 9200999
+WHERE (rpu.id_buro_persona BETWEEN 9010000 AND 9200999
+    OR rpu.id_buro_persona BETWEEN 9570000 AND 9590999)
   AND rpu.cod_dw_persona_ubic % 10 = 1;
