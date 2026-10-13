@@ -1,7 +1,7 @@
 -- ============================================================
 -- seed_mock_matriz_r2.sql
--- Matriz de semillas MOCK -- Regla 2 (ARQ 21..55), GEO con coordenadas (ARQ 56)
--- y la cascada R1 -> R2 (ARQ 60).
+-- Matriz de semillas MOCK -- Regla 2 (ARQ 21..55), GEO con coordenadas (ARQ 56),
+-- la cascada R1 -> R2 (ARQ 60) y el sitio 2 de creacion de direcciones (ARQ 71).
 -- (repo dt / db_rcncr_btch_rdshft_dt)
 -- Codificacion: UTF-8 sin BOM. Nunca GRANT ... TO PUBLIC.
 -- Prerequisito: strct desplegado y seed_mock_matriz.sql ejecutado antes.
@@ -158,10 +158,8 @@
 --                    BR/AP), asi que no entran al sitio 1.
 --   E1, E2, E3       no: no llevan NIT.
 --
--- SITIO 2 DEL LEGADO ('A6', etapa 5.1) NO IMPLEMENTADO. Su poblacion base esta
--- leida (Tmp_Unificacion_E051, linea 2280) pero NO la regla con que elige al
--- padre, que vive en el pivote dinamico de E051_A / E051_D (lineas 2331-2900).
--- Implementarlo por analogia con esc5 seria suponer, y ademas starveria a esc5.
+-- SITIO 2 DEL LEGADO ('A6', etapa 5.1, lineas 2250-3607): lo certifica el
+-- ARQ 71, que vive mas abajo con su propia justificacion.
 --
 -- RESULTADO ESPERADO (filas en unificacion_direccion_mock por replica;
 -- multiplicar por N). Verificado por simulacion de la cascada completa antes de
@@ -258,25 +256,106 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
+-- ARQ 71: SITIO 2 DE CREACION DE DIRECCIONES (cierra R2-06)
+-- ------------------------------------------------------------
+-- R2-06 dice: "Escenario 5 (nomenclaturas distintas, distinto nivel): se genera
+-- una direccion nueva que combina ambas y las dos originales quedan como
+-- hijas". Es el subcaso 1 del escenario 5 del legado (PRO_UnificacionR2.sql
+-- lineas 2250-3607), el segundo de los dos unicos sitios que crean
+-- direcciones. El subcaso 2 -- el que YA estaba portado como esc5, sello 'C7'
+-- -- no satisface este criterio: no crea nada, elige padre por nivel.
+--
+-- LOS DOS SUBCASOS SE REPARTEN LA MISMA FORMA DE PAR y difieren en UN
+-- predicado, el de los VALORES que acompanan a las nomenclaturas:
+--   sub 1 ('A6', este arquetipo)  valores DIFERENTES -> direccion nueva
+--   sub 2 ('C7', ARQ 41..45)      valores IGUALES    -> gana el diccionario
+-- Por eso el ARQ 71 no le quita nada al ARQ 41..45 aunque el sitio 2 corra
+-- antes que esc5: sus poblaciones son disjuntas por construccion. Ademas los
+-- complementos del ARQ 41..45 ('BR 5' / 'AP 301') tienen UNA sola
+-- nomenclatura, y el par del escenario 5 exige DOS.
+--
+--   k   complemento   niveles          papel
+--   1   'ED 1 CS 5'   ED=2  CS=5       PADRE  (MDIR 1: niveles (2,5))
+--   2   'LC 3 CS 9'   LC=3  CS=5       hija   (niveles (3,5))
+--
+-- POR QUE ESTE PAR Y NO OTRO, leido contra el predicado de E051_C (linea 2385),
+-- rama 2 del UNION ALL:
+--   nomenclatura inicial DISTINTA      ED <> LC                      si
+--   nomenclatura intermedia IGUAL      CS  = CS                      si
+--   nivel de la que difiere, DISTINTO  nivel(ED)=2 <> nivel(LC)=3     si
+--   valores DIFERENTES                 '1  5' contra '3  9'          si
+-- ('valores' = el complemento sin sus dos nomenclaturas, COMPLEMENTO2 de la
+--  linea 2335.)
+--
+-- INMUNIDAD A TODA LA CASCADA PREVIA, en el orden en que corre:
+--   Regla 1  las dos direcciones son RES (1); R1 exige tipo DISTINTO.
+--   esc1     los dos complementos vienen informados.
+--   esc2     ninguno es substring del otro.
+--   esc3     exige MISMA nomenclatura inicial; ED <> LC.
+--   X4       el sitio 1 exige NIT; aqui cod_tipo_ident_fte = '1'.
+--   esc4     exige un maximo UNICO de frecuencia en el diccionario, y aqui
+--            EMPATAN a proposito: el constructor tokeniza el complemento, de
+--            modo que ED=1, LC=1 y CS=2 (CS esta en las dos direcciones) y
+--            cada direccion suma 1 + 2 = 3. Sin el token compartido CS el
+--            empate no existiria y esc4 se llevaria el arquetipo antes de que
+--            el sitio 2 lo viera.
+--   Regla 3  su insumo exige tipo de ubicacion 'Via'; aqui queda NULL.
+--
+-- QUE PRODUCE. El padre es el de MAYOR jerarquia por MDIR, que ordena
+-- ASCENDENTE por el nivel del componente mas bajo, luego el del siguiente:
+-- (2,5) contra (3,5) -> gana k=1. La hija aporta el unico componente que al
+-- padre le falta, LC, y el complemento nuevo queda
+--     'ED 1 CS 5' || ' ' || 'LC 3'  =  'ED 1 CS 5 LC 3'
+-- sin repetir CS, que es lo que R2-12 exige. Las DOS direcciones originales
+-- quedan unificadas contra la generada -- "las dos direcciones evaluadas deben
+-- ser unidas a esta ultima", linea 2256 -- de modo que el arquetipo produce
+--     2 filas en unificacion_direccion_mock  -> 2000
+--     1 direccion en direccion_fisica_generada_mock y en rpu_generada_mock
+--                                            -> 1000
+--
+-- UNA SOLA POSICION, no las cinco. El comportamiento de ventana de un sitio de
+-- creacion ya lo certifica el ARQ 51..55 (X4) en sus cinco posiciones; lo que
+-- falta aqui es la evidencia POSITIVA de que el sitio 2 existe y fusiona bien.
+-- Se sigue el precedente del ARQ 60, que tambien es banda unica.
+--
+-- CONVERGENCIA. En la segunda corrida las dos originales ya estan selladas y
+-- el insumo solo ve la direccion generada: un grupo de una sola direccion no
+-- forma pareja y no se produce nada nuevo. La clave de la generada es
+-- FNV_HASH determinista, de modo que el UPSERT actualiza en vez de duplicar.
+-- Es el mismo mecanismo que ya hace converger al ARQ 51..55.
+--
+-- EFECTO EN LOS TOTALES: CA-U02 pasa de 60000 a 62000 y CA-U10 de 60200 a
+-- 62200; las direcciones generadas pasan de 5000 a 6000.
+-- ============================================================
+
+-- ------------------------------------------------------------
 -- Limpieza idempotente del rango que posee este script:
--- ARQ 21..50 (Regla 2), ARQ 56 (GEO con coordenadas) y ARQ 60 (cascada
--- R1 -> R2). La banda 9570000..9590999 del Grupo A NO se toca aqui: la posee
--- seed_mock_matriz.sql, que corre antes.
+-- ARQ 21..50 (Regla 2), ARQ 56 (GEO con coordenadas), ARQ 60 (cascada
+-- R1 -> R2) y ARQ 71 (sitio 2 de creacion de direcciones). La banda
+-- 9570000..9590999 del Grupo A NO se toca aqui: la posee seed_mock_matriz.sql,
+-- que corre antes.
 -- ------------------------------------------------------------
 DELETE FROM bdm_stage.contacto_canal                 WHERE id_buro_persona BETWEEN 9210000 AND 9560999
-    OR id_buro_persona BETWEEN 9600000 AND 9600999;
+    OR id_buro_persona BETWEEN 9600000 AND 9600999
+    OR id_buro_persona BETWEEN 9710000 AND 9710999;
 DELETE FROM bdm_stage.diccionario_complementos       WHERE id_buro_persona BETWEEN 9210000 AND 9560999
-    OR id_buro_persona BETWEEN 9600000 AND 9600999;
+    OR id_buro_persona BETWEEN 9600000 AND 9600999
+    OR id_buro_persona BETWEEN 9710000 AND 9710999;
 DELETE FROM bdm_stage.ciiu_persona                   WHERE id_buro_persona BETWEEN 9210000 AND 9560999
-    OR id_buro_persona BETWEEN 9600000 AND 9600999;
+    OR id_buro_persona BETWEEN 9600000 AND 9600999
+    OR id_buro_persona BETWEEN 9710000 AND 9710999;
 DELETE FROM bdm_stage.reporte_relacion_persona_ubica WHERE cod_dw_persona_ubic BETWEEN 92100000 AND 95609999
-    OR cod_dw_persona_ubic BETWEEN 96000000 AND 96009999;
+    OR cod_dw_persona_ubic BETWEEN 96000000 AND 96009999
+    OR cod_dw_persona_ubic BETWEEN 97100000 AND 97109999;
 DELETE FROM bdm_stage.direccion_fisica               WHERE cod_dw_direccion_fisica BETWEEN 92100000 AND 95609999
-    OR cod_dw_direccion_fisica BETWEEN 96000000 AND 96009999;
+    OR cod_dw_direccion_fisica BETWEEN 96000000 AND 96009999
+    OR cod_dw_direccion_fisica BETWEEN 97100000 AND 97109999;
 DELETE FROM bdm_stage.ubicacion_estandarizada        WHERE cod_dw_ubic BETWEEN 92100000 AND 95609999
-    OR cod_dw_ubic BETWEEN 96000000 AND 96009999;
+    OR cod_dw_ubic BETWEEN 96000000 AND 96009999
+    OR cod_dw_ubic BETWEEN 97100000 AND 97109999;
 DELETE FROM bdm_stage.relacion_persona_ubicacion     WHERE id_buro_persona BETWEEN 9210000 AND 9560999
-    OR id_buro_persona BETWEEN 9600000 AND 9600999;
+    OR id_buro_persona BETWEEN 9600000 AND 9600999
+    OR id_buro_persona BETWEEN 9710000 AND 9710999;
 
 -- ============================================================
 -- 0) CATALOGO DE NOMENCLATURAS
@@ -411,6 +490,27 @@ CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
 -- ============================================================
+-- 2c) ARQUETIPO 71: SITIO 2 DE CREACION DE DIRECCIONES (sello 'A6')
+-- ------------------------------------------------------------
+-- DOS direcciones, mismo tipo (RES) y mismo texto, con la nomenclatura
+-- INTERMEDIA compartida (CS) y la INICIAL distinta y a distinto nivel
+-- (ED=2 contra LC=3). Sin NIT ('1'): asi el sitio 1 no lo toca. La
+-- justificacion completa esta en la cabecera.
+-- ============================================================
+INSERT INTO bdm_stage.relacion_persona_ubicacion (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, cod_dw_ubic,
+  cod_dw_direccion_fisica, cod_dw_tipo_ubicacion_dir, ind_unificacion,
+  orden_prioridad, fecha_relacion_persona_ubicaci, lote, cod_tipo_ident_fte
+)
+SELECT
+  (9710000 + n.i) * 10 + a.k, 9710000 + n.i, 9710000 + n.i,
+  (9710000 + n.i) * 10 + 1,   (9710000 + n.i) * 10 + a.k, 1, NULL, a.k,
+  CAST('2026-03-01' AS DATE), 1356301, '1'
+FROM (SELECT 1 AS k UNION ALL SELECT 2) a
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+-- ============================================================
 -- 3) UBICACION (una por persona). Coordenadas NULL salvo el ARQ 56.
 -- ============================================================
 -- Las coordenadas NO se resuelven aqui con un CASE. Redshift infiere el tipo
@@ -432,7 +532,8 @@ SELECT DISTINCT
   11001, 'BOGOTA D.C.', 'CUNDINAMARCA'
 FROM bdm_stage.relacion_persona_ubicacion rpu
 WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999
-   OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999;
+   OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999
+   OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999;
 
 -- Unico arquetipo con latitud/longitud: el 56, control negativo del
 -- Exportador_GEO. Su cod_dw_ubic es (9560000 + i) * 10 + 1 con i < 1000, o sea
@@ -503,6 +604,24 @@ FROM (
   SELECT 1 AS k, CAST('' AS VARCHAR(200)) AS complemento UNION ALL
   SELECT 2,      ''                                      UNION ALL
   SELECT 3,      'AP 301'
+) a
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+-- ARQ 71 (sitio 2). El token CS va en las DOS direcciones a proposito: es lo
+-- que hace EMPATAR la frecuencia del diccionario (ED 1 + CS 2 = 3 contra
+-- LC 1 + CS 2 = 3) y deja a esc4 sin maximo unico, de modo que el arquetipo
+-- llega vivo al sitio 2. El que DIFIERE es el inicial, y a distinto nivel
+-- (ED=2, LC=3), que es el predicado del escenario 5.
+-- El CAST de la primera rama fija el tipo del nodo UNION ALL, por la misma
+-- razon que en el ARQ 60.
+INSERT INTO bdm_stage.direccion_fisica (
+  cod_dw_direccion_fisica, complemento, cod_dw_ubic, generada_enriquecida
+)
+SELECT (9710000 + n.i) * 10 + a.k, a.complemento, (9710000 + n.i) * 10 + 1, 0
+FROM (
+  SELECT 1 AS k, CAST('ED 1 CS 5' AS VARCHAR(200)) AS complemento UNION ALL
+  SELECT 2,      'LC 3 CS 9'
 ) a
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
@@ -587,7 +706,8 @@ INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
 SELECT rpu.cod_dw_persona_ubic, 1001, CAST('2026-02-01' AS DATE)
 FROM bdm_stage.relacion_persona_ubicacion rpu
 WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999
-   OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999;
+   OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999
+   OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999;
 
 -- Segunda entidad SOLO para el padre de esc3 (ARQ 31..35, k = 1).
 -- k = 1 es la direccion cuyo cod_dw_persona_ubic coincide con su cod_dw_ubic,
@@ -621,7 +741,8 @@ WHERE rpu.id_buro_persona BETWEEN 9600000 AND 9600999
 INSERT INTO bdm_stage.ciiu_persona (id_buro_persona, cod_act_econo_ciiu_fte)
 SELECT DISTINCT rpu.id_buro_persona, '99'
 FROM bdm_stage.relacion_persona_ubicacion rpu
-WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999;
+WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999
+   OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999;
 
 -- El ARQ 60 es la excepcion: su CIIU es '10' (asalariado) porque necesita que
 -- R1 lo tome, y R1 esc1 -- el unico que prefiere LAB/CRR, que es como k=1 gana
@@ -649,5 +770,6 @@ FROM bdm_stage.relacion_persona_ubicacion rpu
 JOIN bdm_stage.ubicacion_estandarizada ubi ON ubi.cod_dw_ubic = rpu.cod_dw_ubic
 CROSS JOIN (SELECT '4' AS contact_type UNION ALL SELECT '9' UNION ALL SELECT '10') c
 WHERE ( rpu.id_buro_persona BETWEEN 9210000 AND 9560999
-     OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999 )
+     OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999
+     OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999 )
   AND rpu.cod_dw_persona_ubic % 10 = 1;

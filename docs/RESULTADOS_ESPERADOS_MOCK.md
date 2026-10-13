@@ -339,19 +339,11 @@ Lo que certifica, en un solo arquetipo:
 | El complemento del padre se **conserva** | `'TO 2 CS 4'` encabeza, no se re-ordena todo |
 | **El padre también se unifica** | las tres filas apuntan a la generada, no solo los hijos |
 
-### Sitio 2 del legado (`A6`) — no implementado
+### Sitio 2 del legado (`A6`) — implementado, ARQ 71
 
-El legado tiene un **segundo** sitio de creación (`:3423`, etapa 5.1). Su
-población base está leída (`Tmp_Unificacion_E051`, línea 2280: grupo sin
-unificar con complemento distinto, **sin** filtro de NIT ni de nomenclatura),
-pero **no la regla con que elige al padre**: eso vive en el pivote dinámico de
-`E051_A`/`E051_D` (líneas 2331‑2900), que genera SQL dinámico sobre hasta 15
-posiciones de componente.
-
-No se implementó por analogía con `esc5` por dos razones: sería una suposición,
-y además *starvaría* a `esc5` —misma población, el sitio 2 corre antes— lo que
-cambiaría el resultado de arquetipos ya certificados. Queda pendiente hasta
-decodificar ese pivote.
+El legado tiene un **segundo** sitio de creación (`:3423`, etapa 5.1), que es el
+subcaso 1 del escenario 5. Lo certifica el **ARQ 71**; su sección está al final
+de este documento.
 
 ## ARQ 56 — GEO con coordenadas
 
@@ -537,8 +529,6 @@ de ningún otro escenario.
 - **Ordenamiento**: su matriz quedó obsoleta. Desde M2 consume las direcciones
   que genera el motor (`v_mock_relacion_persona_ubicacion` las une con
   `UNION ALL`) y nadie ha derivado el efecto sobre el scoring y el orden.
-- **Sitio 2 del legado (`A6`)**: decodificar el pivote dinámico de
-  `E051_A`/`E051_D` para conocer su regla de padre.
 - **Del cliente**: el fuente de `PRO_CreaDicNomenclaturaReg2`, y si el `conteo`
   del diccionario es por persona o global por `cod_dw_ubic`. En mock es
   indistinguible; en datos reales cambia resultados.
@@ -867,3 +857,125 @@ En la vía real, `tipo_ubicacion` sale de `standardizedtipo` del datashare y su
 dominio exacto no se puede ver desde aquí. La consulta 13 de
 `validacion_certificacion_51.sql` es la que lo confirma; si el literal no fuera
 `'Via'`, **R3 daría 0 filas sin dar ningún error**.
+
+---
+
+## ARQ 71 — el sitio 2 de creación de direcciones (cierra `R2-06`)
+
+`R2-06` dice: *«Escenario 5 (nomenclaturas distintas, distinto nivel): se genera
+una dirección nueva que combina ambas y las dos originales quedan como hijas»*.
+Es el **subcaso 1** del escenario 5 del legado (`PRO_UnificacionR2.sql`
+2250‑3607), el segundo de los dos únicos sitios que crean direcciones. Lo que ya
+estaba portado como `esc5` (sello `C7`) es el **subcaso 2** y no satisface este
+criterio: no crea nada, elige padre por nivel.
+
+### El pivote dinámico, decodificado
+
+Lo que bloqueaba el port era `Tmp_Unificacion_E051_Dx` (líneas 2692‑2740): SQL
+dinámico que **genera** SQL dinámico. La sentencia que produce es
+
+```sql
+SELECT cod_dw_persona_ubic, cod_dw_ubic
+, COALESCE(MAX(CASE WHEN ID_COM1 = 1 THEN nivel_complemento END),    99) AS ID_COM11
+, COALESCE(MAX(CASE WHEN ID_COM1 = 2 THEN nivel_complemento END),    99) AS ID_COM12
+, ...
+, COALESCE(MAX(CASE WHEN ID_COM1 = 1 THEN valor END),             99999) AS val1
+, ...
+, ROW_NUMBER() OVER (PARTITION BY cod_dw_ubic
+                     ORDER BY ID_COM11, ID_COM12, ..., val1, val2, ...) AS MDIR
+FROM   Tmp_Unificacion_E051_D1
+GROUP  BY 1, 2
+```
+
+con `ID_COM1 = SUM(1) OVER (PARTITION BY Cod_DW_Persona_Ubic ORDER BY
+Nivel_Complemento ROWS UNBOUNDED PRECEDING)`, o sea **ascendente por nivel**. Es
+el **mismo `MDIR`** del sitio 1 — allí el generador vive en
+`Tmp_Unificacion_E03_Bx`, líneas 905‑940 — y se materializa igual: una clave de
+ancho fijo, 2 dígitos por nivel y 6 por valor, rellenando los huecos con `9`,
+de modo que la comparación lexicográfica reproduce la tupla del legado. El
+pivote es un pivote **sólo porque Teradata no tiene arreglos**; no es una regla
+de negocio distinta.
+
+`MDIR = 1` es la dirección con **más** componentes y de nivel **más bajo**: la
+más rica.
+
+### Los dos subcasos difieren en UN predicado
+
+El legado lo dice en prosa en las dos cabeceras, y en SQL es el signo del `LIKE`
+sobre `COMPLEMENTO2` — el complemento **sin** sus dos nomenclaturas, o sea «los
+valores que acompañan»:
+
+| | predicado | resultado |
+|---|---|---|
+| sub 1 (`A6`, línea 2385) | valores **diferentes** | dirección nueva |
+| sub 2 (`C7`, línea 3742) | valores **iguales** | gana el diccionario |
+
+Por eso **no hay starvation**: las poblaciones son disjuntas por construcción, y
+además el par del escenario 5 exige **dos** nomenclaturas por complemento,
+mientras el arquetipo de `esc5` (ARQ 41‑45, `'BR 5'` / `'AP 301'`) tiene una.
+
+### El arquetipo
+
+| k | complemento | niveles | papel |
+|---|---|---|---|
+| 1 | `'ED 1 CS 5'` | ED=2, CS=5 | **padre** (`MDIR` 1) |
+| 2 | `'LC 3 CS 9'` | LC=3, CS=5 | hija |
+
+Nomenclatura inicial distinta (`ED` ≠ `LC`) y a distinto nivel (2 ≠ 3), la
+intermedia compartida (`CS`), y los valores difieren (`'1  5'` contra `'3  9'`).
+El token compartido `CS` **no es decorativo**: hace empatar la frecuencia del
+diccionario (ED 1 + CS 2 = 3 contra LC 1 + CS 2 = 3), de modo que `esc4` se
+queda sin máximo único y el arquetipo llega vivo al sitio 2.
+
+Inmunidad al resto de la cascada, en orden: **R1** exige tipo distinto y las dos
+son RES; **esc1** las dos vienen informadas; **esc2** ninguna es substring de la
+otra; **esc3** exige misma nomenclatura inicial; **X4** exige NIT y aquí
+`cod_tipo_ident_fte = '1'`; **R3** exige tipo de ubicación `'Via'`.
+
+### Qué produce
+
+```
+'ED 1 CS 5' || ' ' || 'LC 3'  =  'ED 1 CS 5 LC 3'
+```
+
+La hija aporta el único componente que al padre le falta, `LC`; `CS`, que
+comparten, **no se repite** — que es lo que `R2-12` exige. Las **dos**
+direcciones originales quedan unificadas contra la generada («las dos
+direcciones evaluadas deben ser unidas a esta última», línea 2256):
+
+- 2 filas por réplica en `unificacion_direccion_mock` → **2 000**
+- 1 dirección por réplica en `direccion_fisica_generada_mock` y en
+  `rpu_generada_mock` → **1 000**
+
+### Divergencia deliberada (para `GOB-03`)
+
+Leído al pie de la letra, el legado pega el complemento **entero** del hijo
+detrás del del padre. La cadena es: `CODIGO` compara posición a posición los
+componentes de padre e hijo, su primer dígito compara `NOM_AGRUP` — las listas
+de nomenclaturas — que en este escenario difieren **siempre** por definición, de
+modo que `CODIGO` empieza por `0`, `k = POSITION('0') - 1` sale 0, se satura a 1,
+y `N1` no es una cola: es el complemento completo del hijo (línea 3074). El
+resultado literal sería `'ED 1 CS 5 LC 3 CS 9'`, con `CS` repetido — justo lo
+que `R2-12` prohíbe. Se porta la **semántica** que el nombre declara y que
+`R2-12` exige, la misma del sitio 1: el hijo aporta los componentes que el padre
+no tiene todavía.
+
+### Cifras que se mueven
+
+| Gate | Antes | Ahora |
+|------|-------|-------|
+| `CA-U02` total del FULL | 60 000 | **62 000** (+2 000 del ARQ 71) |
+| `CA-U03` direcciones generadas | 5 000 | **6 000** (+1 000 del sitio 2) |
+| `CA-U10` total tras la mutación | 60 200 | **62 200** |
+| Rango de la semilla en el gate | `..97009999` | **`..97109999`** |
+| Matriz del gate | hasta ARQ 70 | **ARQ 71 → 2 filas por persona** |
+| Criterios del gate | 14 | **15** (nuevo `CA-U11`) |
+| `R2-06` | `NO_IMPLEMENTADO` | **`PASSED`** |
+
+`CA-U11` es a `A6` lo que `CA-U04` a `X4`: cuenta las generadas cuyo complemento
+es exactamente `'ED 1 CS 5 LC 3'`. Distingue «el sitio 2 corrió» de «el sitio 2
+fusionó bien».
+
+Los **checksums de convergencia no se mueven**: la comparación es relativa. En
+la segunda corrida las dos originales ya están selladas y el insumo sólo ve la
+dirección generada; un grupo de una sola dirección no forma pareja.

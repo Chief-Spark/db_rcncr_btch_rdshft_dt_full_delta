@@ -249,3 +249,30 @@ SELECT COALESCE(tipo_ubicacion, '(nulo)') AS tipo_ubicacion,
 FROM   bdm_tempo.v_mock_ubicacion_estandarizada
 GROUP  BY 1
 ORDER  BY 2 DESC;
+
+-- 14) SITIO 2 DE CREACION DE DIRECCIONES (ARQ 71). La evidencia fina de R2-06.
+--     Una fila por direccion generada por el sitio 2, con las dos originales
+--     que quedaron como hijas. Las tres columnas de la derecha son las tres
+--     mitades del criterio: que se cree la direccion, que combine ambas sin
+--     repetir la nomenclatura compartida, y que las DOS originales -- el padre
+--     de la comparacion incluido -- cuelguen de ella.
+SELECT g.complemento                                   AS complemento_generado,
+       COUNT(*)                                        AS direcciones_generadas,
+       SUM(h.hijas)                                    AS hijas_totales,
+       MIN(h.hijas)                                    AS hijas_min,
+       MAX(h.hijas)                                    AS hijas_max,
+       CASE WHEN TRIM(g.complemento) = 'ED 1 CS 5 LC 3'
+             AND MIN(h.hijas) = 2 AND MAX(h.hijas) = 2
+            THEN 'OK' ELSE 'REVISAR' END               AS veredicto
+FROM   bdm_datos.direccion_fisica_generada_mock g
+JOIN   bdm_datos.rpu_generada_mock r
+  ON   r.cod_dw_direccion_fisica = g.cod_dw_direccion_fisica
+JOIN ( SELECT cod_dw_direccion_unificada AS padre,
+              COUNT(DISTINCT cod_dw_persona_ubic) AS hijas
+       FROM   bdm_datos.unificacion_direccion_mock
+       WHERE  cod_dw_persona_ubic BETWEEN 97100000 AND 97109999
+         AND  unifica_atributos = 2
+       GROUP  BY 1 ) h
+  ON   h.padre = r.cod_dw_persona_ubic
+GROUP  BY 1
+ORDER  BY 1;
