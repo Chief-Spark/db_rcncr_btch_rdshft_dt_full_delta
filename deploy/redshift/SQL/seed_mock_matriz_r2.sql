@@ -1,6 +1,7 @@
 -- ============================================================
 -- seed_mock_matriz_r2.sql
--- Matriz de semillas MOCK -- Regla 2 (ARQ 21..55) + GEO con coordenadas (ARQ 56).
+-- Matriz de semillas MOCK -- Regla 2 (ARQ 21..55), GEO con coordenadas (ARQ 56)
+-- y la cascada R1 -> R2 (ARQ 60).
 -- (repo dt / db_rcncr_btch_rdshft_dt)
 -- Codificacion: UTF-8 sin BOM. Nunca GRANT ... TO PUBLIC.
 -- Prerequisito: strct desplegado y seed_mock_matriz.sql ejecutado antes.
@@ -197,19 +198,85 @@
 --   TOTAL de la matriz completa (R1 + R2 + GEO), que es lo que mide CA-U02:
 --   51 filas por replica -> 51000. Baja de 55000 porque E6 pasa de 2 filas a 1
 --   en sus cuatro posiciones.
+--
+-- ------------------------------------------------------------
+-- ARQ 60: LA CASCADA R1 -> R2 (cierra G-02)
+-- ------------------------------------------------------------
+-- G-02 dice: "una direccion seleccionada como padre en R1 puede ser evaluada
+-- como hija en R2 si otra tiene complemento mas completo". Es un PERMISO, no
+-- una obligacion, de modo que solo la evidencia POSITIVA lo afirma: hasta el
+-- job #324 el criterio salia SIN_DATO porque la matriz no tenia ni un caso.
+-- Ningun arquetipo anterior podia producirlo, y no por descuido: los de R1
+-- usan tipos de ubicacion DISTINTOS (R1 lo exige) y los de R2 los usan IGUALES
+-- (R2 lo exige), asi que un grupo construido para una regla es inmune a la
+-- otra por diseno. El unico caso que cruza las dos necesita TRES direcciones
+-- con dos tipos a la vez.
+--
+--   k   tipo        complemento   entidades   papel
+--   1   CRR (3)     ''            2           padre en R1, HIJA en R2
+--   2   RES (1)     ''            1           hija en R1
+--   3   CRR (3)     'AP 301'      1           padre en R2
+--
+-- POR QUE FUNCIONA, leido contra los SP y no supuesto:
+--
+--   R1 esc1 (CIIU 10, sp_unificacion_mock_r1_esc1...). El grupo es
+--   (persona, texto_ubicacion, cod_dw_ciudad) y las tres direcciones caen en
+--   uno solo. El score es
+--       (tipo IN ('LAB','CRR')) * 100000 + numero_entidades_reportan
+--   -> k=1: 100002   k=3: 100001   k=2: 1
+--   El maximo es UNICO, que es lo que el HAVING COUNT(*) = 1 del ganador pide,
+--   y el padre es el de orden 1: k=1. Las hijas son las de orden > 1 CON
+--   'padre.cod_dw_tipo_ubicacion_dir <> hijo.cod_dw_tipo_ubicacion_dir', de
+--   modo que k=3 -- mismo tipo que el padre -- queda FUERA y la unica pareja
+--   es k=2 -> k=1.
+--
+--   LA SEGUNDA ENTIDAD DE k=1 NO ES DECORATIVA. Sin ella k=1 y k=3 empatan en
+--   100001, el maximo deja de ser unico, el ganador no existe y R1 no produce
+--   NINGUNA pareja: el arquetipo entero no certificaria nada.
+--
+--   R2 esc1 (complemento vacio). El insumo de R2 filtra
+--   'ind_unificacion IS NULL', y la vista mock DERIVA ind_unificacion de
+--   unificacion_direccion_mock, de modo que tras R1 la hija k=2 ya no entra.
+--   k=1 es PADRE, no hija, asi que sigue dentro -- y eso es exactamente lo que
+--   el criterio afirma. Quedan k=1 ('') y k=3 ('AP 301'), mismo tipo, mismo
+--   texto, mismo municipio: esc1 toma el de complemento informado como padre.
+--   Pareja k=1 -> k=3.
+--
+--   INMUNIDAD AL RESTO DE LA CASCADA. Tras esc1 solo k=3 queda en 'N' y una
+--   sola direccion no forma pareja con nadie: esc2..esc6 no la tocan. El motor
+--   (sitio 1, sello X4) exige NIT y aqui cod_tipo_ident_fte = '1'. R1 esc2 y
+--   esc3 no la ven porque el CIIU es '10'.
+--
+--   LO QUE NO VIOLA. R2-10 ("un padre no puede ser hija dentro de la misma
+--   regla") compara con 'b.regla = a.regla': k=1 es padre en la regla 1 e hija
+--   en la regla 2, reglas distintas, no hay violacion. G-03 ("una hija no
+--   recibe un segundo padre") cuenta reglas por HIJA: k=1 recibe padre solo en
+--   R2 y k=2 solo en R1. CA-U05 (un hijo, un padre) se cumple igual.
+--
+--   FILAS: 2 por persona -> 2000. La matriz pasa de 53000 a 55000 (CA-U02) y
+--   el DELTA2 de 53200 a 55200 (CA-U10).
 -- ============================================================
 
 -- ------------------------------------------------------------
 -- Limpieza idempotente del rango que posee este script:
--- ARQ 21..50 (Regla 2) y ARQ 56 (GEO con coordenadas).
+-- ARQ 21..50 (Regla 2), ARQ 56 (GEO con coordenadas) y ARQ 60 (cascada
+-- R1 -> R2). La banda 9570000..9590999 del Grupo A NO se toca aqui: la posee
+-- seed_mock_matriz.sql, que corre antes.
 -- ------------------------------------------------------------
-DELETE FROM bdm_stage.contacto_canal                 WHERE id_buro_persona BETWEEN 9210000 AND 9560999;
-DELETE FROM bdm_stage.diccionario_complementos       WHERE id_buro_persona BETWEEN 9210000 AND 9560999;
-DELETE FROM bdm_stage.ciiu_persona                   WHERE id_buro_persona BETWEEN 9210000 AND 9560999;
-DELETE FROM bdm_stage.reporte_relacion_persona_ubica WHERE cod_dw_persona_ubic BETWEEN 92100000 AND 95609999;
-DELETE FROM bdm_stage.direccion_fisica               WHERE cod_dw_direccion_fisica BETWEEN 92100000 AND 95609999;
-DELETE FROM bdm_stage.ubicacion_estandarizada        WHERE cod_dw_ubic BETWEEN 92100000 AND 95609999;
-DELETE FROM bdm_stage.relacion_persona_ubicacion     WHERE id_buro_persona BETWEEN 9210000 AND 9560999;
+DELETE FROM bdm_stage.contacto_canal                 WHERE id_buro_persona BETWEEN 9210000 AND 9560999
+    OR id_buro_persona BETWEEN 9600000 AND 9600999;
+DELETE FROM bdm_stage.diccionario_complementos       WHERE id_buro_persona BETWEEN 9210000 AND 9560999
+    OR id_buro_persona BETWEEN 9600000 AND 9600999;
+DELETE FROM bdm_stage.ciiu_persona                   WHERE id_buro_persona BETWEEN 9210000 AND 9560999
+    OR id_buro_persona BETWEEN 9600000 AND 9600999;
+DELETE FROM bdm_stage.reporte_relacion_persona_ubica WHERE cod_dw_persona_ubic BETWEEN 92100000 AND 95609999
+    OR cod_dw_persona_ubic BETWEEN 96000000 AND 96009999;
+DELETE FROM bdm_stage.direccion_fisica               WHERE cod_dw_direccion_fisica BETWEEN 92100000 AND 95609999
+    OR cod_dw_direccion_fisica BETWEEN 96000000 AND 96009999;
+DELETE FROM bdm_stage.ubicacion_estandarizada        WHERE cod_dw_ubic BETWEEN 92100000 AND 95609999
+    OR cod_dw_ubic BETWEEN 96000000 AND 96009999;
+DELETE FROM bdm_stage.relacion_persona_ubicacion     WHERE id_buro_persona BETWEEN 9210000 AND 9560999
+    OR id_buro_persona BETWEEN 9600000 AND 9600999;
 
 -- ============================================================
 -- 0) CATALOGO DE NOMENCLATURAS
@@ -315,6 +382,35 @@ CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
 -- ============================================================
+-- 2b) ARQUETIPO 60: CASCADA R1 -> R2 (el unico caso de G-02)
+-- ------------------------------------------------------------
+-- TRES direcciones y DOS tipos de ubicacion en el mismo grupo, que es lo que
+-- obliga la cascada: R1 exige tipo DISTINTO y R2 lo exige IGUAL.
+--   k=1 CRR ''        padre en R1 (gana por tipo + 2 entidades), hija en R2
+--   k=2 RES ''        hija en R1
+--   k=3 CRR 'AP 301'  padre en R2 (es el que trae complemento informado)
+-- La justificacion completa esta en la cabecera. Sin NIT ('1'): asi el motor
+-- del sitio 1 no lo toca.
+-- ============================================================
+INSERT INTO bdm_stage.relacion_persona_ubicacion (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, cod_dw_ubic,
+  cod_dw_direccion_fisica, cod_dw_tipo_ubicacion_dir, ind_unificacion,
+  orden_prioridad, fecha_relacion_persona_ubicaci, lote, cod_tipo_ident_fte
+)
+SELECT
+  (9600000 + n.i) * 10 + a.k, 9600000 + n.i, 9600000 + n.i,
+  (9600000 + n.i) * 10 + 1,   (9600000 + n.i) * 10 + a.k, a.tipo, NULL, a.k,
+  CAST('2026-03-01' AS DATE), 1356301, '1'
+FROM (
+  --      k  tipo  complemento
+  SELECT  1 AS k, 3 AS tipo, CAST('' AS VARCHAR(200)) AS complemento UNION ALL
+  SELECT  2,      1,         ''                                      UNION ALL
+  SELECT  3,      3,         'AP 301'
+) a
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+-- ============================================================
 -- 3) UBICACION (una por persona). Coordenadas NULL salvo el ARQ 56.
 -- ============================================================
 -- Las coordenadas NO se resuelven aqui con un CASE. Redshift infiere el tipo
@@ -335,7 +431,8 @@ SELECT DISTINCT
         || ' # ' || CAST(rpu.id_buro_persona AS VARCHAR) || ' - 20',
   11001, 'BOGOTA D.C.', 'CUNDINAMARCA'
 FROM bdm_stage.relacion_persona_ubicacion rpu
-WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999;
+WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999
+   OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999;
 
 -- Unico arquetipo con latitud/longitud: el 56, control negativo del
 -- Exportador_GEO. Su cod_dw_ubic es (9560000 + i) * 10 + 1 con i < 1000, o sea
@@ -384,6 +481,29 @@ INSERT INTO bdm_stage.direccion_fisica (
 )
 SELECT (9560000 + n.i) * 10 + a.k, a.complemento, (9560000 + n.i) * 10 + 1, 0
 FROM (SELECT 1 AS k, 'AP 301' AS complemento UNION ALL SELECT 2, '') a
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+-- ARQ 60 (cascada R1 -> R2). Los complementos son el discriminante de esc1:
+-- k=1 y k=2 vacios, k=3 informado. El de k=2 no llega a compararse -- R1 lo
+-- sella como hija antes -- pero se siembra vacio por coherencia con k=1: las
+-- dos son la misma direccion vista desde dos tipos de ubicacion.
+INSERT INTO bdm_stage.direccion_fisica (
+  cod_dw_direccion_fisica, complemento, cod_dw_ubic, generada_enriquecida
+)
+SELECT (9600000 + n.i) * 10 + a.k, a.complemento, (9600000 + n.i) * 10 + 1, 0
+FROM (
+  -- El CAST de la primera rama NO es decorativo: es la que fija el tipo del
+  -- nodo UNION ALL, y con un '' desnudo el ancho inferido podria truncar
+  -- 'AP 301' a cadena vacia. Sin complemento informado en k=3 el escenario 1
+  -- no tendria discriminante, no habria pareja de R2 y G-02 volveria a
+  -- quedarse sin evidencia -- en silencio, con el seed corriendo "bien".
+  -- El resto del archivo lo esquiva poniendo el literal largo primero; aqui el
+  -- orden de k se conserva porque es lo que hace legible la matriz.
+  SELECT 1 AS k, CAST('' AS VARCHAR(200)) AS complemento UNION ALL
+  SELECT 2,      ''                                      UNION ALL
+  SELECT 3,      'AP 301'
+) a
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
@@ -466,7 +586,8 @@ INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
 )
 SELECT rpu.cod_dw_persona_ubic, 1001, CAST('2026-02-01' AS DATE)
 FROM bdm_stage.relacion_persona_ubicacion rpu
-WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999;
+WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999
+   OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999;
 
 -- Segunda entidad SOLO para el padre de esc3 (ARQ 31..35, k = 1).
 -- k = 1 es la direccion cuyo cod_dw_persona_ubic coincide con su cod_dw_ubic,
@@ -480,10 +601,36 @@ FROM bdm_stage.relacion_persona_ubicacion rpu
 WHERE rpu.id_buro_persona BETWEEN 9310000 AND 9350999
   AND rpu.cod_dw_persona_ubic = rpu.cod_dw_ubic;
 
+-- Segunda entidad para el k = 1 del ARQ 60, y por la misma razon de fondo que
+-- la de esc3: sin ella hay EMPATE y el escenario no dispara. Aqui el empate
+-- seria entre k=1 y k=3 -- las dos CRR, las dos con una entidad -- de modo que
+-- el score maximo de R1 esc1 no seria UNICO, el ganador (HAVING COUNT(*) = 1)
+-- no existiria y el arquetipo no produciria NINGUNA pareja, ni de R1 ni de R2.
+-- Con la segunda entidad k=1 saca 100002 contra 100001 y queda de padre, que es
+-- la premisa que G-02 necesita para despues verlo caer como hija en R2.
+-- El k = 1 es el unico cuyo cod_dw_persona_ubic coincide con su cod_dw_ubic
+-- (ambos son persona * 10 + 1).
+INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
+  cod_dw_persona_ubic, id_buro_suscriptor, fecha_reporte
+)
+SELECT rpu.cod_dw_persona_ubic, 1002, CAST('2026-02-15' AS DATE)
+FROM bdm_stage.relacion_persona_ubicacion rpu
+WHERE rpu.id_buro_persona BETWEEN 9600000 AND 9600999
+  AND rpu.cod_dw_persona_ubic = rpu.cod_dw_ubic;
+
 INSERT INTO bdm_stage.ciiu_persona (id_buro_persona, cod_act_econo_ciiu_fte)
 SELECT DISTINCT rpu.id_buro_persona, '99'
 FROM bdm_stage.relacion_persona_ubicacion rpu
 WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999;
+
+-- El ARQ 60 es la excepcion: su CIIU es '10' (asalariado) porque necesita que
+-- R1 lo tome, y R1 esc1 -- el unico que prefiere LAB/CRR, que es como k=1 gana
+-- la primera ronda -- se activa solo con '10'. Con '99' caeria en esc3, que no
+-- tiene preferencia de tipo y elegiria por entidades sin que el tipo importe.
+INSERT INTO bdm_stage.ciiu_persona (id_buro_persona, cod_act_econo_ciiu_fte)
+SELECT DISTINCT rpu.id_buro_persona, '10'
+FROM bdm_stage.relacion_persona_ubicacion rpu
+WHERE rpu.id_buro_persona BETWEEN 9600000 AND 9600999;
 
 INSERT INTO bdm_stage.contacto_canal (
   cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, contact_type,
@@ -501,5 +648,6 @@ SELECT
 FROM bdm_stage.relacion_persona_ubicacion rpu
 JOIN bdm_stage.ubicacion_estandarizada ubi ON ubi.cod_dw_ubic = rpu.cod_dw_ubic
 CROSS JOIN (SELECT '4' AS contact_type UNION ALL SELECT '9' UNION ALL SELECT '10') c
-WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999
+WHERE ( rpu.id_buro_persona BETWEEN 9210000 AND 9560999
+     OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999 )
   AND rpu.cod_dw_persona_ubic % 10 = 1;

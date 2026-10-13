@@ -594,3 +594,101 @@ G-04 no se podian afirmar.
 Los **checksums de convergencia no se mueven**: `sp_unif_gate_convergencia_evaluar`
 compara FULL contra FULL2 y DELTA1 contra DELTA2 **entre si**, sin un solo valor
 cableado. Los 8/8 se mantienen.
+
+---
+
+## Arquetipo 60: la cascada R1 → R2 (SLCOPRBA-1355)
+
+Cierra **G-02** — *"una dirección seleccionada como padre en R1 puede ser
+evaluada como hija en R2 si otra tiene complemento más completo"*. Hasta el job
+#324 salía `SIN_DATO`: el criterio es un **permiso**, no una obligación, de modo
+que solo la evidencia positiva lo afirma, y la matriz no tenía ni un caso.
+
+### Por qué ningún arquetipo anterior podía producirlo
+
+No fue un descuido. **R1 exige tipo de ubicación distinto y R2 lo exige igual**,
+así que un grupo construido para una regla es inmune a la otra por diseño: los
+20 arquetipos de R1 usan dos tipos y los 30 de R2 usan uno solo. El caso que
+cruza las dos reglas necesita **tres direcciones y dos tipos a la vez**.
+
+Va en la banda `9600000..9600999`, disjunta de R1 (`9010000..9200999`), de R2
+(`9210000..9560999`) y del Grupo A (`9570000..9590999`).
+
+| k | tipo | complemento | entidades | papel |
+|---|------|-------------|-----------|-------|
+| 1 | CRR (3) | `''` | **2** | padre en R1, **hija en R2** |
+| 2 | RES (1) | `''` | 1 | hija en R1 |
+| 3 | CRR (3) | `AP 301` | 1 | padre en R2 |
+
+CIIU `'10'`, sin NIT (`cod_tipo_ident_fte = '1'`).
+
+### La mecánica, leída contra los SP
+
+**Ronda 1 — R1 esc1.** El grupo es `(persona, texto_ubicacion, cod_dw_ciudad)` y
+las tres direcciones caen en uno solo. El score es
+`(tipo IN ('LAB','CRR')) * 100000 + numero_entidades_reportan`:
+
+| k | score | orden |
+|---|-------|-------|
+| 1 | 100 002 | 1 |
+| 3 | 100 001 | 2 |
+| 2 | 1 | 3 |
+
+El máximo es **único**, que es lo que exige el `HAVING COUNT(*) = 1` del
+ganador, y el padre es el de orden 1: **k=1**. Las hijas son las de orden > 1
+**con `padre.cod_dw_tipo_ubicacion_dir <> hijo.cod_dw_tipo_ubicacion_dir`**, de
+modo que k=3 — mismo tipo que el padre — queda fuera. Única pareja: `k=2 → k=1`.
+
+**Ronda 2 — R2 esc1.** El insumo de R2 filtra `ind_unificacion IS NULL`, y la
+vista mock **deriva** `ind_unificacion` de `unificacion_direccion_mock`: tras R1
+la hija k=2 ya no entra. k=1 es **padre**, no hija, así que sigue dentro — y eso
+es exactamente lo que el criterio afirma. Quedan k=1 (`''`) y k=3 (`AP 301`),
+mismo tipo, mismo texto, mismo municipio: esc1 toma el de complemento informado
+como padre. Pareja `k=1 → k=3`.
+
+### La segunda entidad de k=1 no es decoración
+
+Sin ella k=1 y k=3 empatan en 100 001, el máximo deja de ser único, el ganador
+no existe y **R1 no produce ninguna pareja**: sin padre de R1 no hay nada que
+pueda caer como hija en R2 y el arquetipo no certificaría nada. Es el mismo
+defecto de fixture que hundió a ARQ 31–33 en el job #302, con la diferencia de
+que allí el empate lo provocaba la fecha y aquí lo provocaría el tipo.
+
+### Inmunidad al resto de la cascada
+
+- **esc2..esc6**: tras esc1 solo k=3 queda en `'N'`, y una sola dirección no
+  forma pareja con nadie.
+- **motor (sello `X4`)**: el sitio 1 exige NIT y aquí `cod_tipo_ident_fte = '1'`.
+- **R1 esc2 y esc3**: no lo ven, el CIIU es `'10'`.
+
+### Lo que no viola
+
+| Criterio | Por qué se sigue cumpliendo |
+|----------|------------------------------|
+| **R2-10** un padre no es hija en la misma regla | el self-join lleva `b.regla = a.regla`; k=1 es padre en la regla 1 e hija en la 2 |
+| **G-03** una hija no recibe un segundo padre | cuenta reglas **por hija**: k=1 recibe padre solo en R2, k=2 solo en R1 |
+| **CA-U05 / R2-11** un hijo, un padre | k=1 tiene un padre (k=3) y k=2 tiene uno (k=1) |
+
+### Cifras que se mueven
+
+| Gate | Antes | Ahora |
+|------|-------|-------|
+| `CA-U02` total del FULL | 53 000 | **55 000** (+2 000 del ARQ 60) |
+| `CA-U10` total tras la mutación | 53 200 | **55 200** |
+| Rango de la semilla en el gate | `..95909999` | **`..96009999`** |
+| Matriz del gate | hasta ARQ 59 | **ARQ 60 → 2 filas por persona** |
+
+**Las dos filas son el criterio.** Un 1 significaría que una de las dos mitades
+no disparó y G-02 volvería a quedarse sin evidencia; por eso el gate las cuenta
+en `CA-U01` y no solo en el total.
+
+Los **checksums de convergencia no se mueven**: la comparación es relativa.
+
+### De paso: un hueco en el rollback
+
+`RevSQL/seed_mock_matriz.sql` no borraba la banda del Grupo A que el propio
+`SQL/seed_mock_matriz.sql` siembra. No rompía la batería — el seed es
+idempotente y limpia sus restos al re-aplicarse, que es de dónde salen los
+`9000 / 3000 / 6000 / 6000 / 3000 / 6000 rows affected` del job #324 — pero
+dejaba 3 000 personas sembradas después de un rollback que decía haberlas
+quitado. Quedó corregido en los dos rollbacks.
