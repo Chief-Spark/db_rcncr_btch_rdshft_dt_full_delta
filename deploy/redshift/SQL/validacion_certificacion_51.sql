@@ -197,3 +197,55 @@ SELECT criterio_ca, estado, detalle
 FROM   bdm_stage.mock_unif_ca_result
 WHERE  criterio_ca NOT LIKE '%CA-C%'
 ORDER  BY 1;
+
+-- 11) REGLA 3: la evidencia fina de los diez criterios -- SLCOPRBA-1355.
+--     Una fila por arquetipo de la banda 9610000..9700999 con el subcaso que
+--     siembra, lo que produjo y lo que debia producir. Es donde QA mira cuando
+--     un criterio del bloque REGLA3 no sale PASSED.
+SELECT
+  r.arq,
+  CASE r.arq WHEN 61 THEN 'una sola geolocalizada          (R3-02)'
+             WHEN 62 THEN 'ninguna geolocalizada           (R3-03)'
+             WHEN 63 THEN 'las dos geolocalizadas          (R3-04)'
+             WHEN 64 THEN 'puerta a +-2                    (R3-05)'
+             WHEN 65 THEN 'puerta a +-5                    (R3-06)'
+             WHEN 66 THEN 'modificador de via en el texto  (R3-07)'
+             WHEN 67 THEN 'cuadrante en la via principal   (R3-08)'
+             WHEN 68 THEN 'tipo MZ                         (R3-01)'
+             WHEN 69 THEN 'tipo Rural                      (R3-01)'
+             WHEN 70 THEN 'empate de diccionario           (R3-10)'
+  END                                            AS subcaso,
+  COUNT(*)                                       AS direcciones,
+  SUM(CASE WHEN r.unificada = 1 THEN 1 ELSE 0 END) AS parejas_r3,
+  CASE WHEN r.arq IN (61, 62, 63, 64, 67) THEN 1000 ELSE 0 END AS esperado,
+  CASE WHEN SUM(CASE WHEN r.unificada = 1 THEN 1 ELSE 0 END)
+          = CASE WHEN r.arq IN (61, 62, 63, 64, 67) THEN 1000 ELSE 0 END
+       THEN 'OK' ELSE '<-- REVISAR' END          AS veredicto
+FROM ( SELECT CAST((rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS INTEGER) AS arq,
+              CASE WHEN u.cod_dw_persona_ubic IS NOT NULL THEN 1 ELSE 0 END     AS unificada
+         FROM bdm_stage.relacion_persona_ubicacion rpu
+         LEFT JOIN ( SELECT DISTINCT cod_dw_persona_ubic
+                       FROM bdm_datos.unificacion_direccion_mock
+                      WHERE unifica_atributos = 3 ) u
+                ON u.cod_dw_persona_ubic = rpu.cod_dw_persona_ubic
+        WHERE rpu.cod_dw_persona_ubic BETWEEN 96100000 AND 97009999 ) r
+GROUP BY r.arq
+ORDER BY r.arq;
+
+-- 12) Diccionario de Via: las llaves de la banda de R3 con su conteo. Respalda
+--     R3-04 (gana la mas reportada) y R3-10 (empate no decide: dos valores con
+--     el MISMO conteo bajo la misma llave).
+SELECT tipo, llave, valor, cod_dw_municipio, conteo
+FROM   bdm_stage.diccionario_via
+ORDER  BY tipo, llave, conteo DESC, valor;
+
+-- 13) Dominio de tipo_ubicacion, el criterio de ENTRADA de R3 (R3-01).
+--     En mock lo siembra la matriz. EN LA VIA REAL ESTA MISMA CONSULTA SOBRE
+--     bdm_tempo.v_xpm_ubicacion_estandarizada es la que confirma que el literal
+--     del datashare (standardizedtipo) sea de verdad 'Via': si alli no lo
+--     fuera, R3 daria 0 filas sin dar ningun error.
+SELECT COALESCE(tipo_ubicacion, '(nulo)') AS tipo_ubicacion,
+       COUNT(*)                           AS ubicaciones
+FROM   bdm_tempo.v_mock_ubicacion_estandarizada
+GROUP  BY 1
+ORDER  BY 2 DESC;

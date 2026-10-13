@@ -28,6 +28,11 @@ TRUNCATE TABLE bdm_datos.direccion_fisica_generada_mock;
 -- El diccionario lo reconstruye el SP en cada corrida; se vacia para que un
 -- fallo a mitad de camino no deje filas de una corrida anterior.
 TRUNCATE TABLE bdm_stage.diccionario_complementos;
+-- SLCOPRBA-1355: el Diccionario de Via, por la misma razon. Lo
+-- reconstruye sp_unificacion_mock_r3_esc1 en cada Regla 3, de modo que
+-- vaciarlo aqui solo evita que un residuo de otra bateria se cuele en el
+-- desempate del subcaso de las dos coordenadas.
+TRUNCATE TABLE bdm_stage.diccionario_via;
 
 -- Control y traza de Unificacion (aqui vive el Watermark)
 TRUNCATE TABLE bdm_datos.unif_control_etapa_mock;

@@ -692,3 +692,178 @@ idempotente y limpia sus restos al re-aplicarse, que es de dónde salen los
 `9000 / 3000 / 6000 / 6000 / 3000 / 6000 rows affected` del job #324 — pero
 dejaba 3 000 personas sembradas después de un rollback que decía haberlas
 quitado. Quedó corregido en los dos rollbacks.
+
+---
+
+## Regla 3: el legado que no habíamos leído (SLCOPRBA-1355)
+
+Cierra los diez criterios del bloque **REGLA3**, que hasta el job #327 salían
+`NO_IMPLEMENTADO` o `SIN_DATO`.
+
+### El hallazgo
+
+El legado de R3 **existe y está completo**: `P0021_UNIFICACION_111.BTQ`, 431
+líneas, en `Experian Reconocer/Unificacion/`. Trae el insumo
+(`Unificacion_3431`), el emparejamiento en **dos escenarios** (`3432`), el
+**`DICCIONARIO_VIA`**, la fórmula de puntaje (`3433`) y la elección del padre
+(`3434`). Nuestro R3 anterior no lo había visto: troceaba `texto_ubicacion` con
+`SPLIT_PART`, exigía latitud en **ambos** lados y elegía por número de
+entidades. Sin escenarios, sin puntaje, sin diccionario.
+
+### La fórmula es el corazón de la regla
+
+```
+id_unificacion = CASE WHEN lat Y long  THEN 100000000 + conteo_diccionario
+               + CASE WHEN falta una   THEN fecha_como_entero
+               + numero_entidades_reportan
+```
+
+Un solo mecanismo cubre cuatro criterios:
+
+| | cómo |
+|---|---|
+| **R3-02** solo una geolocalizada | el `100000000` hace que cualquier geolocalizada gane a cualquiera sin coordenadas |
+| **R3-03** ninguna geolocalizada | manda la fecha (del orden del millón) y las entidades (decenas) desempatan |
+| **R3-04** las dos geolocalizadas | decide el conteo del diccionario |
+| **R3-10** empate | el padre tiene que ser **único** a ese puntaje |
+
+Exigir coordenadas en el insumo —lo que hacía el puerto anterior— **eliminaba
+de la regla justamente los dos subcasos que los criterios piden.**
+
+### Tres columnas que eran constantes nulas
+
+No fallaban: devolvían cero.
+
+1. **`latitud` / `longitud`.** El datashare **no publica coordenadas**:
+   `v_xpm_contacto_direccion` las expone como `CAST(NULL AS DECIMAL(10,6))`. La
+   única fuente es `bdm_datos.geo_atributos`, donde el Ciclo GEO escribe lo que
+   devuelve ArcGIS, y **ninguna vista de insumo la leía**. R3 no podía unificar
+   nunca sobre datos reales.
+2. **Los cuatro componentes de vía** (`tipo_via_principal`, `via_principal`,
+   `via_generadora`, `numero_puerta`) eran `CAST(NULL AS ...)` en la rama
+   `bdm_stage` de la vista mock. R3 no tenía con qué comparar.
+3. **`tipo_ubicacion`**, el criterio de entrada, era `CAST(NULL AS VARCHAR(50))`.
+
+### Los arquetipos: banda `9610000..9700999`
+
+| ARQ | subcaso | criterio | parejas |
+|-----|---------|----------|---------|
+| 61 | una sola geolocalizada | R3-02 | **1** |
+| 62 | ninguna geolocalizada, fechas distintas | R3-03 | **1** |
+| 63 | las dos geolocalizadas, conteos distintos | R3-04 | **1** |
+| 64 | puerta a ±2 | R3-05 | **1** |
+| 65 | puerta a ±5 | R3-06 | **0** |
+| 66 | modificador de vía (`45B` en el texto) | R3-07 | **0** |
+| 67 | cuadrante en la vía principal (`67 SUR`) | R3-08 | **1** |
+| 68 | tipo `MZ` | R3-01 | **0** |
+| 69 | tipo `Rural` | R3-01 | **0** |
+| 70 | empate de diccionario | R3-10 | **0** |
+
+**5 parejas por réplica → 5 000 filas.**
+
+### Cada dirección tiene su propia ubicación, y es obligatorio
+
+En R1 y R2 todas las direcciones de una persona comparten un `cod_dw_ubic`.
+Aquí no se puede: **las coordenadas viven en `ubicacion_estandarizada`**, así
+que con una ubicación compartida es *imposible* sembrar "una geolocalizada y la
+otra no" — que es exactamente el subcaso de R3-02. El `texto_ubicacion` sí sigue
+siendo el mismo entre las dos: R3 no empareja por texto, pero el Diccionario de
+Vía se acota por texto y así las dos entran al mismo alcance.
+
+### El truco del ARQ 63: aislar el diccionario
+
+R3-04 dice que con las dos geolocalizadas decide el diccionario. Pero el puntaje
+suma **también** las entidades, así que si la ganadora tuviera más entidades la
+victoria no se le podría atribuir al diccionario. El legado distingue dos cosas
+que parecen la misma:
+
+```
+numero_entidades_reportan = COUNT(DISTINCT id_buro_suscriptor)
+conteo del diccionario    = COUNT(filas de reporte)
+```
+
+El `k=1` del ARQ 63 lleva **tres filas de reporte del mismo suscriptor**:
+diccionario 3 contra 1, entidades **1 contra 1**. Las entidades empatan y lo
+único que puede decidir es el diccionario. La aserción verifica las dos mitades.
+
+### El contraste 64 / 65 es la afirmación del umbral
+
+Los dos arquetipos son idénticos salvo el número de puerta de la segunda
+dirección: **22** (diferencia 2, unifica) contra **25** (diferencia 5, no
+unifica). Un 0 solo no prueba que el umbral exista —podría no haber dato— y un 1
+solo no prueba que haya tope. El par prueba las dos cosas.
+
+### Inmunidad cruzada
+
+Si R1 o R2 tocaran estos arquetipos, el conteo del gate dejaría de medir R3.
+
+- **R1** exige tipo de ubicación **distinto**; todas son RES.
+- **R2** exige el mismo tipo —que sí se cumple— pero sus seis escenarios
+  discriminan por una **diferencia de complemento**. Aquí el complemento es
+  `'AP 101'` **idéntico** en todas: ninguna diferencia existe.
+- El **motor** (sello `X4`) exige NIT; `cod_tipo_ident_fte` es `'1'`.
+
+Y al revés: **R3 tampoco toca las otras bandas.** Su insumo exige
+`tipo_ubicacion = 'Via'` y ésta es la única semilla que escribe esa columna. Las
+demás la dejan `NULL`, así que quedan fuera sin ningún filtro por rango.
+
+### Cuatro divergencias respecto a Teradata
+
+Cada una vive en **un predicado marcado** (`D1`..`D4`) en el SP, de modo que
+volver al comportamiento del legado es un cambio de una línea. Van a la bitácora
+de diferencias como cambio funcional (GOB-01/GOB-04).
+
+| | documento | Teradata |
+|---|---|---|
+| **D1** tipo de vía | excluye Manzana y Rural | filtra el **tipo del atributo** y admite las cuatro |
+| **D2** cuadrantes | se omiten para comparar, **no excluyen** | **excluye** la dirección |
+| **D3** umbral | ±2 | `ABS(diff) = 2` **exacto** |
+| **D4** alcance del umbral | solo con ambas coordenadas | empareja sin mirar coordenadas |
+
+**D3 es casi seguro un defecto del legado:** su propio comentario, tres líneas
+arriba del código, dice *"± 2 unidades"*.
+
+### Dos correcciones a defectos del legado
+
+No son divergencias de criterio.
+
+- **C1** `INNER JOIN` contra el reporte con el conteo envuelto en
+  `COALESCE(...,0)`, que bajo `INNER` es código muerto: el mismo *tell* ya
+  corregido en los insumos de R1 y R2. Con `INNER`, toda dirección sin entidad
+  reportante queda fuera de la regla para siempre — entre ellas las que crea el
+  motor, que nacen sin fila de reporte.
+- **C2** coordenadas comparadas con `OR` en un escenario y con `AND` en el otro,
+  de modo que una fila con **una** coordenada no sumaba ningún término.
+
+### CA-04: los dos defectos encadenados, corregidos
+
+`sp_geo_reenganchar_r3` llamaba a la Regla 3 **sin argumentos** contra una firma
+de dos. No fallaba al desplegar —`CREATE OR REPLACE PROCEDURE` no compila el
+cuerpo— sino en la primera invocación, y el `EXCEPTION` lo disfrazaba de fallo de
+la Regla 3 marcando el Lote `fallido`. Ya pasa `('DELTA', in_lote)`. El segundo
+defecto era que ninguna vista leía `geo_atributos`; también corregido. CA-04 pasa
+de `NO_IMPLEMENTADO` a `BLOQUEADO`: lo que queda no es código, es un Lote GEO
+real cargado por `COPY` desde S3.
+
+### Cifras que se mueven
+
+| Gate | Antes | Ahora |
+|------|-------|-------|
+| `CA-U02` total del FULL | 55 000 | **60 000** (+5 000 de R3) |
+| `CA-U10` total tras la mutación | 55 200 | **60 200** |
+| Rango de la semilla en el gate | `..96009999` | **`..97009999`** |
+| Matriz del gate | hasta ARQ 60 | **ARQ 61..70** |
+| Etapas de la traza | regla1 → regla2 → geo | **regla1 → regla2 → geo → regla3** |
+
+`regla3` va **después** de `geo` y eso es la cascada, no un desorden: las
+coordenadas sobre las que R3 decide las escribe el Ciclo GEO. `G-01` ya exige la
+cadena completa R1 → R2 → R3; antes comparaba dos tercios de lo que enuncia.
+
+Los **checksums de convergencia no se mueven**: la comparación es relativa.
+
+### Lo que sigue dependiendo del cliente
+
+En la vía real, `tipo_ubicacion` sale de `standardizedtipo` del datashare y su
+dominio exacto no se puede ver desde aquí. La consulta 13 de
+`validacion_certificacion_51.sql` es la que lo confirma; si el literal no fuera
+`'Via'`, **R3 daría 0 filas sin dar ningún error**.
