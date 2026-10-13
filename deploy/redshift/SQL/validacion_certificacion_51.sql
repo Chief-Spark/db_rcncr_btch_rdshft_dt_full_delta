@@ -276,3 +276,30 @@ JOIN ( SELECT cod_dw_direccion_unificada AS padre,
   ON   h.padre = r.cod_dw_persona_ubic
 GROUP  BY 1
 ORDER  BY 1;
+
+-- 15) EVIDENCIA FINA DEL SITIO 3 (sello 'A8', escenario 6 subcaso 1)
+--     Espejo de la consulta 14. El ARQ 72 trae los MISMOS dos componentes en
+--     orden CRUZADO ('BL 2 ED 7' y 'ED 7 BL 2'); el motor debe fusionarlos y
+--     reordenarlos por (nivel, valor). Con BL y ED ambos en nivel 2 el
+--     desempate lo da el valor, de modo que el resultado correcto es
+--     'BL 2 ED 7' -- sin repetir nomenclatura, que es lo que exige R2-12.
+SELECT g.complemento                                   AS complemento_generado,
+       COUNT(*)                                        AS direcciones_generadas,
+       SUM(h.hijas)                                    AS hijas_totales,
+       MIN(h.hijas)                                    AS hijas_min,
+       MAX(h.hijas)                                    AS hijas_max,
+       CASE WHEN TRIM(g.complemento) = 'BL 2 ED 7'
+             AND MIN(h.hijas) = 2 AND MAX(h.hijas) = 2
+            THEN 'OK' ELSE 'REVISAR' END               AS veredicto
+FROM   bdm_datos.direccion_fisica_generada_mock g
+JOIN   bdm_datos.rpu_generada_mock r
+  ON   r.cod_dw_direccion_fisica = g.cod_dw_direccion_fisica
+JOIN ( SELECT cod_dw_direccion_unificada AS padre,
+              COUNT(DISTINCT cod_dw_persona_ubic) AS hijas
+       FROM   bdm_datos.unificacion_direccion_mock
+       WHERE  cod_dw_persona_ubic BETWEEN 97200000 AND 97209999
+         AND  unifica_atributos = 2
+       GROUP  BY 1 ) h
+  ON   h.padre = r.cod_dw_persona_ubic
+GROUP  BY 1
+ORDER  BY 1;

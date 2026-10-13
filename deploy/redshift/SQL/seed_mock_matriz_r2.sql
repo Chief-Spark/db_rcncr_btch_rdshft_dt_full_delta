@@ -331,31 +331,38 @@
 -- ------------------------------------------------------------
 -- Limpieza idempotente del rango que posee este script:
 -- ARQ 21..50 (Regla 2), ARQ 56 (GEO con coordenadas), ARQ 60 (cascada
--- R1 -> R2) y ARQ 71 (sitio 2 de creacion de direcciones). La banda
+-- R1 -> R2), ARQ 71 (sitio 2) y ARQ 72 (sitio 3). La banda
 -- 9570000..9590999 del Grupo A NO se toca aqui: la posee seed_mock_matriz.sql,
 -- que corre antes.
 -- ------------------------------------------------------------
 DELETE FROM bdm_stage.contacto_canal                 WHERE id_buro_persona BETWEEN 9210000 AND 9560999
     OR id_buro_persona BETWEEN 9600000 AND 9600999
-    OR id_buro_persona BETWEEN 9710000 AND 9710999;
+    OR id_buro_persona BETWEEN 9710000 AND 9710999
+    OR id_buro_persona BETWEEN 9720000 AND 9720999;
 DELETE FROM bdm_stage.diccionario_complementos       WHERE id_buro_persona BETWEEN 9210000 AND 9560999
     OR id_buro_persona BETWEEN 9600000 AND 9600999
-    OR id_buro_persona BETWEEN 9710000 AND 9710999;
+    OR id_buro_persona BETWEEN 9710000 AND 9710999
+    OR id_buro_persona BETWEEN 9720000 AND 9720999;
 DELETE FROM bdm_stage.ciiu_persona                   WHERE id_buro_persona BETWEEN 9210000 AND 9560999
     OR id_buro_persona BETWEEN 9600000 AND 9600999
-    OR id_buro_persona BETWEEN 9710000 AND 9710999;
+    OR id_buro_persona BETWEEN 9710000 AND 9710999
+    OR id_buro_persona BETWEEN 9720000 AND 9720999;
 DELETE FROM bdm_stage.reporte_relacion_persona_ubica WHERE cod_dw_persona_ubic BETWEEN 92100000 AND 95609999
     OR cod_dw_persona_ubic BETWEEN 96000000 AND 96009999
-    OR cod_dw_persona_ubic BETWEEN 97100000 AND 97109999;
+    OR cod_dw_persona_ubic BETWEEN 97100000 AND 97109999
+    OR cod_dw_persona_ubic BETWEEN 97200000 AND 97209999;
 DELETE FROM bdm_stage.direccion_fisica               WHERE cod_dw_direccion_fisica BETWEEN 92100000 AND 95609999
     OR cod_dw_direccion_fisica BETWEEN 96000000 AND 96009999
-    OR cod_dw_direccion_fisica BETWEEN 97100000 AND 97109999;
+    OR cod_dw_direccion_fisica BETWEEN 97100000 AND 97109999
+    OR cod_dw_direccion_fisica BETWEEN 97200000 AND 97209999;
 DELETE FROM bdm_stage.ubicacion_estandarizada        WHERE cod_dw_ubic BETWEEN 92100000 AND 95609999
     OR cod_dw_ubic BETWEEN 96000000 AND 96009999
-    OR cod_dw_ubic BETWEEN 97100000 AND 97109999;
+    OR cod_dw_ubic BETWEEN 97100000 AND 97109999
+    OR cod_dw_ubic BETWEEN 97200000 AND 97209999;
 DELETE FROM bdm_stage.relacion_persona_ubicacion     WHERE id_buro_persona BETWEEN 9210000 AND 9560999
     OR id_buro_persona BETWEEN 9600000 AND 9600999
-    OR id_buro_persona BETWEEN 9710000 AND 9710999;
+    OR id_buro_persona BETWEEN 9710000 AND 9710999
+    OR id_buro_persona BETWEEN 9720000 AND 9720999;
 
 -- ============================================================
 -- 0) CATALOGO DE NOMENCLATURAS
@@ -511,6 +518,53 @@ CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
 -- ============================================================
+-- 2d) ARQUETIPO 72: SITIO 3 DE CREACION DE DIRECCIONES (sello 'A8')
+-- ------------------------------------------------------------
+-- DOS direcciones con los MISMOS DOS COMPONENTES EN ORDEN CRUZADO:
+--   k = 1   'BL 2 ED 7'   inicial BL (nivel 2), intermedia ED
+--   k = 2   'ED 7 BL 2'   inicial ED (nivel 2), intermedia BL
+-- Es el predicado del escenario 6 subcaso 1: una nomenclatura coincide en
+-- POSICION CRUZADA -- la que encabeza en una va en medio en la otra -- y las
+-- colas se contienen.
+--
+-- POR QUE ESOS DOS COMPLEMENTOS Y NO OTROS. Las dos condiciones que lo hacen
+-- inmune a todo lo anterior se satisfacen a la vez SOLO con componentes
+-- iguales, cruzados y al mismo nivel:
+--   esc5 exige COALESCE(a.nivel_pri,99) < COALESCE(b.nivel_pri,99) ESTRICTO;
+--        BL y ED estan los dos en nivel 2, asi que no hay '<' en ningun
+--        sentido y esc5 no lo toca.
+--   esc4 exige HAVING COUNT(*) = 1, o sea un ganador UNICO en el diccionario;
+--        con el mismo conjunto de componentes los conteos EMPATAN y tampoco
+--        decide.
+-- El catalogo ofrece cuatro parejas de nivel identico (BL/ED=2, LC/MZ=3,
+-- TO/CA=4, CS/LT=5); se usa la primera.
+--
+-- EL RESTO DE LA CADENA, caso por caso:
+--   Regla 1  ambas filas reciben UNA sola entidad reportante -> empate -> el
+--            esc3 de R1 no decide. Mismo mecanismo que el ARQ 71.
+--   esc1     ninguno vacio.
+--   esc2     ninguno es substring del otro.
+--   esc3     exige nomenclaturas INICIALES iguales; aqui difieren (BL vs ED).
+--   motor NIT  cod_tipo_ident_fte = '1', sin NIT.
+--   motor NIVEL ('A6')  exige coincidencia en la MISMA posicion, no cruzada.
+--
+-- RESULTADO ESPERADO: 'BL 2 ED 7' -- los dos componentes reordenados por
+-- (nivel, valor) y sin repetir nomenclatura, que es lo que exige R2-12.
+-- ============================================================
+INSERT INTO bdm_stage.relacion_persona_ubicacion (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, cod_dw_ubic,
+  cod_dw_direccion_fisica, cod_dw_tipo_ubicacion_dir, ind_unificacion,
+  orden_prioridad, fecha_relacion_persona_ubicaci, lote, cod_tipo_ident_fte
+)
+SELECT
+  (9720000 + n.i) * 10 + a.k, 9720000 + n.i, 9720000 + n.i,
+  (9720000 + n.i) * 10 + 1,   (9720000 + n.i) * 10 + a.k, 1, NULL, a.k,
+  CAST('2026-03-01' AS DATE), 1356301, '1'
+FROM (SELECT 1 AS k UNION ALL SELECT 2) a
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+-- ============================================================
 -- 3) UBICACION (una por persona). Coordenadas NULL salvo el ARQ 56.
 -- ============================================================
 -- Las coordenadas NO se resuelven aqui con un CASE. Redshift infiere el tipo
@@ -533,7 +587,8 @@ SELECT DISTINCT
 FROM bdm_stage.relacion_persona_ubicacion rpu
 WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999
    OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999
-   OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999;
+   OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999
+   OR rpu.id_buro_persona BETWEEN 9720000 AND 9720999;
 
 -- Unico arquetipo con latitud/longitud: el 56, control negativo del
 -- Exportador_GEO. Su cod_dw_ubic es (9560000 + i) * 10 + 1 con i < 1000, o sea
@@ -626,6 +681,20 @@ FROM (
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
+-- ARQ 72 (sitio 3, sello 'A8'). Los MISMOS dos componentes en orden cruzado y
+-- al mismo nivel (BL=2, ED=2): es lo que lo deja pasar vivo hasta el sitio 3.
+-- El CAST de la primera rama fija el tipo del nodo UNION ALL.
+INSERT INTO bdm_stage.direccion_fisica (
+  cod_dw_direccion_fisica, complemento, cod_dw_ubic, generada_enriquecida
+)
+SELECT (9720000 + n.i) * 10 + a.k, a.complemento, (9720000 + n.i) * 10 + 1, 0
+FROM (
+  SELECT 1 AS k, CAST('BL 2 ED 7' AS VARCHAR(200)) AS complemento UNION ALL
+  SELECT 2,      'ED 7 BL 2'
+) a
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
 -- ============================================================
 -- 5) DICCIONARIO DE COMPLEMENTOS -- YA NO SE SIEMBRA AQUI
 -- ------------------------------------------------------------
@@ -707,7 +776,8 @@ SELECT rpu.cod_dw_persona_ubic, 1001, CAST('2026-02-01' AS DATE)
 FROM bdm_stage.relacion_persona_ubicacion rpu
 WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999
    OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999
-   OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999;
+   OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999
+   OR rpu.id_buro_persona BETWEEN 9720000 AND 9720999;
 
 -- Segunda entidad SOLO para el padre de esc3 (ARQ 31..35, k = 1).
 -- k = 1 es la direccion cuyo cod_dw_persona_ubic coincide con su cod_dw_ubic,
@@ -742,7 +812,8 @@ INSERT INTO bdm_stage.ciiu_persona (id_buro_persona, cod_act_econo_ciiu_fte)
 SELECT DISTINCT rpu.id_buro_persona, '99'
 FROM bdm_stage.relacion_persona_ubicacion rpu
 WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999
-   OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999;
+   OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999
+   OR rpu.id_buro_persona BETWEEN 9720000 AND 9720999;
 
 -- El ARQ 60 es la excepcion: su CIIU es '10' (asalariado) porque necesita que
 -- R1 lo tome, y R1 esc1 -- el unico que prefiere LAB/CRR, que es como k=1 gana
@@ -771,5 +842,6 @@ JOIN bdm_stage.ubicacion_estandarizada ubi ON ubi.cod_dw_ubic = rpu.cod_dw_ubic
 CROSS JOIN (SELECT '4' AS contact_type UNION ALL SELECT '9' UNION ALL SELECT '10') c
 WHERE ( rpu.id_buro_persona BETWEEN 9210000 AND 9560999
      OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999
-     OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999 )
+     OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999
+     OR rpu.id_buro_persona BETWEEN 9720000 AND 9720999 )
   AND rpu.cod_dw_persona_ubic % 10 = 1;
