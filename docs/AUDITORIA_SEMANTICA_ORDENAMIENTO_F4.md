@@ -10,6 +10,77 @@ una **qué magnitud calcula**, no si los umbrales coinciden.
 
 ---
 
+## ESTADO A 2026-10-14 (noche): 34 de las 47 ya estan corregidas
+
+**Lo que sigue a esta seccion es el diagnostico original, y se conserva
+entero porque es la justificacion de por que habia que tocar nada. Pero ya no
+describe el estado del codigo.** Tras auditar las 47 una a una contra el
+legado y reescribir lo que no coincidia, el reparto es este:
+
+| Canal | Ya correctas | Corregidas | Bloqueadas | Total |
+|---|---|---|---|---|
+| EMA | 2 | 9 | 2 | 13 |
+| CEL | 1 | 8 | 2 | 11 |
+| DIR | 0 | 8 | 4 | 12 |
+| TEL | 2 | 9 | 0 | 11 |
+| **Total** | **5** | **34** | **8** | **47** |
+
+El diagnostico original contaba 32 con magnitud distinta; la cuenta fina, al
+reescribirlas, dio 34. La diferencia son dos que el primer pase clasifico
+como "parcial" y resultaron ser otra magnitud.
+
+### Lo que ademas aparecio al reescribir, y no estaba en el diagnostico
+
+| Hallazgo | Donde |
+|---|---|
+| **El grano de TEL estaba mal.** El legado agrupa por NUMERO DE TELEFONO; la columna se llama `Direccion_Fisica` pero contiene el numero, y su divisor se llama `Total_Reportes_Telefono` (`Caracteristicas.txt:2252-2262`). Nosotros agrupabamos por direccion | `sp_ordenamiento_scoring_tel_edf.sql` |
+| **El canal CEL tiene una compuerta de elegibilidad.** `Orden_Celular` filtra `WHERE CEl018.CO01CEL018 <> 0` (`:899`): un prefijo no catalogado deja al celular FUERA del ranking, no solo penalizado. Aplicada | `sp_ordenamiento_scoring_cel_edf.sql` |
+| **`EMA024` no puntuaba nada.** Su categoria era `CASE WHEN ema024 <= 0 THEN 1 ELSE 1`, las dos ramas a 1: entraba en la suma con su beta y aportaba la misma constante a todas las filas | corregido |
+| **`DIR002TO` era un conteo y el legado es una recencia** (`:2916`). No estaba en la lista; entro porque alimenta `DIR059` | corregido |
+| **Cuatro caracteristicas se daban por bloqueadas y no lo estaban:** `CEL014`, `CEL017`, `TEL017` y `TEL010` no dependen de `tipo_cuenta` ni de `sector_financiero` en el legado | portadas |
+| **El mock no tiene recencia.** Solo dos valores, 0 y 8 meses: las ventanas `(3,6]` y `>24` estan vacias, asi que varias caracteristicas correctas salen constantes | `docs/HALLAZGOS_RECENCIA_MOCK_ORDENAMIENTO.md` |
+
+### Lo que la mesa todavia tiene que resolver
+
+Las 8 bloqueadas, todas por datos que no estan en el datashare actual:
+
+| Caracteristica | Que falta | Cita |
+|---|---|---|
+| `EMA020` | `REC_VISTA.V_Ind_Efectiv_Orden_Peso_Email` cruzando `Gestion_Contactabilidad` | `:2713-2714` |
+| `EMA021` | `Cod_Tipo_Cta_Fte` de `CTA_TOTALES_PERSONAS_TMP3` | `:2768-2769` |
+| `CEL019` | `Cod_Tipo_Cta_Fte` mas `REC_VISTA.V_Tipo_Cuenta_Ord` | `:1292-1295` |
+| `CEL020` | `Cod_Suscriptor`, en las DOS ramas del cociente | `:1589-1590`, `:1154-1155` |
+| `DIR001IN` | `Portafolio_Nuevo = 'IN'` | `:2123` |
+| `DIR004RO` | `Portafolio_Nuevo = 'RO'` | `:2917-2918` |
+| `DIR034FI` | el importe `CO00END005` de `Insumo_Caracteristica`, mas `Sector` | `:2589-2595` |
+| `DIR050TO` | `CO00MOR037` / `CO00MOR038` de `Insumo_Caracteristica` | `:3117-3121` |
+
+Y dos quedan con la FORMA portada y el dato aproximado: `DIR010FI` y
+`DIR013OT` llevan ya sus ventanas (`<= 6` y `> 24`) y el divisor por persona,
+pero nuestra bandera `sector_financiero` 0/1 no distingue `'FI'` de `'OT'` ni
+de `'CO'`, `'CC'`, `'RE'`. Cuando llegue el `Sector` solo cambia el predicado.
+
+Peticion itemizada en `docs/PETICION_DATASHARE_F1_F3_ORDENAMIENTO.md`.
+
+### Una rareza del legado que conviene que la mesa vea
+
+`CO01CEL019_Peso` divide por 4 (`:1517`) pero su `_Cat` solo llega a 3
+(`:1837-1842`), de modo que su aporte queda topado en el 75% de su beta.
+Todas las demas del canal tienen cuatro cubetas. Parece un defecto del
+legado; se porto literal, porque manda el codigo, y se levanta aqui para que
+alguien decida si se corrige en el modelo.
+
+### Sobre los betas
+
+El apartado de abajo advierte que aplicar los betas del `RITM5226589` a
+magnitudes distintas es aritmetica sin fundamento. **Esa advertencia ya no
+aplica a las 34 corregidas**, que vuelven a medir la magnitud sobre la que se
+calibraron los coeficientes. Sigue aplicando, y conviene no perderlo de
+vista, a las 8 bloqueadas y a las 2 aproximadas: ahi los betas se estan
+aplicando sobre otra cosa.
+
+---
+
 ## El resultado
 
 | Canal | Misma magnitud | Parcial | **Magnitud distinta** | Total |
