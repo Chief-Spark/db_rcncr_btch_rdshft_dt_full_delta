@@ -9,3 +9,5 @@ target/
 *.bak
 *.orig
 *.7z
+banco/out/
+__pycache__/
