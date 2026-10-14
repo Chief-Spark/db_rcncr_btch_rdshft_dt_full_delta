@@ -303,3 +303,30 @@ JOIN ( SELECT cod_dw_direccion_unificada AS padre,
   ON   h.padre = r.cod_dw_persona_ubic
 GROUP  BY 1
 ORDER  BY 1;
+
+-- 16) EVIDENCIA FINA DEL SITIO 4 (sello 'D9', escenario 6 subcaso 2)
+--     Espejo de la consulta 15. El ARQ 73 trae dos complementos que no
+--     comparten NINGUNA nomenclatura y cuyos niveles difieren ('BR 5',
+--     nivel 1, y 'AP 301', nivel 7); el motor debe fusionarlos y reordenarlos
+--     por (nivel, valor), de donde BR va antes que AP y el resultado correcto
+--     es 'BR 5 AP 301' -- sin repetir nomenclatura, que es lo que exige R2-12.
+SELECT g.complemento                                   AS complemento_generado,
+       COUNT(*)                                        AS direcciones_generadas,
+       SUM(h.hijas)                                    AS hijas_totales,
+       MIN(h.hijas)                                    AS hijas_min,
+       MAX(h.hijas)                                    AS hijas_max,
+       CASE WHEN TRIM(g.complemento) = 'BR 5 AP 301'
+             AND MIN(h.hijas) = 2 AND MAX(h.hijas) = 2
+            THEN 'OK' ELSE 'REVISAR' END               AS veredicto
+FROM   bdm_datos.direccion_fisica_generada_mock g
+JOIN   bdm_datos.rpu_generada_mock r
+  ON   r.cod_dw_direccion_fisica = g.cod_dw_direccion_fisica
+JOIN ( SELECT cod_dw_direccion_unificada AS padre,
+              COUNT(DISTINCT cod_dw_persona_ubic) AS hijas
+       FROM   bdm_datos.unificacion_direccion_mock
+       WHERE  cod_dw_persona_ubic BETWEEN 97300000 AND 97309999
+         AND  unifica_atributos = 2
+       GROUP  BY 1 ) h
+  ON   h.padre = r.cod_dw_persona_ubic
+GROUP  BY 1
+ORDER  BY 1;

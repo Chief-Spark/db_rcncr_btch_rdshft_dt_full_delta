@@ -11,28 +11,35 @@
 DELETE FROM bdm_stage.contacto_canal                 WHERE id_buro_persona BETWEEN 9210000 AND 9560999
     OR id_buro_persona BETWEEN 9600000 AND 9600999
     OR id_buro_persona BETWEEN 9710000 AND 9710999
-    OR id_buro_persona BETWEEN 9720000 AND 9720999;
+    OR id_buro_persona BETWEEN 9720000 AND 9720999
+    OR id_buro_persona BETWEEN 9730000 AND 9730999;
 DELETE FROM bdm_stage.ciiu_persona                   WHERE id_buro_persona BETWEEN 9210000 AND 9560999
     OR id_buro_persona BETWEEN 9600000 AND 9600999
     OR id_buro_persona BETWEEN 9710000 AND 9710999
-    OR id_buro_persona BETWEEN 9720000 AND 9720999;
+    OR id_buro_persona BETWEEN 9720000 AND 9720999
+    OR id_buro_persona BETWEEN 9730000 AND 9730999;
 DELETE FROM bdm_stage.reporte_relacion_persona_ubica WHERE cod_dw_persona_ubic BETWEEN 92100000 AND 95609999
     OR cod_dw_persona_ubic BETWEEN 96000000 AND 96009999
     OR cod_dw_persona_ubic BETWEEN 97100000 AND 97109999
-    OR cod_dw_persona_ubic BETWEEN 97200000 AND 97209999;
+    OR cod_dw_persona_ubic BETWEEN 97200000 AND 97209999
+    OR cod_dw_persona_ubic BETWEEN 97300000 AND 97309999;
 DELETE FROM bdm_stage.diccionario_complementos       WHERE id_buro_persona BETWEEN 9210000 AND 9560999
     OR id_buro_persona BETWEEN 9600000 AND 9600999
     OR id_buro_persona BETWEEN 9710000 AND 9710999
-    OR id_buro_persona BETWEEN 9720000 AND 9720999;
+    OR id_buro_persona BETWEEN 9720000 AND 9720999
+    OR id_buro_persona BETWEEN 9730000 AND 9730999;
 DELETE FROM bdm_stage.direccion_fisica               WHERE cod_dw_direccion_fisica BETWEEN 92100000 AND 95609999
     OR cod_dw_direccion_fisica BETWEEN 96000000 AND 96009999
     OR cod_dw_direccion_fisica BETWEEN 97100000 AND 97109999
-    OR cod_dw_direccion_fisica BETWEEN 97200000 AND 97209999;
+    OR cod_dw_direccion_fisica BETWEEN 97200000 AND 97209999
+    OR cod_dw_direccion_fisica BETWEEN 97300000 AND 97309999;
 DELETE FROM bdm_stage.ubicacion_estandarizada        WHERE cod_dw_ubic BETWEEN 92100000 AND 95609999
     OR cod_dw_ubic BETWEEN 96000000 AND 96009999
     OR cod_dw_ubic BETWEEN 97100000 AND 97109999
-    OR cod_dw_ubic BETWEEN 97200000 AND 97209999;
+    OR cod_dw_ubic BETWEEN 97200000 AND 97209999
+    OR cod_dw_ubic BETWEEN 97300000 AND 97309999;
 DELETE FROM bdm_stage.relacion_persona_ubicacion     WHERE id_buro_persona BETWEEN 9210000 AND 9560999
     OR id_buro_persona BETWEEN 9600000 AND 9600999
     OR id_buro_persona BETWEEN 9710000 AND 9710999
-    OR id_buro_persona BETWEEN 9720000 AND 9720999;
+    OR id_buro_persona BETWEEN 9720000 AND 9720999
+    OR id_buro_persona BETWEEN 9730000 AND 9730999;

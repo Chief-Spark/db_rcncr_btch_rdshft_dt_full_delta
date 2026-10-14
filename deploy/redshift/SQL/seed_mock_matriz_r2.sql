@@ -41,11 +41,24 @@
 --                          es lo que esc4 exige (HAVING COUNT(*) = 1).
 --                          inmune a esc3 por dos vias: nomenclaturas distintas
 --                          (OF vs LC) y cod_tipo_ident_fte = '3'.
---   E5 nivel nomenclatura  'BR 5' (nivel 1) / 'AP 301' (nivel 7), CON NIT.
+--   E5 nivel nomenclatura  'BR 301' (nivel 1) / 'AP 301' (nivel 7), CON NIT.
 --                          Los dos tokens estan en el catalogo y aparecen una
 --                          sola vez, asi que EMPATAN en conteo 1 y esc4 no los
 --                          captura (exige ganador UNICO). En esc5 gana el de
 --                          MENOR nivel, que queda de padre.
+--                          EL VALOR ES EL MISMO EN LOS DOS ('301') A
+--                          PROPOSITO. El esc5 del legado
+--                          (Tmp_Unificacion_E05_C, linea 3844) exige que las
+--                          COLAS SE CONTENGAN, y su enunciado es literalmente
+--                          "los valores que acompanan las nomenclaturas que
+--                          difieren son IGUALES". Con valores distintos
+--                          ('BR 5' / 'AP 301', como estaba antes) el par no es
+--                          esc5 en el legado sino escenario 6 subcaso 2, o sea
+--                          el sello 'D9' -- que es justo lo que ahora siembra
+--                          el ARQ 73. Igualar los valores devuelve este
+--                          arquetipo a su escenario y evita que el sitio 4 se
+--                          lo lleve. No cambia ninguna cifra de esc5: la
+--                          frecuencia se cuenta por TOKEN, no por valor.
 --   E6 frecuencia gana     TRES direcciones, CON NIT: 'CA 1 LT 2' (conteo 5),
 --                          'CA 3 LT 4' (conteo 5) y 'CA 9' (conteo 3). Las tres
 --                          arrancan con el MISMO token (CA, nivel 4) a
@@ -271,7 +284,7 @@
 --   sub 2 ('C7', ARQ 41..45)      valores IGUALES    -> gana el diccionario
 -- Por eso el ARQ 71 no le quita nada al ARQ 41..45 aunque el sitio 2 corra
 -- antes que esc5: sus poblaciones son disjuntas por construccion. Ademas los
--- complementos del ARQ 41..45 ('BR 5' / 'AP 301') tienen UNA sola
+-- complementos del ARQ 41..45 ('BR 301' / 'AP 301') tienen UNA sola
 -- nomenclatura, y el par del escenario 5 exige DOS.
 --
 --   k   complemento   niveles          papel
@@ -338,31 +351,38 @@
 DELETE FROM bdm_stage.contacto_canal                 WHERE id_buro_persona BETWEEN 9210000 AND 9560999
     OR id_buro_persona BETWEEN 9600000 AND 9600999
     OR id_buro_persona BETWEEN 9710000 AND 9710999
-    OR id_buro_persona BETWEEN 9720000 AND 9720999;
+    OR id_buro_persona BETWEEN 9720000 AND 9720999
+    OR id_buro_persona BETWEEN 9730000 AND 9730999;
 DELETE FROM bdm_stage.diccionario_complementos       WHERE id_buro_persona BETWEEN 9210000 AND 9560999
     OR id_buro_persona BETWEEN 9600000 AND 9600999
     OR id_buro_persona BETWEEN 9710000 AND 9710999
-    OR id_buro_persona BETWEEN 9720000 AND 9720999;
+    OR id_buro_persona BETWEEN 9720000 AND 9720999
+    OR id_buro_persona BETWEEN 9730000 AND 9730999;
 DELETE FROM bdm_stage.ciiu_persona                   WHERE id_buro_persona BETWEEN 9210000 AND 9560999
     OR id_buro_persona BETWEEN 9600000 AND 9600999
     OR id_buro_persona BETWEEN 9710000 AND 9710999
-    OR id_buro_persona BETWEEN 9720000 AND 9720999;
+    OR id_buro_persona BETWEEN 9720000 AND 9720999
+    OR id_buro_persona BETWEEN 9730000 AND 9730999;
 DELETE FROM bdm_stage.reporte_relacion_persona_ubica WHERE cod_dw_persona_ubic BETWEEN 92100000 AND 95609999
     OR cod_dw_persona_ubic BETWEEN 96000000 AND 96009999
     OR cod_dw_persona_ubic BETWEEN 97100000 AND 97109999
-    OR cod_dw_persona_ubic BETWEEN 97200000 AND 97209999;
+    OR cod_dw_persona_ubic BETWEEN 97200000 AND 97209999
+    OR cod_dw_persona_ubic BETWEEN 97300000 AND 97309999;
 DELETE FROM bdm_stage.direccion_fisica               WHERE cod_dw_direccion_fisica BETWEEN 92100000 AND 95609999
     OR cod_dw_direccion_fisica BETWEEN 96000000 AND 96009999
     OR cod_dw_direccion_fisica BETWEEN 97100000 AND 97109999
-    OR cod_dw_direccion_fisica BETWEEN 97200000 AND 97209999;
+    OR cod_dw_direccion_fisica BETWEEN 97200000 AND 97209999
+    OR cod_dw_direccion_fisica BETWEEN 97300000 AND 97309999;
 DELETE FROM bdm_stage.ubicacion_estandarizada        WHERE cod_dw_ubic BETWEEN 92100000 AND 95609999
     OR cod_dw_ubic BETWEEN 96000000 AND 96009999
     OR cod_dw_ubic BETWEEN 97100000 AND 97109999
-    OR cod_dw_ubic BETWEEN 97200000 AND 97209999;
+    OR cod_dw_ubic BETWEEN 97200000 AND 97209999
+    OR cod_dw_ubic BETWEEN 97300000 AND 97309999;
 DELETE FROM bdm_stage.relacion_persona_ubicacion     WHERE id_buro_persona BETWEEN 9210000 AND 9560999
     OR id_buro_persona BETWEEN 9600000 AND 9600999
     OR id_buro_persona BETWEEN 9710000 AND 9710999
-    OR id_buro_persona BETWEEN 9720000 AND 9720999;
+    OR id_buro_persona BETWEEN 9720000 AND 9720999
+    OR id_buro_persona BETWEEN 9730000 AND 9730999;
 
 -- ============================================================
 -- 0) CATALOGO DE NOMENCLATURAS
@@ -433,7 +453,7 @@ FROM (
   SELECT 2, 2, 2, 'AP 202'      , '1' UNION ALL
   SELECT 3, 1, 2, 'OF 301 TO 2' , '3' UNION ALL
   SELECT 3, 2, 2, 'LC 2'        , '3' UNION ALL
-  SELECT 4, 1, 2, 'BR 5'        , '3' UNION ALL
+  SELECT 4, 1, 2, 'BR 301'      , '3' UNION ALL
   SELECT 4, 2, 2, 'AP 301'      , '3' UNION ALL
   SELECT 5, 1, 3, 'CA 1 LT 2'   , '3' UNION ALL
   SELECT 5, 2, 3, 'CA 3 LT 4'   , '3' UNION ALL
@@ -565,6 +585,66 @@ CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
 -- ============================================================
+-- 2e) ARQUETIPO 73: SITIO 4 DE CREACION DE DIRECCIONES (sello 'D9')
+-- ------------------------------------------------------------
+-- DOS direcciones que no comparten NINGUNA nomenclatura y cuyos NIVELES
+-- difieren:
+--   k = 1   'BR 5'     inicial BR (nivel 1), sin intermedia, cola '5'
+--   k = 2   'AP 301'   inicial AP (nivel 7), sin intermedia, cola '301'
+-- Es el predicado del escenario 6 subcaso 2 (legado Tmp_Unificacion_E062_C,
+-- linea 4844): ninguna nomenclatura coincide en ninguna de las tres
+-- combinaciones, los niveles difieren y las colas NO se contienen.
+--
+-- POR QUE ESTOS DOS COMPLEMENTOS. No son una invencion: son EXACTAMENTE los
+-- que hasta ahora usaba el arquetipo de esc5 (esc_idx = 4), de los que ya
+-- sabemos empiricamente que atraviesan toda la cadena anterior y llegan vivos
+-- hasta esc5. Esa es la garantia de que el sitio 4, colocado justo antes de
+-- esc5, los recoge.
+--
+-- Y POR QUE EL ARQUETIPO DE esc5 CAMBIO A 'BR 301' / 'AP 301'. Leyendo el
+-- legado para portar 'D9' aparecio que nuestro esc5 es MAS ANCHO que el suyo:
+-- el esc5 del legado exige ademas que una nomenclatura coincida en la misma
+-- posicion y que las colas SE CONTENGAN, de modo que un par como
+-- 'BR 5' / 'AP 301' -- colas '5' y '301', que no se contienen -- en el legado
+-- NO es esc5, es 'D9'. Estaba sellado con la etiqueta equivocada.
+-- Se corrige dandole a esc5 el par que el legado si le asigna: mismos valores
+-- ('301' en los dos), que es literalmente su enunciado -- "los valores que
+-- acompanan las nomenclaturas que difieren son IGUALES". Con las colas
+-- identicas, 'D9' lo ignora y 'C7' conserva su poblacion.
+-- El cambio no altera ninguna cifra de esc5: la frecuencia del diccionario se
+-- cuenta por TOKEN, no por valor, asi que BR y AP siguen apareciendo una vez
+-- cada uno y el empate que lo hace inmune a esc4 se mantiene.
+--
+-- EL RESTO DE LA CADENA, caso por caso:
+--   Regla 1  ambas filas reciben UNA sola entidad reportante -> empate -> el
+--            esc3 de R1 no decide. Mismo mecanismo que los ARQ 71 y 72.
+--   esc1     ninguno vacio.
+--   esc2     ninguno es substring del otro.
+--   esc3     exige nomenclaturas INICIALES iguales; aqui difieren (BR vs AP).
+--   motor NIT  cod_tipo_ident_fte = '1', sin NIT.
+--   motor NIVEL ('A6')  exige coincidencia de nomenclatura; aqui no hay
+--            ninguna, ni en la misma posicion ni cruzada.
+--   esc4     exige HAVING COUNT(*) = 1, un ganador UNICO en el diccionario;
+--            BR y AP aparecen una vez cada uno, EMPATAN y no decide.
+--
+-- RESULTADO ESPERADO: 'BR 5 AP 301' -- los dos componentes reordenados por
+-- (nivel, valor), BR (nivel 1) antes que AP (nivel 7), sin repetir
+-- nomenclatura, que es lo que exige R2-12.
+-- ============================================================
+INSERT INTO bdm_stage.relacion_persona_ubicacion (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, cod_dw_ubic,
+  cod_dw_direccion_fisica, cod_dw_tipo_ubicacion_dir, ind_unificacion,
+  orden_prioridad, fecha_relacion_persona_ubicaci, lote, cod_tipo_ident_fte
+)
+SELECT
+  (9730000 + n.i) * 10 + a.k, 9730000 + n.i, 9730000 + n.i,
+  (9730000 + n.i) * 10 + 1,   (9730000 + n.i) * 10 + a.k, 1, NULL, a.k,
+  CAST('2026-03-01' AS DATE), 1356301, '1'
+FROM (SELECT 1 AS k UNION ALL SELECT 2) a
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+-- ============================================================
 -- 3) UBICACION (una por persona). Coordenadas NULL salvo el ARQ 56.
 -- ============================================================
 -- Las coordenadas NO se resuelven aqui con un CASE. Redshift infiere el tipo
@@ -588,7 +668,8 @@ FROM bdm_stage.relacion_persona_ubicacion rpu
 WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999
    OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999
    OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999
-   OR rpu.id_buro_persona BETWEEN 9720000 AND 9720999;
+   OR rpu.id_buro_persona BETWEEN 9720000 AND 9720999
+   OR rpu.id_buro_persona BETWEEN 9730000 AND 9730999;
 
 -- Unico arquetipo con latitud/longitud: el 56, control negativo del
 -- Exportador_GEO. Su cod_dw_ubic es (9560000 + i) * 10 + 1 con i < 1000, o sea
@@ -619,7 +700,7 @@ FROM (
   SELECT 2, 2, 'AP 202'       UNION ALL
   SELECT 3, 1, 'OF 301 TO 2'  UNION ALL
   SELECT 3, 2, 'LC 2'         UNION ALL
-  SELECT 4, 1, 'BR 5'         UNION ALL
+  SELECT 4, 1, 'BR 301'       UNION ALL
   SELECT 4, 2, 'AP 301'       UNION ALL
   SELECT 5, 1, 'CA 1 LT 2'    UNION ALL
   SELECT 5, 2, 'CA 3 LT 4'    UNION ALL
@@ -695,6 +776,21 @@ FROM (
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
+-- ARQ 73: los dos complementos del sitio 4 (sello 'D9'). No comparten ninguna
+-- nomenclatura y sus niveles difieren (BR=1, AP=7); las colas ('5' y '301') no
+-- se contienen, que es lo que lo separa de esc5 y lo deja llegar al sitio 4.
+-- El CAST de la primera rama fija el tipo del nodo UNION ALL.
+INSERT INTO bdm_stage.direccion_fisica (
+  cod_dw_direccion_fisica, complemento, cod_dw_ubic, generada_enriquecida
+)
+SELECT (9730000 + n.i) * 10 + a.k, a.complemento, (9730000 + n.i) * 10 + 1, 0
+FROM (
+  SELECT 1 AS k, CAST('BR 5' AS VARCHAR(200)) AS complemento UNION ALL
+  SELECT 2,      'AP 301'
+) a
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
 -- ============================================================
 -- 5) DICCIONARIO DE COMPLEMENTOS -- YA NO SE SIEMBRA AQUI
 -- ------------------------------------------------------------
@@ -730,9 +826,11 @@ WHERE n.i < 1000;
 --     con el MISMO token (CA, nivel 4) a proposito: asi esc5 no puede
 --     discriminar por nivel y el caso llega a esc6, que es lo que se certifica.
 --
--- esc5 (ARQ 41-45, 'BR 5' / 'AP 301') no necesita ajuste: los dos tokens si
+-- esc5 (ARQ 41-45, 'BR 301' / 'AP 301') no necesita ajuste: los dos tokens si
 -- estan en el catalogo, empatan en frecuencia 1 (esc4 no dispara) y sus
--- niveles difieren (BR=1, AP=7), que es justo lo que esc5 pide.
+-- niveles difieren (BR=1, AP=7), que es justo lo que esc5 pide. El valor es el
+-- mismo en los dos para que las colas se contengan y el sitio 4 ('D9', que
+-- corre justo antes de esc5) no se lleve el arquetipo.
 -- ============================================================
 
 -- ============================================================
@@ -777,7 +875,8 @@ FROM bdm_stage.relacion_persona_ubicacion rpu
 WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999
    OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999
    OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999
-   OR rpu.id_buro_persona BETWEEN 9720000 AND 9720999;
+   OR rpu.id_buro_persona BETWEEN 9720000 AND 9720999
+   OR rpu.id_buro_persona BETWEEN 9730000 AND 9730999;
 
 -- Segunda entidad SOLO para el padre de esc3 (ARQ 31..35, k = 1).
 -- k = 1 es la direccion cuyo cod_dw_persona_ubic coincide con su cod_dw_ubic,
@@ -813,7 +912,8 @@ SELECT DISTINCT rpu.id_buro_persona, '99'
 FROM bdm_stage.relacion_persona_ubicacion rpu
 WHERE rpu.id_buro_persona BETWEEN 9210000 AND 9560999
    OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999
-   OR rpu.id_buro_persona BETWEEN 9720000 AND 9720999;
+   OR rpu.id_buro_persona BETWEEN 9720000 AND 9720999
+   OR rpu.id_buro_persona BETWEEN 9730000 AND 9730999;
 
 -- El ARQ 60 es la excepcion: su CIIU es '10' (asalariado) porque necesita que
 -- R1 lo tome, y R1 esc1 -- el unico que prefiere LAB/CRR, que es como k=1 gana
@@ -843,5 +943,6 @@ CROSS JOIN (SELECT '4' AS contact_type UNION ALL SELECT '9' UNION ALL SELECT '10
 WHERE ( rpu.id_buro_persona BETWEEN 9210000 AND 9560999
      OR rpu.id_buro_persona BETWEEN 9600000 AND 9600999
      OR rpu.id_buro_persona BETWEEN 9710000 AND 9710999
-     OR rpu.id_buro_persona BETWEEN 9720000 AND 9720999 )
+     OR rpu.id_buro_persona BETWEEN 9720000 AND 9720999
+     OR rpu.id_buro_persona BETWEEN 9730000 AND 9730999 )
   AND rpu.cod_dw_persona_ubic % 10 = 1;
