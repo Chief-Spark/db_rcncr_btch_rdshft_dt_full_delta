@@ -234,6 +234,18 @@ cmd_fase() {
   local mal=${#pendientes[@]}
   [ "$mal" -gt 0 ] && falla=1
   echo -e "fase ${A}$fase${O}: $total archivos, $mal con fallo"
+  # El veredicto de verdad de una fase de DDL o de procedimientos no es "cada
+  # archivo corrio limpio" sino "al terminar existen todos los objetos". Es lo
+  # unico inmune a las divergencias de enlace tardio y de DROP de Postgres.
+  if [ -z "$solo" ] && [ "$fase" != dt ]; then
+    python3 -I "$BANCO/verifica.py" "$par" "$paq/SQL" > "$OUT/verifica_$fase.sql" 2>/dev/null
+    local v; v=$("${PSQL[@]}" -d "$BD" -tAf "$OUT/verifica_$fase.sql" 2>/dev/null | tr -d '\n')
+    case "$v" in
+      TODOS*) echo -e "  ${V}$v${O}";;
+      FALTAN*) echo -e "  ${R}$v${O}"; falla=1; mal=$((mal+1));;
+      *) echo -e "  ${A}no se pudo verificar el estado final${O}";;
+    esac
+  fi
   return "$mal"
 }
 
