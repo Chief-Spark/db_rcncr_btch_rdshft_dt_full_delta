@@ -237,13 +237,26 @@ cmd_fase() {
   return "$mal"
 }
 
+# La huella del transpilador y de los shims se guarda con la foto. Un cambio en
+# transpila.py NO se refleja en los procedimientos ya creados: siguen con el
+# cuerpo viejo dentro de la base. Costo 20 minutos aprenderlo con
+# DATE_PART(year, x), asi que ahora el banco avisa.
+huella() { md5sum "$BANCO/transpila.py" "$BANCO/shims.sql" 2>/dev/null | md5sum | cut -c1-12; }
+
 cmd_foto() { sql postgres "DROP DATABASE IF EXISTS foto_$1;" >/dev/null 2>&1
-             sql postgres "CREATE DATABASE foto_$1 TEMPLATE $BD;" && echo "foto_$1 guardada"; }
+             sql postgres "CREATE DATABASE foto_$1 TEMPLATE $BD;" || return 1
+             mkdir -p "$OUT"; huella > "$OUT/foto_$1.huella"
+             echo "foto_$1 guardada"; }
 cmd_desde() { sql postgres "DROP DATABASE IF EXISTS $BD;" >/dev/null 2>&1
               sql postgres "CREATE DATABASE $BD TEMPLATE foto_$1;" || return 1
               sql "$BD" "ALTER DATABASE $BD SET search_path = \"\$user\", public, rs;"
               sql "$BD" "ALTER DATABASE $BD SET plan_cache_mode = force_custom_plan;"
-              echo "restaurado desde foto_$1"; }
+              echo "restaurado desde foto_$1"
+              if [ -f "$OUT/foto_$1.huella" ] && [ "$(cat "$OUT/foto_$1.huella")" != "$(huella)" ]; then
+                echo -e "  ${R}AVISO${O}: el transpilador o los shims cambiaron despues de esta foto."
+                echo -e "  ${R}     ${O} Los procedimientos de la foto llevan el cuerpo VIEJO."
+                echo -e "  ${R}     ${O} Corre './banco.sh fase pgm' y vuelve a tomar la foto."
+              fi; }
 
 case "${1:-}" in
   init)   shift; cmd_init "${1:-}";;

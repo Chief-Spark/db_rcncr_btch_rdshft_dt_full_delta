@@ -26,6 +26,12 @@ No se traslada al cliente: el traslado a Bitbucket copia solo
 ./banco.sh psql            # consola
 ```
 
+**Una foto guarda los PROCEDIMIENTOS YA CREADOS, con el cuerpo que tenian al
+tomarla.** Si cambia `transpila.py` o `shims.sql`, la foto queda obsoleta: hay
+que volver a correr `fase pgm` y re-fotografiar. El banco guarda la huella de
+las dos piezas junto a la foto y avisa al restaurar. Costo veinte minutos
+aprenderlo con `DATE_PART(year, x)`.
+
 Errores en `out/errores.tsv`: `fase | archivo | linea | sqlstate | clase |
 mensaje`. La **linea es la del archivo original del repo**, no la del
 transpilado: el transpilador conserva el numero de saltos de linea a proposito,
