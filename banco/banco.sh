@@ -105,6 +105,24 @@ cmd_init() {
 # anotado como hallazgo y queda fuera del alcance de esta tanda.
 analiza_base() { "${PSQL[@]}" -d "$BD" -c "ANALYZE;" >/dev/null 2>&1; }
 
+# Indices sobre las llaves de join de las tablas sembradas. Tambien es
+# compensacion del motor: Redshift es columnar y resuelve estos joins por
+# fuerza bruta con el DISTKEY; Postgres en un nodo necesita el indice. El primer
+# CTAS de la Regla 1 es un join de seis vias con COUNT(DISTINCT) y GROUP BY, y
+# sin indices se come minutos de CPU.
+indexa_base() {
+  "${PSQL[@]}" -d "$BD" >/dev/null 2>&1 <<'IDX'
+CREATE INDEX IF NOT EXISTS ix_b_rpu_ubic   ON bdm_stage.relacion_persona_ubicacion (cod_dw_ubic);
+CREATE INDEX IF NOT EXISTS ix_b_rpu_pers   ON bdm_stage.relacion_persona_ubicacion (id_buro_persona);
+CREATE INDEX IF NOT EXISTS ix_b_rpu_pu     ON bdm_stage.relacion_persona_ubicacion (cod_dw_persona_ubic);
+CREATE INDEX IF NOT EXISTS ix_b_rpu_df     ON bdm_stage.relacion_persona_ubicacion (cod_dw_direccion_fisica);
+CREATE INDEX IF NOT EXISTS ix_b_ubi_ubic   ON bdm_stage.ubicacion_estandarizada (cod_dw_ubic);
+CREATE INDEX IF NOT EXISTS ix_b_rep_pu     ON bdm_stage.reporte_relacion_persona_ubica (cod_dw_persona_ubic);
+CREATE INDEX IF NOT EXISTS ix_b_can_pu     ON bdm_stage.contacto_canal (cod_dw_persona_ubic);
+CREATE INDEX IF NOT EXISTS ix_b_can_pers   ON bdm_stage.contacto_canal (id_buro_persona);
+IDX
+}
+
 repo_de() { case "$1" in strct) echo "$STRCT";; pgm) echo "$PGM";; dt) echo "$DT";; esac; }
 
 # El paquete puede estar en deploy/redshift/ o, cuando se aplique migra418.sh,
@@ -188,7 +206,7 @@ cmd_fase() {
     for entrada in "${pendientes[@]}"; do
       case "$entrada" in seed_mock_*|reset_mock.sql) at=1;; *) at=0;; esac
       if corre_archivo "$fase" "$repo" "$entrada" "$([ "$ultima" = 1 ] && echo "$parar" || echo 0)" "$ultima"; then
-        [ "$at" = 1 ] && analiza_base
+        [ "$at" = 1 ] && { indexa_base; analiza_base; }
         [ "$pasada" = 1 ] && printf "  ${V}ok${O}   %s\n" "$entrada"
         [ "$pasada" -gt 1 ] && printf "  ${V}ok${O}   %s  ${A}(resuelto en la pasada %s)${O}\n" "$entrada" "$pasada"
       else
