@@ -88,10 +88,14 @@ Dos divergencias mas, deliberadas y anotadas:
   se congelaria en toda la fase y `DATEDIFF(second, inicio, fin)` daria 0 en la
   traza. El precio es que dos `GETDATE()` de la misma sentencia pueden diferir,
   cosa que en Redshift no pasaria.
-- **Postgres trunca los identificadores a 63 bytes**, Redshift admite 127. Dos
-  columnas del relationalize pasan de 63. No rompe nada porque Postgres trunca
-  igual la definicion y la referencia, pero conviene saberlo antes de anadir una
-  columna cuyos primeros 63 caracteres coincidan con otra.
+- **Postgres trunca los identificadores a 63 bytes**, Redshift admite 127. En
+  los tres repos hay **13 identificadores que pasan de 63** (el mas largo, 80:
+  `bdm_tempo.sp_unificacion_mock_r2_esc1_complemento_vacio_esc2_substring_complemento_persist`)
+  y dos columnas del relationalize. **Verificado: cero colisiones al truncar**,
+  asi que Postgres no esta aliasando dos objetos distintos en uno. No rompe nada
+  porque trunca igual la definicion y la referencia, pero si se anade un nombre
+  cuyos primeros 63 caracteres coincidan con otro, el banco los confundiria en
+  silencio. Para Redshift ninguno es problema: el mas largo esta a 80 de 127.
 
 ## El ANALYZE que el banco pone y el repo no
 
