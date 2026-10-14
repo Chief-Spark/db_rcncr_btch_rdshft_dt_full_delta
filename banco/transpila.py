@@ -245,6 +245,23 @@ def t7_datediff(s, cuenta):
     return _reescribe_llamada(s, 'DATEDIFF', c, cuenta)
 
 
+def t9_date_part(s, cuenta):
+    """DATE_PART(year, x) -> DATE_PART('year', x).
+
+    Redshift admite la unidad como palabra desnuda, igual que en DATEADD y
+    DATEDIFF; Postgres la lee como una referencia a columna y falla con
+    'column "year" does not exist'. El codigo del repo es correcto: el hueco era
+    del transpilador. Si la unidad ya viene entre comillas no se toca.
+    """
+    def c(s, m, mm, ab, ci):
+        args = parte_args(s, m, ab + 1, ci)
+        if len(args) < 2 or not re.fullmatch(r'[A-Za-z_]+', args[0]):
+            return s[mm.start():ci + 1], s[mm.start():ci + 1], ci + 1
+        nuevo = "DATE_PART('%s', %s)" % (args[0].lower(), ', '.join(args[1:]))
+        return s[mm.start():ci + 1], nuevo, ci + 1
+    return _reescribe_llamada(s, 'DATE_PART', c, cuenta)
+
+
 def t8_regexp_replace(s, cuenta):
     def c(s, m, mm, ab, ci):
         args = parte_args(s, m, ab + 1, ci)
@@ -298,7 +315,7 @@ def simples(s, cuenta):
     return s
 
 
-ORDEN = [t6_listagg, t7_dateadd, t7_datediff, t8_regexp_replace,
+ORDEN = [t6_listagg, t7_dateadd, t7_datediff, t9_date_part, t8_regexp_replace,
          t5_identity, t3_llaves_con_parentesis, simples]
 
 
