@@ -179,10 +179,14 @@ WHERE n.i < 1000;
 --         visible y medible esa diferencia en vez de dejarla en un comentario.
 --
 -- SCORE ESPERADO:
---   ARQ 82, los dos celulares ....... 636.9295  (empate)
+--   ARQ 82, los dos celulares ....... 636.9295  (empate; CEL013=1, CEL018=2)
 --   ARQ 83, celular 310 ............. 768.6722  -> lugar 1
---   ARQ 83, celular 322 ............. 636.9295  -> lugar 2
---   El salto de 131.7427 es la suma de CEL013 (+93.3610) y CEL018 (+38.3817).
+--   ARQ 83, celular 322 ............. 598.5478  -> lugar 2
+--   El salto es 170.1244 = CEL013 de 1 a 4 (3/4 * 124.48132780 = 93.3610)
+--   mas CEL018 de 1 a 3 (2/4 * 153.52697100 = 76.7635). El 322 cae en la
+--   categoria 1 de CEL018 porque el default 0.22 da 22.00, por debajo del
+--   primer umbral (51.11); los prefijos 300/301 del ARQ 82 valen 0.55 -> 55.00
+--   -> categoria 2, que es de donde sale su 636.9295.
 -- ============================================================
 
 -- Cada persona de CEL/EMA necesita UNA direccion vigente: sin ella no entra
