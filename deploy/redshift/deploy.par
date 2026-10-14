@@ -2,6 +2,7 @@ reset_mock.sql
 seed_mock_matriz.sql
 seed_mock_matriz_r2.sql
 seed_mock_matriz_r3.sql
+seed_mock_matriz_ord.sql
 run_reconocer_e2e_mock_full_delta.sql
 validacion_unificacion_mock_ca.sql
 validacion_certificacion_ord.sql
