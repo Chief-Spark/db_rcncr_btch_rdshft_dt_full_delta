@@ -121,3 +121,18 @@ BEGIN
   END CASE;
 END
 $fn$;
+
+-- ---------------------------------------------------------------------------
+-- CURRENT_AWS_ACCOUNT: la cuenta AWS del cluster que ejecuta.
+--
+-- sp_geo_exportar_insumo la usa para resolver el Ambiente contra
+-- geo_config.arcgis_account_id, y si no resuelve lanza excepcion. Se devuelve
+-- la cuenta de DEV -- 647096294147, la del consumidor reconocerbatch -- para
+-- que el banco se comporte como DEV y el SP siga su camino en vez de abortar.
+--
+-- Despues de esto, el UNLOAD a S3 fallara, que es lo correcto: es la misma ruta
+-- que ya toma QA en Redshift porque el rol IAM rcncr-batch-redshift-geo no esta
+-- asociado al cluster, y el propio SP la atrapa con EXCEPTION WHEN OTHERS y
+-- marca el lote como fallido sin re-lanzar.
+CREATE OR REPLACE FUNCTION rs.current_aws_account() RETURNS varchar(20)
+LANGUAGE sql IMMUTABLE AS $fn$ SELECT '647096294147'::varchar(20) $fn$;

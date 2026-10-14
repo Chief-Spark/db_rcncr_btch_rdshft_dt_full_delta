@@ -40,6 +40,34 @@ PATRONES = [
 CLASE = {'crea_r': 'r', 'crea_v': 'v', 'crea_p': 'p', 'crea_f': 'f'}
 
 
+NAMEDATALEN = 63
+
+
+def nivel_superior(s, m):
+    """bytearray: 1 donde la sentencia es de NIVEL SUPERIOR del archivo.
+
+    Lo de dentro de un cuerpo $$...$$ no cuenta. Un procedimiento crea y borra
+    sus propias bdm_tempo.stg_* EN EJECUCION, de modo que esperarlas al terminar
+    la fase es un falso positivo: tras la fase pgm no existe ninguna, y es
+    correcto que no exista.
+    """
+    t = bytearray([1]) * len(s)
+    dentro, i, n = False, 0, len(s)
+    while i < n:
+        if m[i] == CODE and s[i] == '$':
+            mm = re.match(r'\$[A-Za-z_0-9]*\$', s[i:])
+            if mm:
+                dentro = not dentro
+                for k in range(i, i + mm.end()):
+                    t[k] = 0
+                i += mm.end()
+                continue
+        if dentro:
+            t[i] = 0
+        i += 1
+    return t
+
+
 def objetos(paths):
     """Nombre -> clase esperada al TERMINAR la fase. Un DROP retira la espera."""
     esperado = {}
@@ -48,10 +76,11 @@ def objetos(paths):
         with open(p, encoding='utf-8', errors='surrogateescape') as f:
             s = f.read()
         m = mapa_codigo(s)
+        top = nivel_superior(s, m)
         eventos = []
         for accion, pat in PATRONES:
             for mm in re.finditer(pat, s, re.IGNORECASE):
-                if m[mm.start()] == CODE:
+                if m[mm.start()] == CODE and top[mm.start()]:
                     eventos.append((mm.start(), accion, mm.group(1).lower()))
         for _, accion, nombre in sorted(eventos):
             if accion == 'borra':
@@ -74,7 +103,15 @@ if __name__ == '__main__':
     obj, muertos = objetos(paths)
     for d in muertos:
         sys.stderr.write('  DDL que el propio deploy destruye y no repone: %s\n' % d)
-    filas = ',\n  '.join("('%s','%s')" % (k, v) for k, v in sorted(obj.items()))
+    # Postgres trunca los identificadores a 63 bytes y Redshift admite 127. En
+    # estos repos hay 13 que pasan de 63 -- el mas largo, 80 -- y cero
+    # colisiones al truncar, asi que truncar aqui es exacto, no una
+    # aproximacion.
+    def corta(n):
+        e, _, o = n.partition('.')
+        return '%s.%s' % (e, o.encode()[:NAMEDATALEN].decode('utf-8', 'ignore'))
+    filas = ',\n  '.join("('%s','%s')" % (corta(k), v)
+                         for k, v in sorted(obj.items()))
     print("""\\pset tuples_only on
 WITH esperado(nombre, clase) AS ( VALUES
   %s

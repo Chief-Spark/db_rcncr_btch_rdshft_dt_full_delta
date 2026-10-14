@@ -292,17 +292,25 @@ def t5_identity(s, cuenta):
 # Reglas sin parentesis. T4 va DESPUES de T3: lo que quede de DISTKEY/SORTKEY
 # sin parentesis es la forma de nivel de columna.
 SIMPLES = [
-    ('T3-encode',    r'\bENCODE\s+\w+'),
-    ('T3-diststyle', r'\bDISTSTYLE\s+(?:ALL|EVEN|AUTO|KEY)\b'),
-    ('T3-backup',    r'\bBACKUP\s+NO\b'),
-    ('T4-llave-col', r'\b(?:DISTKEY|SORTKEY)\b'),
-    ('T1-nonatomic', r'\bNONATOMIC\b'),
-    ('T2-binding',   r'\bWITH\s+NO\s+SCHEMA\s+BINDING\b'),
+    ('T3-encode',    r'\bENCODE\s+\w+',                              ' '),
+    ('T3-diststyle', r'\bDISTSTYLE\s+(?:ALL|EVEN|AUTO|KEY)\b',        ' '),
+    ('T3-backup',    r'\bBACKUP\s+NO\b',                             ' '),
+    ('T4-llave-col', r'\b(?:DISTKEY|SORTKEY)\b',                      ' '),
+    ('T1-nonatomic', r'\bNONATOMIC\b',                                ' '),
+    ('T2-binding',   r'\bWITH\s+NO\s+SCHEMA\s+BINDING\b',           ' '),
+    # T10. CURRENT_AWS_ACCOUNT se usa DESNUDO, sin parentesis
+    # (sp_geo_exportar_insumo.sql:94). Postgres solo admite la forma sin
+    # parentesis para unas pocas funciones SQL estandar, nunca para una
+    # definida por el usuario, asi que un shim no basta: hay que escribirle los
+    # parentesis. El error que daba era enganoso -- 'column
+    # "current_aws_account" does not exist' -- precisamente porque Postgres lo
+    # leia como una referencia a columna.
+    ('T10-aws',      r'\bCURRENT_AWS_ACCOUNT\b(?!\s*\()', 'rs.current_aws_account()'),
 ]
 
 
 def simples(s, cuenta):
-    for nombre, patron in SIMPLES:
+    for nombre, patron, rep in SIMPLES:
         pos = 0
         while True:
             m = mapa_codigo(s)
@@ -310,8 +318,9 @@ def simples(s, cuenta):
             if not mm:
                 break
             cuenta[nombre] = cuenta.get(nombre, 0) + 1
-            s = s[:mm.start()] + iguala_lineas(' ', mm.group(0)) + s[mm.end():]
-            pos = mm.start() + 1
+            nuevo = iguala_lineas(rep, mm.group(0))
+            s = s[:mm.start()] + nuevo + s[mm.end():]
+            pos = mm.start() + len(nuevo)
     return s
 
 
