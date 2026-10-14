@@ -1,5 +1,7 @@
+run_cert_asercion_final.sql
 validacion_certificacion_51.sql
 run_unif_convergencia_mock.sql
+validacion_certificacion_ord.sql
 validacion_unificacion_mock_ca.sql
 run_reconocer_e2e_mock_full_delta.sql
 seed_mock_matriz_r3.sql

@@ -4,5 +4,7 @@ seed_mock_matriz_r2.sql
 seed_mock_matriz_r3.sql
 run_reconocer_e2e_mock_full_delta.sql
 validacion_unificacion_mock_ca.sql
+validacion_certificacion_ord.sql
 run_unif_convergencia_mock.sql
 validacion_certificacion_51.sql
+run_cert_asercion_final.sql

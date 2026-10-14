@@ -1,0 +1,18 @@
+-- ============================================================
+-- run_cert_asercion_final.sql
+-- SLCOPRBA-1355: la ULTIMA entrada del .par de dt. Si quedan criterios en
+-- FAILED, sp_cert_asercion_final lanza una excepcion, Jenkins trata el error
+-- SQL como fallo de DPLY ([REDSHIFT:112]) y el job cae.
+--
+-- Hasta hoy la cadena de certificacion era solo informe: escribia PASSED o
+-- FAILED en una tabla y el job seguia verde. Esta es la pieza que faltaba.
+--
+-- Va al FINAL, despues de todas las validaciones, para que el log de Jenkins
+-- tenga ya impresa toda la evidencia cuando el error aparezca.
+--
+-- ALCANCE 'UNIFICACION' a proposito: el tablero de Ordenamiento acaba de
+-- nacer y arrastra defectos reales ya identificados. Se cambia a 'TODO' en
+-- cuanto esos defectos esten corregidos; el procedimiento ya lo soporta.
+-- UTF-8 sin BOM, sin acentos.
+-- ============================================================
+CALL bdm_datos.sp_cert_asercion_final(CAST('UNIFICACION' AS VARCHAR(16)));
