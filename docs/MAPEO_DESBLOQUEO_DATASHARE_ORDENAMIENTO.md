@@ -7,6 +7,33 @@ Fecha del catalogo: 2026-10-15, volcado de `svv_all_columns` sobre
 
 ---
 
+## ACTUALIZACION 2026-10-15: dos de las ocho ya no estaban bloqueadas, estaban MAL
+
+Llego el volcado de `REC_VISTA.V_Tipo_Cuenta_Ord` (44 filas) y al abrir el
+codigo para enchufarlo aparecio algo peor que un bloqueo: **`CEL019` y
+`EMA021` no calculaban otra cosa por falta de dato, calculaban otra cosa a
+secas**, y su numero entraba en la suma del score con beta completa.
+
+| | Hacia | Dice el legado |
+|---|---|---|
+| `CEL019` | `% de filas con tipo_cuenta = 'POSPAGO'` | `MAX(V_Tipo_Cuenta_Ord.Valor)` (`Caracteristicas.txt:112`) |
+| `EMA021` | `COUNT(*)` | banderas 50/25/12/8/5 por tipo de cuenta (`:235`) |
+
+Las dos estan portadas y certificadas con los arquetipos ARQ 85 y ARQ 86.
+Son 299,79 puntos de beta que estaban midiendo ruido.
+
+**Y corrige dos filas de la tabla de "lo que hay que pedir" de mas abajo:**
+
+- `Insumo_Caracteristica` **no es un insumo y no hay a quien pedirselo**: se
+  genera dentro del proceso y depende de migrar la Fase 2. `DIR034FI` y
+  `DIR050TO` no esperan a una mesa, esperan a F2.
+- `V_Ind_Efectiv_Orden_Peso_Email` sigue sin volcado, y ademas **su llave
+  depende del hueco de `Gestion_Contactabilidad`**, que no tiene origen ni en
+  el legado (0 ocurrencias en `src/teradata/`). Son dos problemas encadenados,
+  no uno. Es el unico bloqueo de verdad que queda.
+
+---
+
 ## El titular
 
 **De las 8 bloqueadas, 5 no estan bloqueadas por el datashare: estan
@@ -66,9 +93,9 @@ De las 19 columnas que el catalogo muestra en `xpm_location` leemos **cuatro**.
 | `CEL020` | `Cod_Suscriptor`, en las dos ramas del cociente (`:1589-1590`, `:1154-1155`) | `location.val.counterpartyidnumber` | **DESBLOQUEADA HOY.** Ya leemos la columna |
 | `DIR001IN` | `Portafolio_Nuevo = 'IN'` (`:2123`) | derivable: prefijo `05` de `counterpartyidnumber` | **DESBLOQUEADA HOY** |
 | `DIR004RO` | `Portafolio_Nuevo = 'RO'` (`:2917-2918`) | derivable: prefijo `02`/`03` | **DESBLOQUEADA HOY** |
-| `EMA021` | `Cod_Tipo_Cta_Fte` (`:2768-2769`) | `location.val.accounttype` | **DESBLOQUEADA HOY** |
+| `EMA021` | `Cod_Tipo_Cta_Fte` (`:2768-2769`) | `location.val.accounttype` | **PORTADA Y CERTIFICADA** (ARQ 86) |
 | `DIR034FI` | `Sector = 'FI'` mas el importe `CO00END005` | `Sector` si; importe: candidato en `xpm_globalindebtedness` | **MITAD.** El predicado si, la magnitud no |
-| `CEL019` | `Cod_Tipo_Cta_Fte` mas los pesos de `V_Tipo_Cuenta_Ord` (`:1292-1295`) | el hecho si (`accounttype`); el catalogo de 44 pesos **no existe en el datashare ni en el legado** | **MITAD.** Hay que pedir el catalogo |
+| `CEL019` | `Cod_Tipo_Cta_Fte` mas los pesos de `V_Tipo_Cuenta_Ord` (`:1292-1295`) | `location.val.accounttype` mas `bdm_datos.catalogo_tipo_cuenta_ord`, cargado del volcado de 44 filas | **PORTADA Y CERTIFICADA** (ARQ 85) |
 | `DIR050TO` | `CO00MOR037` / `CO00MOR038` de `Insumo_Caracteristica` (`:3117-3121`) | candidatos en `xpm_bestaccounts.maximumdelinquency`, `...numberofdelinquenciesof30days`, `xpm_bestaccounts_val_frequentbehaviour.installmentsoverdue` | **SIN DEFINICION.** Ver abajo |
 | `EMA020` | pesos de `V_Ind_Efectiv_Orden_Peso_Email` cruzando `Gestion_Contactabilidad` (`:2713-2714`) | ninguna | **SIGUE BLOQUEADA.** Es lo unico que hay que pedir de verdad |
 
@@ -118,11 +145,11 @@ Tres cosas, y ninguna es "la rama accounts del payload".
 | Que | Por que no se puede derivar | Afecta a |
 |---|---|---|
 | `REC_VISTA.V_Ind_Efectiv_Orden_Peso_Email` (`Descripcion_Ind_Efectividad`, `Peso_Ind_Efectividad`) | es un **catalogo de pesos de contactabilidad**, no dato de buro. Referenciado una vez en todo el legado y **nunca cargado** | `EMA020` entera |
-| `REC_VISTA.V_Tipo_Cuenta_Ord` (`Cod_Tipo_Cta_Fte`, `Valor`) | idem: 44 pesos, referenciado una vez, nunca cargado | la mitad de `CEL019` |
-| la definicion de `REC_STAGE.Insumo_Caracteristica` | la tabla se consume con `LEFT JOIN` dos veces y **no se crea en ninguna parte**: ni DDL ni INSERT. Sin eso no sabemos que miden `CO00END005`, `CO00MOR037` ni `CO00MOR038` | `DIR034FI`, `DIR050TO` |
+| ~~`REC_VISTA.V_Tipo_Cuenta_Ord`~~ **ENTREGADO 2026-10-15** | 44 filas, cargadas en `strct/.../22_ddl_catalogo_tipo_cuenta_ord.sql`. Faltan los tipos 17, 25, 26, 34, 37, 50 y 51, y el datashare entrega justo `'17'`, `'34'` y `'51'`: el legado los deja caer a categoria 0 sin dar error, y asi se porta | nada: `CEL019` esta cerrada |
+| ~~la definicion de `REC_STAGE.Insumo_Caracteristica`~~ **NO ES UNA PETICION** | no es un insumo: se genera dentro del proceso y depende de migrar la Fase 2. Que no aparezca en el arbol del Ordenamiento es coherente con eso | `DIR034FI`, `DIR050TO`, que esperan a F2 |
 
-Las tres salen del **Teradata de origen**, no del productor del datashare. Es
-una peticion distinta y a otra mesa de la que el documento actual plantea.
+**De las tres solo queda una**, y sale del **Teradata de origen**, no del
+productor del datashare.
 
 Lo que se puede decir de esas columnas desde el consumidor, y nada mas:
 

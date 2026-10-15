@@ -80,16 +80,16 @@
 -- DELETE: lo exige la politica del pipeline [REDSHIFT:232].
 -- ------------------------------------------------------------
 DELETE FROM bdm_stage.relacion_persona_ubicacion
- WHERE id_buro_persona BETWEEN 9800000 AND 9849999;
+ WHERE id_buro_persona BETWEEN 9800000 AND 9869999;
 
 DELETE FROM bdm_stage.ubicacion_estandarizada
- WHERE cod_dw_ubic BETWEEN 98000000 AND 98499999;
+ WHERE cod_dw_ubic BETWEEN 98000000 AND 98699999;
 
 DELETE FROM bdm_stage.reporte_relacion_persona_ubica
- WHERE cod_dw_persona_ubic BETWEEN 98000000 AND 98499999;
+ WHERE cod_dw_persona_ubic BETWEEN 98000000 AND 98699999;
 
 DELETE FROM bdm_stage.contacto_canal
- WHERE id_buro_persona BETWEEN 9800000 AND 9849999;
+ WHERE id_buro_persona BETWEEN 9800000 AND 9869999;
 
 -- ============================================================
 -- ARQ 80 y 81 -- CANAL DIR: dos direcciones por persona
@@ -229,7 +229,8 @@ SELECT
   (a.base + n.i) * 10 + 1, (a.base + n.i) * 10 + 1, 1, NULL, 1,
   CAST('2026-03-01' AS DATE), 1356301, '1'
 FROM      (SELECT 9820000 AS base UNION ALL SELECT 9830000
-           UNION ALL SELECT 9840000) a
+           UNION ALL SELECT 9840000 UNION ALL SELECT 9850000
+           UNION ALL SELECT 9860000) a
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
@@ -243,7 +244,8 @@ SELECT
        AS VARCHAR(500)),
   11001, 'BOGOTA', 'CUNDINAMARCA', NULL, NULL, NULL
 FROM      (SELECT 9820000 AS base UNION ALL SELECT 9830000
-           UNION ALL SELECT 9840000) a
+           UNION ALL SELECT 9840000 UNION ALL SELECT 9850000
+           UNION ALL SELECT 9860000) a
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
@@ -252,7 +254,8 @@ INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
 )
 SELECT (a.base + n.i) * 10 + 1, 7001, DATEADD(month, -15, CURRENT_DATE)
 FROM      (SELECT 9820000 AS base UNION ALL SELECT 9830000
-           UNION ALL SELECT 9840000) a
+           UNION ALL SELECT 9840000 UNION ALL SELECT 9850000
+           UNION ALL SELECT 9860000) a
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
@@ -331,6 +334,79 @@ FROM (
   SELECT 'arq.ord.multi', 7002, 11001 UNION ALL
   SELECT 'arq.ord.unico', 7001, 11001 UNION ALL
   SELECT 'arq.ord.unico', 7001,  5001
+) e
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+-- ============================================================
+-- ARQ 85 -- CANAL CEL: la palanca es CEL019 (SLCOPRBA-1355)
+-- ------------------------------------------------------------
+-- POR QUE UN ARQUETIPO NUEVO Y NO AMPLIAR EL 83: el 83 mueve CEL018 por el
+-- prefijo del operador. Si la misma fila moviera ademas el tipo de cuenta,
+-- el delta dejaria de ser legible -- seria la suma de dos saltos y no se
+-- sabria cual fallo. Es la disciplina que la cabecera del ARQ 84 explica.
+--
+-- ESTE COPIA LA FORMA DEL ARQ 82, que ya esta medido en 0.0000: dos
+-- celulares con prefijos 300 y 301, los dos de valor 0,55 en
+-- catalogo_operador_ord_cel, misma fecha y mismo suscriptor. Al ser el
+-- delta de ese par exactamente cero, cualquier diferencia que aparezca
+-- aqui la introduce la unica columna que cambia: cod_tipo_cta_fte.
+--
+--   k=1  prefijo 300  tipo de cuenta '2'  -> catalogo valor 100 -> cat 3
+--   k=2  prefijo 301  tipo de cuenta '1'  -> catalogo valor  10 -> cat 1
+--   (umbrales :151 del legado, "< 35 -> 1, < 80 -> 2, >= 80 -> 3")
+--
+-- Los dos prefijos estan en catalogo_operador_ord_cel, de modo que cel018
+-- no es 0 y la compuerta del canal deja pasar las dos filas.
+--
+-- DELTA ESPERADO ARQ 85: 93.3610 = (3-1)/4 * 186.72199170
+-- ============================================================
+INSERT INTO bdm_stage.contacto_canal (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, contact_type,
+  valor_contacto, texto_ubicacion_vinculo, cod_dane_ciudad, fecha_contacto,
+  id_buro_suscriptor, cod_tipo_cta_fte
+)
+SELECT
+  (9850000 + n.i) * 10 + 1, 9850000 + n.i, 9850000 + n.i, '9',
+  c.prefijo || '1234567', NULL, 11001, CURRENT_DATE, 7001, c.tipo_cta
+FROM (
+  -- El CAST de la primera rama fija el tipo del nodo UNION ALL.
+  SELECT CAST('300' AS VARCHAR(3)) AS prefijo,
+         CAST('2' AS VARCHAR(20))  AS tipo_cta UNION ALL
+  SELECT '301', '1'
+) c
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+-- ============================================================
+-- ARQ 86 -- CANAL EMA: la palanca es EMA021 (SLCOPRBA-1355)
+-- ------------------------------------------------------------
+-- EMA021 es una suma de banderas por tipo de cuenta, 50/25/12/8/5
+-- (Caracteristicas.txt:235). Dos correos de la misma persona que solo
+-- difieren en cod_tipo_cta_fte:
+--
+--   'arq.ord.cta1'  tipo '1' -> 50 -> cat 3   (umbral :2988, "> 45 y <= 50")
+--   'arq.ord.cta5'  tipo '5' ->  5 -> cat 1   (umbral :2988, "<= 5")
+--
+-- POR QUE LOS DOS BUZONES MIDEN 12 CARACTERES: EMA025 es un escalon sobre
+-- el largo del buzon y asi no se mueve. Mismo dominio, de modo que EMA018
+-- tampoco. Una fila por correo y un solo suscriptor, de modo que EMA024
+-- vale 100 en los dos. La unica diferencia es el tipo de cuenta.
+--
+-- DELTA ESPERADO ARQ 86: 56.5375 = (3-1)/4 * 113.07492490
+-- ============================================================
+INSERT INTO bdm_stage.contacto_canal (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, contact_type,
+  valor_contacto, texto_ubicacion_vinculo, cod_dane_ciudad, fecha_contacto,
+  id_buro_suscriptor, cod_tipo_cta_fte
+)
+SELECT
+  (9860000 + n.i) * 10 + 1, 9860000 + n.i, 9860000 + n.i, '10',
+  e.buzon || '@experian-arq.co', NULL, 11001, CURRENT_DATE, 7001, e.tipo_cta
+FROM (
+  SELECT CAST('arq.ord.cta1' AS VARCHAR(40)) AS buzon,
+         CAST('1' AS VARCHAR(20))            AS tipo_cta UNION ALL
+  SELECT 'arq.ord.cta5', '5'
 ) e
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
