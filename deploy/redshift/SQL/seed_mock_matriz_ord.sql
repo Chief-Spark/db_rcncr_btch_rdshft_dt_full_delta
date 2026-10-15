@@ -80,16 +80,16 @@
 -- DELETE: lo exige la politica del pipeline [REDSHIFT:232].
 -- ------------------------------------------------------------
 DELETE FROM bdm_stage.relacion_persona_ubicacion
- WHERE id_buro_persona BETWEEN 9800000 AND 9869999;
+ WHERE id_buro_persona BETWEEN 9800000 AND 9909999;
 
 DELETE FROM bdm_stage.ubicacion_estandarizada
- WHERE cod_dw_ubic BETWEEN 98000000 AND 98699999;
+ WHERE cod_dw_ubic BETWEEN 98000000 AND 99099999;
 
 DELETE FROM bdm_stage.reporte_relacion_persona_ubica
- WHERE cod_dw_persona_ubic BETWEEN 98000000 AND 98699999;
+ WHERE cod_dw_persona_ubic BETWEEN 98000000 AND 99099999;
 
 DELETE FROM bdm_stage.contacto_canal
- WHERE id_buro_persona BETWEEN 9800000 AND 9869999;
+ WHERE id_buro_persona BETWEEN 9800000 AND 9909999;
 
 -- ============================================================
 -- ARQ 80 y 81 -- CANAL DIR: dos direcciones por persona
@@ -230,7 +230,8 @@ SELECT
   CAST('2026-03-01' AS DATE), 1356301, '1'
 FROM      (SELECT 9820000 AS base UNION ALL SELECT 9830000
            UNION ALL SELECT 9840000 UNION ALL SELECT 9850000
-           UNION ALL SELECT 9860000) a
+           UNION ALL SELECT 9860000 UNION ALL SELECT 9890000
+           UNION ALL SELECT 9900000) a
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
@@ -245,7 +246,8 @@ SELECT
   11001, 'BOGOTA', 'CUNDINAMARCA', NULL, NULL, NULL
 FROM      (SELECT 9820000 AS base UNION ALL SELECT 9830000
            UNION ALL SELECT 9840000 UNION ALL SELECT 9850000
-           UNION ALL SELECT 9860000) a
+           UNION ALL SELECT 9860000 UNION ALL SELECT 9890000
+           UNION ALL SELECT 9900000) a
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
@@ -255,7 +257,8 @@ INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
 SELECT (a.base + n.i) * 10 + 1, 7001, DATEADD(month, -15, CURRENT_DATE)
 FROM      (SELECT 9820000 AS base UNION ALL SELECT 9830000
            UNION ALL SELECT 9840000 UNION ALL SELECT 9850000
-           UNION ALL SELECT 9860000) a
+           UNION ALL SELECT 9860000 UNION ALL SELECT 9890000
+           UNION ALL SELECT 9900000) a
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
@@ -410,3 +413,188 @@ FROM (
 ) e
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
+
+-- ============================================================
+-- ARQ 87 -- CANAL DIR: la palanca es DIR001IN (SLCOPRBA-1355)
+-- ------------------------------------------------------------
+-- DIR001IN es el MIN de meses_reporte RESTRINGIDO a los reportes cuyo
+-- suscriptor tiene Portafolio_Nuevo = 'IN', es decir prefijo 05
+-- (Caracteristicas.txt:172, WHERE PIDR.portafolio_nuevo = 'IN').
+--
+-- POR QUE cod_suscriptor ES LA PALANCA BUENA DE ESTE CANAL: la cabecera del
+-- ARQ 80 avisa de que tocar la fecha mueve a la vez DIR001IN, DIR004RO,
+-- DIR007TO, DIR019 y DIR034FI. El codigo de suscriptor, en cambio, solo
+-- mueve el portafolio, siempre que las dos direcciones tengan el MISMO
+-- numero de suscriptores distintos -- que es lo que cuentan DIR009 y
+-- EMA015. Aqui cada direccion tiene exactamente un suscriptor.
+--
+--   k=1  suscriptor 050001 -> portafolio 'IN' -> DIR001IN = 15 -> cat 2
+--   k=2  suscriptor 080001 -> portafolio 'RS' -> DIR001IN = NULL -> cat 1
+--   (umbrales :195, "IS NULL -> 1, <= 24 -> 2, ELSE 3")
+--
+-- Las dos direcciones son RES y comparten fecha, de modo que DIR017, DIR019
+-- y las ventanas no se mueven. Los dos codigos estan fuera de la lista VE y
+-- ninguno es 'FI' ni 'OT' por sector... 'RS' colapsa a 'RE' e 'IN' a 'FI',
+-- asi que DIR010FI SI se mueve con k=1. Ver el delta compuesto abajo.
+--
+-- DELTA ESPERADO ARQ 87: lo fija la corrida; se mide y se escribe aqui.
+-- ============================================================
+INSERT INTO bdm_stage.relacion_persona_ubicacion (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, cod_dw_ubic,
+  cod_dw_direccion_fisica, cod_dw_tipo_ubicacion_dir, ind_unificacion,
+  orden_prioridad, fecha_relacion_persona_ubicaci, lote, cod_tipo_ident_fte
+)
+SELECT (9870000 + n.i) * 10 + d.k, 9870000 + n.i, 9870000 + n.i,
+       (9870000 + n.i) * 10 + d.k, (9870000 + n.i) * 10 + d.k, 1, NULL, d.k,
+       CAST('2026-03-01' AS DATE), 1356301, '1'
+FROM (SELECT 1 AS k UNION ALL SELECT 2) d
+CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+INSERT INTO bdm_stage.ubicacion_estandarizada (
+  cod_dw_ubic, texto_ubicacion, cod_dw_ciudad, municipio, departamento,
+  latitud, longitud, tipo_ubicacion
+)
+SELECT (9870000 + n.i) * 10 + d.k,
+       CAST('ORD ARQ 87 P' || CAST(n.i AS VARCHAR) || ' D' || CAST(d.k AS VARCHAR) AS VARCHAR(500)),
+       11001, 'BOGOTA', 'CUNDINAMARCA', NULL, NULL, NULL
+FROM (SELECT 1 AS k UNION ALL SELECT 2) d
+CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
+  cod_dw_persona_ubic, id_buro_suscriptor, cod_suscriptor, fecha_reporte
+)
+SELECT (9870000 + n.i) * 10 + d.k, 7001,
+       CASE WHEN d.k = 1 THEN '050001' ELSE '080001' END,
+       DATEADD(month, -15, CURRENT_DATE)
+FROM (SELECT 1 AS k UNION ALL SELECT 2) d
+CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+-- ============================================================
+-- ARQ 88 -- CANAL DIR: la palanca es DIR009 (SLCOPRBA-1355)
+-- ------------------------------------------------------------
+-- DIR009 cuenta CUANTAS DIRECCIONES DE LA PERSONA son de correspondencia,
+-- es decir tienen al menos un reporte con tipo de ubicacion 'CRR'
+-- (Caracteristicas.txt:201, sobre CO00DIR016 > 0). NO es "entidades
+-- distintas reportando", que es la lectura vieja que el enunciado del RF
+-- todavia arrastra y que nuestro codigo abandono a proposito.
+--
+-- Es una caracteristica A GRANO DE PERSONA que el legado reparte igual a
+-- todas las direcciones de esa persona (el join de :201 es solo por
+-- Id_Buro_Persona). Por tanto NO puede medirse con un delta entre las dos
+-- filas de una persona: hay que comparar DOS PERSONAS.
+--
+--   persona par   (i par):  k=1 RES, k=2 CRR -> DIR009 = 1 -> cat 2
+--   persona impar (i impar): k=1 RES, k=2 RES -> DIR009 = 0 -> cat 2
+--     (0 y 1 caen los dos en "<= 1 -> 2"; hace falta llegar a 2 para cat 3)
+--   => k=2 CRR en las pares y DOS direcciones CRR en las impares:
+--      pares DIR009 = 1 -> cat 2 ; impares DIR009 = 2 -> cat 3
+--
+-- DELTA ESPERADO ARQ 88: entre personas, (3-2)/3 * -51.61290323 = -17.2043
+-- El beta es NEGATIVO: mas direcciones de correspondencia PENALIZAN.
+-- ============================================================
+INSERT INTO bdm_stage.relacion_persona_ubicacion (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, cod_dw_ubic,
+  cod_dw_direccion_fisica, cod_dw_tipo_ubicacion_dir, ind_unificacion,
+  orden_prioridad, fecha_relacion_persona_ubicaci, lote, cod_tipo_ident_fte
+)
+SELECT (9880000 + n.i) * 10 + d.k, 9880000 + n.i, 9880000 + n.i,
+       (9880000 + n.i) * 10 + d.k, (9880000 + n.i) * 10 + d.k,
+       -- 3 = CRR. La persona impar tiene las DOS direcciones CRR; la par
+       -- solo la segunda. Es la unica diferencia entre ambas.
+       CASE WHEN MOD(n.i, 2) = 1 THEN 3
+            WHEN d.k = 2        THEN 3
+            ELSE 1 END,
+       NULL, d.k, CAST('2026-03-01' AS DATE), 1356301, '1'
+FROM (SELECT 1 AS k UNION ALL SELECT 2) d
+CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+INSERT INTO bdm_stage.ubicacion_estandarizada (
+  cod_dw_ubic, texto_ubicacion, cod_dw_ciudad, municipio, departamento,
+  latitud, longitud, tipo_ubicacion
+)
+SELECT (9880000 + n.i) * 10 + d.k,
+       CAST('ORD ARQ 88 P' || CAST(n.i AS VARCHAR) || ' D' || CAST(d.k AS VARCHAR) AS VARCHAR(500)),
+       11001, 'BOGOTA', 'CUNDINAMARCA', NULL, NULL, NULL
+FROM (SELECT 1 AS k UNION ALL SELECT 2) d
+CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
+  cod_dw_persona_ubic, id_buro_suscriptor, cod_suscriptor, fecha_reporte
+)
+SELECT (9880000 + n.i) * 10 + d.k, 7001, '080001', DATEADD(month, -15, CURRENT_DATE)
+FROM (SELECT 1 AS k UNION ALL SELECT 2) d
+CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+-- ============================================================
+-- ARQ 89 -- CANAL TEL: la palanca es TEL010 (SLCOPRBA-1355)
+-- ------------------------------------------------------------
+-- TEL010 es la cuota de los reportes de la persona de los ULTIMOS 12 MESES
+-- que corresponden a ESTE telefono (Caracteristicas.txt:249, flat
+-- 2968-2983), sobre Total_Reportes_12. NO tiene nada que ver con la
+-- coincidencia geografica: el motivo que lo tenia en SIN_DATO describia
+-- codigo que ya no existe.
+--
+--   telefono A: 3 reportes dentro de 12 meses
+--   telefono B: 1 reporte dentro de 12 meses
+--   Total_Reportes_12 de la persona = 4
+--   TEL010(A) = 75 -> cat 4   TEL010(B) = 25 -> cat 2
+--   (umbrales :77, "<20 ->1, <50 ->2, <70 ->3, >=70 ->4")
+--
+-- DELTA ESPERADO ARQ 89: (4-2)/4 * 61.93969030 = 30.9698
+-- ============================================================
+INSERT INTO bdm_stage.contacto_canal (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, contact_type,
+  valor_contacto, texto_ubicacion_vinculo, cod_dane_ciudad, fecha_contacto,
+  id_buro_suscriptor, cod_tipo_cta_fte, cod_suscriptor
+)
+SELECT (9890000 + n.i) * 10 + 1, 9890000 + n.i, 9890000 + n.i, '4',
+       t.tel, NULL, 11001, DATEADD(month, -t.meses, CURRENT_DATE),
+       7001, NULL, '080001'
+FROM (
+  -- El CAST de la primera rama fija el tipo del nodo UNION ALL.
+  SELECT CAST('6011111111' AS VARCHAR(200)) AS tel, CAST(2 AS INTEGER) AS meses UNION ALL
+  SELECT '6011111111', 4 UNION ALL
+  SELECT '6011111111', 8 UNION ALL
+  SELECT '6022222222', 10
+) t
+CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+-- ============================================================
+-- ARQ 90 -- CANAL TEL: la palanca es el guardia de validez (F4-TEL-04)
+-- ------------------------------------------------------------
+-- El criterio exige que solo cuenten los reportes validos. Nuestro insumo
+-- deriva descripcion_gestion del propio numero
+-- (preparar_insumos_edf.sql:320-323): 'VALIDA' si es todo digitos y mide 7
+-- o mas, 'NO VALIDA' en caso contrario. Los cinco contadores de TEL ya lo
+-- excluyen (scoring_tel_edf.sql:37, 41, 57, 72, 74).
+--
+--   telefono A: '6033333333', 10 digitos -> VALIDA
+--   telefono B: '60444',       5 digitos -> NO VALIDA
+--   Los dos con un solo reporte, misma fecha y mismo suscriptor.
+--   El B no suma al total_reporte de la persona, de modo que sus cuotas
+--   caen y el A se lleva el lugar 1.
+--
+-- DIVERGENCIA QUE ESTE ARQUETIPO LEVANTA, y hay que decirla:
+--   en el legado este filtro es CODIGO MUERTO. Descripcion_Gestion_Registro
+--   se cablea al literal 'Valida' en Prc_Ordenamiento2.sql:1295, y el WHERE
+--   de :1298 ademas excluye fisicamente cualquier otra gestion, de modo que
+--   'NO VALIDA' no puede existir y los 15 predicados del legado siempre son
+--   ciertos. El legado excluye AGUAS ARRIBA, por catalogo de gestion;
+--   nosotros sintetizamos la validez del propio numero. Misma intencion,
+--   distinta definicion de "invalido". Para la bitacora G-03.
+--
+-- DELTA ESPERADO ARQ 90: lo fija la corrida; se mide y se escribe aqui.
+-- ============================================================
+INSERT INTO bdm_stage.contacto_canal (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, contact_type,
+  valor_contacto, texto_ubicacion_vinculo, cod_dane_ciudad, fecha_contacto,
+  id_buro_suscriptor, cod_tipo_cta_fte, cod_suscriptor
+)
+SELECT (9900000 + n.i) * 10 + 1, 9900000 + n.i, 9900000 + n.i, '4',
+       t.tel, NULL, 11001, DATEADD(month, -5, CURRENT_DATE),
+       7001, NULL, '080001'
+FROM (
+  SELECT CAST('6033333333' AS VARCHAR(200)) AS tel UNION ALL
+  SELECT '60444'
+) t
+CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
