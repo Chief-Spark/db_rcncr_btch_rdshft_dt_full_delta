@@ -24,13 +24,38 @@ Datashare: `ds_dba_rncr_batch`, esquema `edf_views`
 
 ## Lo que el datashare expone hoy
 
-Cuatro objetos. Verificado sobre los 25 archivos de DDL del repo de estructura:
+> **RESUELTO (2026-10-15). La version anterior de esta seccion era falsa y
+> esta es la correccion.** Decia "cuatro objetos, verificado sobre los 25
+> archivos de DDL del repo de estructura". Eso verifica lo que NOSOTROS
+> LEEMOS, no lo que el datashare CONTIENE. Las tres comprobaciones que
+> existian eran la misma contada tres veces -- esa frase, el `grep` de
+> `ds_dba_rncr_batch.edf_views.*` sobre `strct`, y `banco/stub_datashare.py`,
+> que DERIVA sus tablas stub de nuestras propias vistas. Ninguna miraba el
+> catalogo.
+>
+> **El catalogo real desmiente la afirmacion.** El volcado de
+> `svv_all_columns` sobre `ds_dba_rncr_batch.edf_views` muestra, ademas de las
+> cuatro de abajo, al menos: `xpm_bestaccounts` (~80 columnas),
+> `xpm_bestaccounts_val_frequentbehaviour`, `xpm_globalindebtedness`,
+> `xpm_counterparties_val_businesslines` (con `economicsector`),
+> `xpm_identifications`, `xpm_legal`, `xpm_names` y `xpm_personalinformation`.
+> Y `xpm_location` tiene **19 columnas**, de las que leemos cuatro: trae
+> `accountnumber`, `accounttype`, `subaccounttype`, `businesslinecode`,
+> `blockreason`, `subscriberblockstatus` y `stratum` sin usar.
+>
+> **Consecuencia: el Bloque A no es una peticion, es trabajo nuestro.** Este
+> documento se queda sin su mitad mas cara. El mapeo caracteristica a
+> caracteristica, con lo que si hay que pedir y a que mesa, esta en
+> `docs/MAPEO_DESBLOQUEO_DATASHARE_ORDENAMIENTO.md`.
+
+Las cuatro que nuestras vistas leen hoy, que **no** son las cuatro que el
+datashare expone:
 
 | Objeto | Lo usamos para |
 |---|---|
-| `edf_views.xpm` | persona (`pin`), CIIU, enlace a ubicación |
-| `edf_views.xpm_location` | ubicación, fecha de corte, contraparte |
-| `edf_views.xpm_location_val_contactinformations` | el contacto: dirección, teléfono, celular, correo |
+| `edf_views.xpm` | persona (`pin`), CIIU, enlace a ubicacion |
+| `edf_views.xpm_location` | ubicacion, fecha de corte, contraparte |
+| `edf_views.xpm_location_val_contactinformations` | el contacto: direccion, telefono, celular, correo |
 | `edf_views.xpm_counterparties` | identificador de la contraparte |
 
 Sobre esos cuatro están construidas las ocho vistas `bdm_tempo.v_xpm_*` que
@@ -67,7 +92,7 @@ la Fase 4 que hoy se alimentan de catálogos interinos (ver el apartado final).
 | Objeto del legado | Quién lo lee en el legado | Para qué |
 |---|---|---|
 | `bloqueo` / `V_BLOQUEO` | `PRO_ORD_CALC_UBICACIONES_2.sql:263`, `PRO_ORD_MATERIALIZA_REC.sql` | **criterio F3-01.** Hoy el Ordenamiento de Redshift no tiene filtro de bloqueo, y está anotado como tal en el catálogo de criterios |
-| `relacion_ubicac_estandar_Geo` / `v_RELACION_UBICAC_ESTANDAR_GEO` | `PRO_ORD_CALC_UBICACIONES_2.sql:1180` | la coincidencia geográfica. Hoy `coincidencia_geo` está **fijada al literal 0** en el insumo, de modo que `TEL010` aporta una constante y `TEL020` no discrimina |
+| `relacion_ubicac_estandar_Geo` / `v_RELACION_UBICAC_ESTANDAR_GEO` | `PRO_ORD_CALC_UBICACIONES_2.sql:1180` | la coincidencia geográfica. Hoy `coincidencia_geo` está **fijada al literal 0** en el insumo. **Corrección (2026-10-15):** afecta solo a `TEL020`, y `TEL020` **no entra en la suma del score** ni en el legado (`Caracteristicas.txt:2830-2834`) ni en nuestro port, así que no toca el ranking. `TEL010` no depende de la geo: es la cuota de la ventana `<= 12` sobre `Total_Reportes_12` (`:2972-2977`), y ya está portada. **Este objeto baja de prioridad** |
 | `v_gestion_registro` | `PRO_ORD_CALC_UBICACIONES_2.sql` | gestión del registro. Hoy se sintetiza con una expresión regular sobre el valor de contacto |
 | `v_Fuente` | `PRO_ORD_CALC_UBICACIONES_2.sql` | fuente de la ubicación |
 | `V_UBICACION_ORIGINAL` | `PRO_ORD_MATERIALIZA_REC.sql` | ubicación sin estandarizar |
@@ -136,9 +161,22 @@ códigos. La tabla resultante lleva `PRIMARY INDEX (Cod_DW_Cta)`: **es por
 cuenta, no por suscriptor.**
 
 Nuestra bandera 0/1 no puede distinguir `'FI'` de `'OT'`. Por eso
-`DIR010FI`, `DIR013OT`, `DIR034FI`, `TEL017`, `CEL017` y `EMA016` **no son
-portables con el insumo de hoy**, y por eso el Bloque A no es solo cuestión de
-F2: también cierra seis características de la Fase 4 que ya están escritas.
+`DIR010FI`, `DIR013OT`, `DIR034FI` y `EMA016` **no son portables con el insumo
+de hoy**, y por eso el Bloque A no es solo cuestión de F2: también cierra
+cuatro características de la Fase 4 que ya están escritas.
+
+> **Corrección (2026-10-15): eran seis y son cuatro.** Esta lista incluía
+> `TEL017` y `CEL017`. Las dos **ya están portadas**: el legado no las define
+> sobre `Sector`. `CO01TEL017` es la cuota de reportes de tipo `'RES'` sobre
+> `Total_Reportes_Telefono` (`Caracteristicas.txt:2296-2299`) y `CO01CEL017`
+> la cuota de la ventana `(12, 24]` sobre
+> `Total_Reportes_24 - Total_Reportes_12` (`:2459-2463`). Pedir el Bloque A
+> por ellas sería pedir de más.
+>
+> `DIR010FI` y `DIR013OT` además ya llevan la **forma** correcta — sus
+> ventanas (`<= 6` y `> 24`) y el divisor `Total_Reportes_Dirc` por persona.
+> Lo único que les falta es el predicado: cuando llegue el `Sector`, cambia
+> una línea en cada una.
 
 Matiz honesto, y es favorable: **diez de las once ramas de `Portafolio_Nuevo`
 dependen solo del `cod_suscriptor`**, no de la cuenta. Únicamente la rama
@@ -149,12 +187,37 @@ este documento.
 
 ---
 
+## Bloque C — lo que faltaba pedir: `EMA020`
+
+Apareció al auditar las 47 características una a una, y no estaba en ninguno
+de los dos bloques anteriores.
+
+| Objeto del legado | Quién lo lee | Para qué |
+|---|---|---|
+| `REC_VISTA.V_Ind_Efectiv_Orden_Peso_Email` | `Caracteristicas.txt:2713-2714` | `Peso_Ind_Efectividad` y `Descripcion_Ind_Efectividad`. **Es toda la característica `CO01EMA020`**: el legado la resuelve cruzando esa vista contra `Gestion_Contactabilidad` |
+| `Gestion_Contactabilidad` | `NUM_TOTAL_REPORTE`, `:2711-2712` | la columna de hechos. **Su catálogo sí llegó** (`21_ddl_catalogos_dominio.sql:49-62`, `VALIDA`=61197 / `NO VALIDA`=61196); lo que falta es el dato por reporte, que hoy se sintetiza con una expresión regular sobre el valor de contacto |
+
+Matiz que conviene decir al productor: la categorización de `EMA020` en el
+legado usa una cubeta **negativa** (`-1`) y deja un hueco sin asignar entre 0 y
+9 (`:686-696`). No la hemos portado a propósito — aplicarla sobre nuestro valor
+sustituto daría un score peor, no mejor.
+
+---
+
 ## Qué pedimos, en una línea
 
 1. El **Bloque A** completo: es la condición necesaria para la Fase 2.
 2. Del **Bloque B**, por orden de rendimiento: `bloqueo`,
    `relacion_ubicac_estandar_Geo`, `v_gestion_registro`.
-3. El **`cod_suscriptor` de seis dígitos** expuesto tal cual, y el **porcentaje
-   de reportes sin `counterpartyidnumber`**. Las dos cosas son baratas y
-   desbloquean seis características de la Fase 4 que hoy están escritas y
-   alimentadas con sustitutos.
+3. El **`cod_suscriptor` de seis dígitos** expuesto tal cual. Desbloquea
+   cuatro características de la Fase 4 que hoy están escritas y alimentadas
+   con sustitutos.
+4. El **Bloque C**, que es pequeño y cierra `EMA020` por sí solo.
+
+**Y antes de enviar nada, el paso 0, que es nuestro y cuesta una sesión:**
+correr `deploy/redshift/SQL/diagnostico_datashare_edf_views.sql` contra DEV.
+Enumera el catálogo real de `edf_views` y mide qué fracción de los reportes
+cae al hash de `id_buro_suscriptor`. Lo segundo ya no hace falta pedírselo al
+productor —la pregunta estaba en este documento como petición y resulta que es
+una consulta nuestra—, y lo primero puede dejar sin objeto la mitad del
+Bloque A.
