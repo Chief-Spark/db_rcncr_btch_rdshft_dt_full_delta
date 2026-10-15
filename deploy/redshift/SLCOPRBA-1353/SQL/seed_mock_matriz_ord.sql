@@ -80,16 +80,16 @@
 -- DELETE: lo exige la politica del pipeline [REDSHIFT:232].
 -- ------------------------------------------------------------
 DELETE FROM bdm_stage.relacion_persona_ubicacion
- WHERE id_buro_persona BETWEEN 9800000 AND 9909999;
+ WHERE id_buro_persona BETWEEN 9800000 AND 9999999;
 
 DELETE FROM bdm_stage.ubicacion_estandarizada
- WHERE cod_dw_ubic BETWEEN 98000000 AND 99099999;
+ WHERE cod_dw_ubic BETWEEN 98000000 AND 99999999;
 
 DELETE FROM bdm_stage.reporte_relacion_persona_ubica
- WHERE cod_dw_persona_ubic BETWEEN 98000000 AND 99099999;
+ WHERE cod_dw_persona_ubic BETWEEN 98000000 AND 99999999;
 
 DELETE FROM bdm_stage.contacto_canal
- WHERE id_buro_persona BETWEEN 9800000 AND 9909999;
+ WHERE id_buro_persona BETWEEN 9800000 AND 9999999;
 
 -- ============================================================
 -- ARQ 80 y 81 -- CANAL DIR: dos direcciones por persona
@@ -231,7 +231,11 @@ SELECT
 FROM      (SELECT 9820000 AS base UNION ALL SELECT 9830000
            UNION ALL SELECT 9840000 UNION ALL SELECT 9850000
            UNION ALL SELECT 9860000 UNION ALL SELECT 9890000
-           UNION ALL SELECT 9900000) a
+           UNION ALL SELECT 9900000
+           -- SLCOPRBA-1355, segunda tanda: ARQ 91..95.
+           UNION ALL SELECT 9910000 UNION ALL SELECT 9920000
+           UNION ALL SELECT 9930000 UNION ALL SELECT 9940000
+           UNION ALL SELECT 9950000) a
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
@@ -247,7 +251,11 @@ SELECT
 FROM      (SELECT 9820000 AS base UNION ALL SELECT 9830000
            UNION ALL SELECT 9840000 UNION ALL SELECT 9850000
            UNION ALL SELECT 9860000 UNION ALL SELECT 9890000
-           UNION ALL SELECT 9900000) a
+           UNION ALL SELECT 9900000
+           -- SLCOPRBA-1355, segunda tanda: ARQ 91..95.
+           UNION ALL SELECT 9910000 UNION ALL SELECT 9920000
+           UNION ALL SELECT 9930000 UNION ALL SELECT 9940000
+           UNION ALL SELECT 9950000) a
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
@@ -258,7 +266,11 @@ SELECT (a.base + n.i) * 10 + 1, 7001, DATEADD(month, -15, CURRENT_DATE)
 FROM      (SELECT 9820000 AS base UNION ALL SELECT 9830000
            UNION ALL SELECT 9840000 UNION ALL SELECT 9850000
            UNION ALL SELECT 9860000 UNION ALL SELECT 9890000
-           UNION ALL SELECT 9900000) a
+           UNION ALL SELECT 9900000
+           -- SLCOPRBA-1355, segunda tanda: ARQ 91..95.
+           UNION ALL SELECT 9910000 UNION ALL SELECT 9920000
+           UNION ALL SELECT 9930000 UNION ALL SELECT 9940000
+           UNION ALL SELECT 9950000) a
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
 
@@ -597,4 +609,198 @@ FROM (
   SELECT CAST('6033333333' AS VARCHAR(200)) AS tel UNION ALL
   SELECT '60444'
 ) t
+CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+-- ============================================================
+-- ARQ 91..95 -- SLCOPRBA-1355, segunda tanda de paridad
+-- ------------------------------------------------------------
+-- Cierran las correcciones que salieron de auditar los 42 buckets de los
+-- cuatro canales contra Caracteristicas.txt. Hasta esta tanda, 33 de los 42
+-- terminos entraban en la suma sin que ninguna prueba los moviera: un
+-- bucket mal portado NO sale FAILED, sale un numero plausible.
+--
+-- LOS DELTAS DE EMA SON COMPUESTOS A PROPOSITO, y no es un defecto del
+-- arquetipo: las cuotas por ventana del canal comparten el numero de
+-- reportes de la persona, asi que mover una mueve a las vecinas. Es el
+-- mismo caso que el ARQ 89 en TEL, documentado alli. Lo que el arquetipo
+-- garantiza es que la DIFERENCIA sea estable y reproducible; el valor se
+-- mide en la corrida y se escribe en el evaluador.
+--
+-- Todas las fechas son RELATIVAS (DATEADD sobre CURRENT_DATE) y los meses
+-- elegidos caen lejos de los umbrales de ventana 3, 6, 12 y 24.
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- ARQ 91 -- CANAL EMA: la palanca es EMA014
+-- ------------------------------------------------------------
+-- EMA014 es la cuota de reportes de mas de 24 meses sobre Total_Reportes_24m
+-- (Caracteristicas.txt:1723-1727) y su categoria son CUATRO bandas,
+-- 8.33 / 41.18 / 85 (:1005-1012). Nuestro port tenia `= 1 THEN 4 ELSE 1`:
+-- una bandera binaria olvidada comparada contra un porcentaje 0..100, que
+-- solo disparaba con un 1,00% exacto.
+--
+--   k=1  buzon viejo, reporte a 30 meses -> ema014 = 100 -> cat 4
+--   k=2  buzon nuevo, reporte a  2 meses -> ema014 =   0 -> cat 1
+--
+-- La beta de EMA014 es NEGATIVA (-130.80018340): el legado CASTIGA al buzon
+-- muerto, de modo que el k=1 debe quedar POR DEBAJO en el ranking.
+-- DELTA ESPERADO ARQ 91: lo fija la corrida; se mide y se escribe aqui.
+-- ============================================================
+INSERT INTO bdm_stage.contacto_canal (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, contact_type,
+  valor_contacto, texto_ubicacion_vinculo, cod_dane_ciudad, fecha_contacto,
+  id_buro_suscriptor, cod_tipo_cta_fte
+)
+SELECT (9910000 + n.i) * 10 + 1, 9910000 + n.i, 9910000 + n.i, '10',
+       e.buzon || '@experian-arq.co', NULL, 11001,
+       DATEADD(month, -e.meses, CURRENT_DATE), 7001, '1'
+FROM (
+  SELECT CAST('arq.ord.e14a' AS VARCHAR(40)) AS buzon, CAST(30 AS INTEGER) AS meses UNION ALL
+  SELECT 'arq.ord.e14b', 2
+) e
+CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+-- ------------------------------------------------------------
+-- ARQ 92 -- CANAL EMA: la palanca son EMA015 y EMA016
+-- ------------------------------------------------------------
+-- Las dos son BINARIAS en el legado, `<= 0 -> 1 ELSE 4` (:1013-1018), de la
+-- misma familia que CEL015, CEL017 y CEL023: saltan 1 -> 4 y dividen entre
+-- 4, asi que el salto vale 3/4 de beta de golpe. Nuestro port las graduaba
+-- en cuatro bandas inventadas.
+--
+--   k=1  reporte a 5 meses, ventana (3,6]  -> ema015 = 100 -> cat 4
+--                                             ema016 =   0 -> cat 1
+--   k=2  reporte a 9 meses, ventana (6,12] -> ema015 =   0 -> cat 1
+--                                             ema016 = 100 -> cat 4
+--
+-- Las dos se mueven a la vez y en sentidos opuestos, con betas del mismo
+-- signo (+79.46 y +85.57), de modo que el delta neto es pequeno pero NO
+-- cero: lo fija la diferencia de las dos betas mas el arrastre de EMA010.
+-- Un arquetipo con las dos categorias clavadas en 1 no probaria nada.
+-- DELTA ESPERADO ARQ 92: lo fija la corrida; se mide y se escribe aqui.
+-- ============================================================
+INSERT INTO bdm_stage.contacto_canal (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, contact_type,
+  valor_contacto, texto_ubicacion_vinculo, cod_dane_ciudad, fecha_contacto,
+  id_buro_suscriptor, cod_tipo_cta_fte
+)
+SELECT (9920000 + n.i) * 10 + 1, 9920000 + n.i, 9920000 + n.i, '10',
+       e.buzon || '@experian-arq.co', NULL, 11001,
+       DATEADD(month, -e.meses, CURRENT_DATE), 7001, '1'
+FROM (
+  SELECT CAST('arq.ord.e15x' AS VARCHAR(40)) AS buzon, CAST(5 AS INTEGER) AS meses UNION ALL
+  SELECT 'arq.ord.e16x', 9
+) e
+CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+-- ------------------------------------------------------------
+-- ARQ 93 -- CANAL EMA: la palanca es EMA017, que TOPA EN 3
+-- ------------------------------------------------------------
+-- EMA017 es la cuota de la ventana (12,24] (:1736-1742) y su CASE del
+-- legado tiene TRES ramas, no cuatro: `<= 0 -> 1`, `(0, 66.67] -> 2`,
+-- `> 66.67 -> 3` (:1019-1024). Y aun asi se divide entre 4 (:679), de modo
+-- que aporta como mucho el 75% de su beta. Es el TERCER caso de esa familia
+-- junto a CEL019 y CEL006; defecto del legado y se porta tal cual.
+-- Nuestro port llegaba a 4 y sobre-penalizaba (beta -30.56079051).
+--
+--   k=1  reporte a 18 meses, ventana (12,24] -> ema017 = 100 -> cat 3
+--   k=2  reporte a  2 meses                  -> ema017 =   0 -> cat 1
+--
+-- DELTA ESPERADO ARQ 93: lo fija la corrida; se mide y se escribe aqui.
+-- ============================================================
+INSERT INTO bdm_stage.contacto_canal (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, contact_type,
+  valor_contacto, texto_ubicacion_vinculo, cod_dane_ciudad, fecha_contacto,
+  id_buro_suscriptor, cod_tipo_cta_fte
+)
+SELECT (9930000 + n.i) * 10 + 1, 9930000 + n.i, 9930000 + n.i, '10',
+       e.buzon || '@experian-arq.co', NULL, 11001,
+       DATEADD(month, -e.meses, CURRENT_DATE), 7001, '1'
+FROM (
+  SELECT CAST('arq.ord.e17a' AS VARCHAR(40)) AS buzon, CAST(18 AS INTEGER) AS meses UNION ALL
+  SELECT 'arq.ord.e17b', 2
+) e
+CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+-- ------------------------------------------------------------
+-- ARQ 94 -- CANAL CEL: la palanca es CEL020
+-- ------------------------------------------------------------
+-- CEL020 es la cuota de SUSCRIPTORES DISTINTOS del celular sobre los
+-- suscriptores distintos de la persona: el legado agrupa por Cod_Suscriptor
+-- y cuenta ESOS GRUPOS (Caracteristicas.txt:1583-1591, :3031-3037,
+-- :3153-3154). Nuestro port contaba FILAS DE REPORTE, que es otra magnitud.
+--
+-- EL ARQUETIPO DISTINGUE LAS DOS LECTURAS, que es lo que lo hace util:
+--   k=1  celular 3101111111, DOS suscriptores (7001 y 7002)
+--   k=2  celular 3102222222, DOS filas del MISMO suscriptor (7003)
+--
+--   suscriptores distintos de la persona = 3
+--   con la formula CORRECTA : k=1 -> 2/3 = 66.67 -> cat 3
+--                             k=2 -> 1/3 = 33.33 -> cat 2   (delta != 0)
+--   con la formula VIEJA    : los dos 2 filas / 4 = 50.00 -> cat 3 los dos
+--                             (delta CERO: el arquetipo no veria nada)
+--
+-- Todo lo demas esta igualado a proposito: mismo prefijo 310 en los dos, de
+-- modo que CEL018 no se mueve y la compuerta del canal deja pasar las dos
+-- filas; misma fecha, de modo que ninguna cuota por ventana se mueve; mismo
+-- tipo de cuenta, de modo que CEL019 no se mueve; y dos filas por celular,
+-- de modo que los conteos pelados tampoco. La UNICA diferencia es cuantos
+-- suscriptores distintos reportan cada celular.
+--
+-- DELTA ESPERADO ARQ 94: 50.8299 = (3-2)/4 * 203.31950210. NO es compuesto.
+-- ============================================================
+INSERT INTO bdm_stage.contacto_canal (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, contact_type,
+  valor_contacto, texto_ubicacion_vinculo, cod_dane_ciudad, fecha_contacto,
+  id_buro_suscriptor, cod_tipo_cta_fte
+)
+SELECT (9940000 + n.i) * 10 + 1, 9940000 + n.i, 9940000 + n.i, '9',
+       c.cel, NULL, 11001, DATEADD(month, -9, CURRENT_DATE), c.susc, '1'
+FROM (
+  SELECT CAST('3101111111' AS VARCHAR(200)) AS cel, CAST(7001 AS INTEGER) AS susc UNION ALL
+  SELECT '3101111111', 7002 UNION ALL
+  SELECT '3102222222', 7003 UNION ALL
+  SELECT '3102222222', 7003
+) c
+CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+-- ------------------------------------------------------------
+-- ARQ 95 -- CANAL CEL: la palanca es el filtro de gestion de CEL023
+-- ------------------------------------------------------------
+-- CEL023 compara la recencia mas vieja de la PERSONA con la de ESTE
+-- celular, y el legado toma las dos FILTRADAS por gestion
+-- (Caracteristicas.txt:1566-1568 y :3133-3135). Nuestro port no filtraba
+-- ninguna de las dos, de modo que un celular 'NO VALIDA' con la recencia
+-- mas vieja desplazaba el divisor y volteaba el bit para TODOS los
+-- celulares de esa persona: 121,37 puntos (binaria 1 -> 4, beta 161.83).
+--
+--   k=1  3101000000, diez digitos -> VALIDA,    reporte a 10 meses
+--   k=2  31012,      cinco digitos -> NO VALIDA, reporte a 40 meses
+--
+--   con el filtro CORRECTO: el maximo de la persona es 10 (solo el k=1),
+--     k=1 -> (10-10)/10 = 0 -> cat 1
+--     k=2 -> no tiene ninguna fila valida -> NULL -> ELSE 0 -> cat 0
+--   sin el filtro (lo viejo): el maximo de la persona seria 40,
+--     k=1 -> (40-10)/40 = 75 -> cat 4   <-- el bit volteado
+--     k=2 -> (40-40)/40 =  0 -> cat 1
+--
+-- Los dos prefijos son 310, catalogado, de modo que CEL018 no es 0 y la
+-- compuerta deja pasar las dos filas: el arquetipo mide el filtro de
+-- gestion y no la compuerta del operador. Misma forma que el ARQ 90 de TEL.
+--
+-- El delta ES compuesto: el reporte a 40 meses mueve ademas CEL003, CEL013
+-- y CEL014, que es inevitable porque la validez viaja pegada a la fecha.
+-- DELTA ESPERADO ARQ 95: lo fija la corrida; se mide y se escribe aqui.
+-- ============================================================
+INSERT INTO bdm_stage.contacto_canal (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, contact_type,
+  valor_contacto, texto_ubicacion_vinculo, cod_dane_ciudad, fecha_contacto,
+  id_buro_suscriptor, cod_tipo_cta_fte
+)
+SELECT (9950000 + n.i) * 10 + 1, 9950000 + n.i, 9950000 + n.i, '9',
+       c.cel, NULL, 11001, DATEADD(month, -c.meses, CURRENT_DATE), 7001, '1'
+FROM (
+  SELECT CAST('3101000000' AS VARCHAR(200)) AS cel, CAST(10 AS INTEGER) AS meses UNION ALL
+  SELECT '31012', 40
+) c
 CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
