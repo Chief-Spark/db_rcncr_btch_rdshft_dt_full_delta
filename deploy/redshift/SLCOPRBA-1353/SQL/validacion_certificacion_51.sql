@@ -52,17 +52,29 @@
 -- ------------------------------------------------------------
 -- 1) EL NUMERO DE LA CERTIFICACION QA.
 --
---    ALCANCE = 45 criterios: los 51 de los documentos, menos los 5 de GEO
---    (CA-01..CA-05, que todavia no se pueden probar: el Cargador y el
---    Reenganchador no tienen variante mock y el rol IAM de GEO no esta
---    asociado al cluster) y menos GOB-03 (acta de aprobacion del area de
---    negocio, fuera del alcance de este desarrollo).
+--    ALCANCE = 50 criterios: los 51 de los documentos menos GOB-03 (acta de
+--    aprobacion del area de negocio, fuera del alcance de este desarrollo).
 --
---    Esta es la fila que se reporta. Si certificados = 45, la unificacion
+--    LOS CINCO DE GEO ENTRAN DESDE SLCOPRBA-1355 y antes no estaban. El
+--    motivo por el que se excluian -- "el Cargador y el Reenganchador no
+--    tienen variante mock y el rol IAM no esta asociado al cluster" -- dejo
+--    de ser cierto en su primera mitad: ya existen
+--    sp_geo_cargar_georreferenciacion_mock y sp_geo_reenganchar_r3_mock, y
+--    el viaje a S3 se sustituye por bdm_stage.mock_geo_respuesta.
+--
+--    La segunda mitad SIGUE SIENDO CIERTA y conviene no perderla de vista:
+--    el rol sigue sin asociar, de modo que lo que NO se certifica es que el
+--    UNLOAD escriba en S3 y que el COPY lo lea. Son dos sentencias cuyo
+--    riesgo es de permisos, no de logica; todo lo demas del ciclo GEO --
+--    gates de estado y de conteo, conciliacion de tipos, rechazos, los tres
+--    UPDATE por Status y las dos ramas del reenganche -- es el mismo SQL y
+--    si queda certificado.
+--
+--    Esta es la fila que se reporta. Si certificados = 50, la unificacion
 --    cumple los criterios de aceptacion que QA puede probar hoy.
 -- ------------------------------------------------------------
 SELECT
-  45                                                                  AS alcance_qa,
+  50                                                                  AS alcance_qa,
   SUM(CASE WHEN r.estado IN ('PASSED', 'NO_APLICA') THEN 1 ELSE 0 END) AS certificados,
   SUM(CASE WHEN r.estado NOT IN ('PASSED', 'NO_APLICA') OR r.estado IS NULL
            THEN 1 ELSE 0 END)                                          AS pendientes,
@@ -70,8 +82,7 @@ SELECT
                THEN c.criterio END, ', ') WITHIN GROUP (ORDER BY c.criterio) AS cuales_faltan
 FROM            bdm_datos.cert_criterio  c
 LEFT JOIN       bdm_datos.v_cert_ultimo  r ON r.criterio = c.criterio
-WHERE c.bloque <> 'GEO'
-  AND c.criterio <> 'GOB-03';
+WHERE c.criterio <> 'GOB-03';
 
 -- ------------------------------------------------------------
 -- 2) EL TABLERO. 51 filas, siempre.
