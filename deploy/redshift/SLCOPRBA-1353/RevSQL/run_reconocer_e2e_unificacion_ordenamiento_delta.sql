@@ -1,6 +1,6 @@
 -- ============================================================
--- E2E Reconocer — Unificacion DELTA + GEO + Ordenamiento DELTA
--- Ambiente: consumidor dba_rncr_batch · schemas bdm_datos / bdm_tempo
+-- E2E Reconocer - Unificacion DELTA + GEO + Ordenamiento DELTA
+-- Ambiente: consumidor dba_rncr_batch - schemas bdm_datos / bdm_tempo
 -- Precondicion: corrida E2E FULL previa (watermark completado en unif/ord)
 -- NO mezclar path mock (bdm_stage) en esta corrida
 --

@@ -1,7 +1,7 @@
 -- ============================================================
 -- validacion_ordenamiento_conteos.sql
 -- Conteos post-corrida Ordenamiento (DPLY Jenkins).
--- Sin checks sobre staging (stg_insumo_*) — el ciclo los DROP al final (#253).
+-- Sin checks sobre staging (stg_insumo_*) - el ciclo los DROP al final (#253).
 -- UTF-8 sin BOM.
 -- ============================================================
 

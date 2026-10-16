@@ -1,5 +1,5 @@
 -- ============================================================
--- Gates de cierre E2E — Unificación + GEO + Ordenamiento
+-- Gates de cierre E2E - Unificacion + GEO + Ordenamiento
 -- Esperados DEV (referencia 2026-09-04 / 09-16):
 --   Unif: C03=0, C04=0, R2>0, R3 puede ser 0 (GEO N/A en DEV)
 --   Ord:  scores DIR/TEL/EMA >0; hijas_con_orden_incorrecto = 0
@@ -27,7 +27,7 @@ FROM bdm_datos.ord_control
 WHERE lote IN (1356201, 1356202)
 ORDER BY lote, modo;
 
--- ---- Unificación ----
+-- ---- Unificacion ----
 SELECT 'U_por_regla' AS gate,
        unifica_atributos,
        COUNT(*)::BIGINT AS n

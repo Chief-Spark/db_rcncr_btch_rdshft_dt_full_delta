@@ -1,6 +1,6 @@
 -- ============================================================
 -- run_unificacion_mock_ejecucion_secuencial.sql
--- Orquestador mock — sp_unificacion_mock_regla* (v_mock_*/bdm_stage).
+-- Orquestador mock - sp_unificacion_mock_regla* (v_mock_*/bdm_stage).
 -- Requiere strct 02a DDL stage. Seed opcional: tablas pueden estar vacias
 -- (CALL completa sin traza). Firma: (modo VARCHAR, lote INTEGER, wm DATE).
 -- UTF-8 sin BOM.

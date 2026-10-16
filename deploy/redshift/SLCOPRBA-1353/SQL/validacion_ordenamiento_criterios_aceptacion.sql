@@ -1,5 +1,5 @@
 -- ============================================================
--- Criterios de aceptacion Ordenamiento — Modo A REAL (DPLY)
+-- Criterios de aceptacion Ordenamiento - Modo A REAL (DPLY)
 -- Par: docs/CRITERIOS_ACEPTACION_ORDENAMIENTO_REAL_Y_MOCK.md
 -- beta_ordenamiento: (canal, cod_caracteristica, valor_beta)
 -- UTF-8 sin BOM.

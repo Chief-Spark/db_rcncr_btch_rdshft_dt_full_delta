@@ -12,7 +12,7 @@
 --   corrida. Por eso ya NO se hace TRUNCATE incondicional aqui ni se llaman las
 --   reglas por separado.
 --
--- Contrato Framework_Batch (6 params VARCHAR, firma exacta — leccion #11):
+-- Contrato Framework_Batch (6 params VARCHAR, firma exacta - leccion #11):
 --   sp_unificacion_ciclo(in_solicitud, in_nit_suscriptor, in_path_archivo,
 --                        in_nemotecnico, in_id_facturacion, in_fecha_ejecucion)
 --     in_nemotecnico    -> MODO  (FULL | DELTA | '' -> default FULL, Req 1.2)
