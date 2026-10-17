@@ -106,19 +106,21 @@ falten por portar, y para el `INDICATIVO`, que en `V_Geografia` viene como
 
 ---
 
-## 5. Dos decisiones funcionales que no son una petición de datos
+## 5. Decisiones funcionales que no son una petición de datos
 
-Van aquí porque bloquean igual, y porque la respuesta no la tiene el equipo de
-datos.
+**(a) CERRADA — las cinco columnas en blanco y el `'CAM'` de la fuente se
+reproducen tal cual.** Decisión del equipo, SLCOPRBA-1355.
 
-**(a) Las cinco columnas que el legado deja en blanco.** `REPORTADO_DESDE`,
-`ULTIMO_REPORTE`, `FUENTE`, `NUMERO_REPORTES` y `NUMERO_ENTIDADES` llegan a
-`MAT_INFO_UBICACION` como NULL y 0 **literales** (`Novedad.sql:8358-8363`).
-Sus valores reales se calculan en `TMP_UBICA_ETAPA_2`, que esa ruta no
-consume: la etapa 2 existe sólo para alimentar a `Ubi_Agregada`. Lo hemos
-portado literal —el código manda— pero hay que confirmar si el entregable debe
-llevar esos cinco campos poblados. Si la respuesta es sí, es una línea de
-cambio; si es no, conviene que quede escrito.
+`REPORTADO_DESDE`, `ULTIMO_REPORTE`, `FUENTE`, `NUMERO_REPORTES` y
+`NUMERO_ENTIDADES` llegan a `MAT_INFO_UBICACION` como NULL y 0 **literales**
+(`Novedad.sql:8358-8363`); sus valores reales viven en `TMP_UBICA_ETAPA_2`,
+que esa ruta no consume. Y la homologación de fuente nunca se aplica, porque
+el `COALESCE` interno de `:8635` jamás devuelve NULL: todo sale `'CAM'`.
+
+**No se pueblan y no se corrige.** El criterio es reproducir el legado, y esto
+deja de ser una divergencia abierta: es el comportamiento esperado. El
+criterio `NOV-UB-09` del tablero verifica justamente que **sigan** en blanco.
+Si alguien los ve vacíos en el entregable, esto es la razón.
 
 **(b) El control de lote del legado no funciona.** `LOG_TD` se borra al inicio
 de cada corrida (`P0035_Extractor_Novedades_111.BTQ:64-65`) y el watermark que
