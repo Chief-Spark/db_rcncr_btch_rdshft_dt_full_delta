@@ -165,12 +165,25 @@ ORDER BY
 -- 6) EVOLUCION POR FASE. El mismo criterio en FULL, DELTA1, DELTA2 y FULL2.
 --    Un criterio que pasa en FULL y falla en DELTA2 es un defecto de
 --    incrementalidad, no de la regla.
+--
+--    LA COLUMNA geo ES APARTE Y NO ES UNA FASE. El ciclo GEO mock corre UNA
+--    vez, entre la convergencia y este tablero, de modo que sus criterios no
+--    tienen veredicto por fase: lo que hay es un veredicto y ya. Sin esta
+--    columna, CA-02..CA-05 salian con el residuo BLOQUEADO de las filas
+--    viejas del evaluador mientras el titular los daba en PASSED (job #402),
+--    que es exactamente la clase de contradiccion que hace desconfiar de un
+--    tablero entero.
+--
+--    Se anade la columna en vez de reescribir el modo de esas filas a
+--    'DELTA2': ponerles una fase seria afirmar que se evaluaron en una fase
+--    en la que no se evaluaron.
 -- ------------------------------------------------------------
 SELECT criterio,
        MAX(CASE WHEN modo = 'FULL'   THEN estado END) AS full_,
        MAX(CASE WHEN modo = 'DELTA1' THEN estado END) AS delta1,
        MAX(CASE WHEN modo = 'DELTA2' THEN estado END) AS delta2,
-       MAX(CASE WHEN modo = 'FULL2'  THEN estado END) AS full2
+       MAX(CASE WHEN modo = 'FULL2'  THEN estado END) AS full2,
+       MAX(CASE WHEN modo = 'GEO'    THEN estado END) AS geo
 FROM   bdm_datos.cert_resultado
 GROUP  BY criterio
 ORDER  BY criterio;
