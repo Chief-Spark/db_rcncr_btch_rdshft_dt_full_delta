@@ -19,6 +19,16 @@ total. Todo lo de abajo está tomado del legado, no inferido:
 2. **Equivalencia de tipos Teradata → Redshift:** `BYTEINT` → `SMALLINT`
    (Redshift no tiene entero de un byte). Lo demás es 1:1.
 
+3. **En `MAT_INFO_UBICACION` el borrado NUNCA OCURRE, aunque la columna
+   «Grano del `DELETE`» diga `ID`.** `Severidad = 2` sale únicamente de
+   `WHEN STG.FLAG_OP = 'E' THEN 2` (`120.TPT:163`), y `FLAG_OP = 'E'` es código
+   muerto: la etapa 1 anti-une `V_BLOQUEO` (`Novedad.sql:7590-7594`) y la
+   etapa 9 vuelve a unir esa misma tabla por esa misma llave para preguntar
+   por `FECHA_BLOQUEO` (`:8393`), que por tanto es siempre NULL. **El AS-IS de
+   Ubicación sólo inserta y actualiza.** La columna del resumen describe la
+   llave que el `DELETE` usaría, no que llegue a ejecutarse; para los otros
+   seis dominios está sin verificar.
+
 ---
 
 ## Resumen

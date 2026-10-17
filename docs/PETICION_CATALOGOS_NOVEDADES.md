@@ -122,7 +122,27 @@ deja de ser una divergencia abierta: es el comportamiento esperado. El
 criterio `NOV-UB-09` del tablero verifica justamente que **sigan** en blanco.
 Si alguien los ve vacíos en el entregable, esto es la razón.
 
-**(b) El control de lote del legado no funciona.** `LOG_TD` se borra al inicio
+**(b) CERRADA — la baja por bloqueo no existe en el AS-IS, y no la inventamos.**
+
+`FLAG_OP = 'E'` **es código muerto en el legado**, y con él la única vía de
+borrado de `MAT_INFO_UBICACION`. La etapa 1 hace el anti-join contra
+`V_BLOQUEO` (`Novedad.sql:7590-7594`: `LEFT JOIN … WHERE BLQ.COD_DW_PERSONA_UBIC
+IS NULL`) y la etapa 9 vuelve a unir **esa misma tabla por esa misma llave**
+para preguntar `BLQ.FECHA_BLOQUEO = DATE - 1` (`:8393`, `:8416`). Lo que
+sobrevivió a la etapa 1 no está en `V_BLOQUEO`, así que la comparación nunca
+da TRUE.
+
+Arrastra al TPT: `Severidad = 2` —el borrado— sale únicamente de
+`WHEN STG.FLAG_OP = 'E' THEN 2` (`120.TPT:163`). **Sin `'E'` no hay Severidad 2
+y el UPSERT de `130.TPT` nunca borra una fila: el AS-IS sólo inserta y
+actualiza.**
+
+Lo reproducimos tal cual, igual que las otras trampas, y los criterios
+`NOV-UB-13` y `NOV-UB-15` verifican que **sigamos sin emitir bajas**. Si el
+TO-BE quiere que una ubicación bloqueada se dé de baja de verdad, eso es un
+cambio funcional y hay que pedirlo: no es un defecto de la migración.
+
+**(c) El control de lote del legado no funciona.** `LOG_TD` se borra al inicio
 de cada corrida (`P0035_Extractor_Novedades_111.BTQ:64-65`) y el watermark que
 los SP leen es `MAX(FECHA_HORA_FIN)` de esa misma tabla
 (`Novedad.sql:242-247`): siempre NULL, así que **toda corrida del AS-IS es

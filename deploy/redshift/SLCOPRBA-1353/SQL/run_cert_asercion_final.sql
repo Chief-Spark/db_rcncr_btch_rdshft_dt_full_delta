@@ -10,9 +10,21 @@
 -- Va al FINAL, despues de todas las validaciones, para que el log de Jenkins
 -- tenga ya impresa toda la evidencia cuando el error aparezca.
 --
--- ALCANCE 'UNIFICACION' a proposito: el tablero de Ordenamiento acaba de
--- nacer y arrastra defectos reales ya identificados. Se cambia a 'TODO' en
--- cuanto esos defectos esten corregidos; el procedimiento ya lo soporta.
+-- DOS LLAMADAS Y NO UN 'TODO', que es la parte que conviene no "simplificar".
+-- 'TODO' encenderia tambien Ordenamiento, cuyo tablero acaba de nacer y
+-- arrastra defectos reales ya identificados: el job quedaria en rojo sin
+-- informacion nueva. Encender Ordenamiento es una decision aparte y se hace
+-- anadiendo su CALL aqui, en cuanto esos defectos esten corregidos.
+--
+-- NOVEDADES entra hoy (SLCOPRBA-1355) por el mismo criterio que GEO: ya
+-- corrio verde en Redshift real -- job DEV/DATABASE #409, los quince
+-- NOV-UB-01..15 con cero FAILED --, asi que deja de ser informe y pasa a
+-- tumbar el build.
+--
+-- EL ORDEN IMPORTA POCO PERO NO ES INDIFERENTE: Unificacion va primero
+-- porque es lo certificado y lo que mas gente mira. Si las dos fallaran, el
+-- log corta en la primera; el detalle de la segunda sale en su tablero.
 -- UTF-8 sin BOM, sin acentos.
 -- ============================================================
 CALL bdm_datos.sp_cert_asercion_final(CAST('UNIFICACION' AS VARCHAR(16)));
+CALL bdm_datos.sp_cert_asercion_final(CAST('NOVEDADES' AS VARCHAR(16)));
