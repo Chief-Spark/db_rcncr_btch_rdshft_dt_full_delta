@@ -9,4 +9,5 @@ validacion_certificacion_ord.sql
 run_unif_convergencia_mock.sql
 run_geo_ciclo_mock.sql
 validacion_certificacion_51.sql
+validacion_certificacion_nov.sql
 run_cert_asercion_final.sql

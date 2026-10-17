@@ -74,6 +74,15 @@ CALL bdm_datos.sp_ordenamiento_ejecucion_mock(CAST('' AS VARCHAR(256)), CAST('' 
 -- este lote. Evaluado mas tarde mediria otra corrida.
 CALL bdm_datos.sp_cert_evaluar_criterios_ord_mock(CAST('FULL' AS VARCHAR(16)), 1356601);
 
+-- NOVEDADES de la MISMA corrida. Corre DESPUES del Ordenamiento porque lee su
+-- salida: la etapa 1 del dominio Ubicacion filtra por orden de prioridad no
+-- nulo (Novedad.sql:7593) y ese orden lo escribe sp_ordenamiento_consolidacion
+-- en bdm_datos.rpu_orden_prioridad. Invertido el orden, Novedades saldria
+-- vacio por un efecto de secuencia y no por un defecto.
+CALL bdm_datos.sp_novedades_mock_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('FULL' AS VARCHAR(256)), CAST('1356601' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
+CALL bdm_datos.sp_cert_evaluar_criterios_nov_mock(CAST('FULL' AS VARCHAR(16)), 1356601);
+
+
 -- ------------------------------------------------------------
 -- (2) DELTA sobre datos SIN MUTAR. Debe dar CERO filas nuevas: es la prueba de
 -- idempotencia, y la que demuestra que el filtro de estado funciona. Antes de
@@ -96,6 +105,15 @@ CALL bdm_datos.sp_ordenamiento_ejecucion_mock(CAST('' AS VARCHAR(256)), CAST('' 
 -- las intermedias ya no existen y CA-T05 compara las personas de entrada de
 -- este lote. Evaluado mas tarde mediria otra corrida.
 CALL bdm_datos.sp_cert_evaluar_criterios_ord_mock(CAST('DELTA1' AS VARCHAR(16)), 1356602);
+
+-- NOVEDADES de la MISMA corrida. Corre DESPUES del Ordenamiento porque lee su
+-- salida: la etapa 1 del dominio Ubicacion filtra por orden de prioridad no
+-- nulo (Novedad.sql:7593) y ese orden lo escribe sp_ordenamiento_consolidacion
+-- en bdm_datos.rpu_orden_prioridad. Invertido el orden, Novedades saldria
+-- vacio por un efecto de secuencia y no por un defecto.
+CALL bdm_datos.sp_novedades_mock_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('DELTA' AS VARCHAR(256)), CAST('1356602' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
+CALL bdm_datos.sp_cert_evaluar_criterios_nov_mock(CAST('DELTA1' AS VARCHAR(16)), 1356602);
+
 
 -- ------------------------------------------------------------
 -- (3) MUTACION. A 100 personas del ARQ 21 y a 100 del ARQ 22 les LLEGA una
@@ -183,6 +201,15 @@ CALL bdm_datos.sp_ordenamiento_ejecucion_mock(CAST('' AS VARCHAR(256)), CAST('' 
 -- las intermedias ya no existen y CA-T05 compara las personas de entrada de
 -- este lote. Evaluado mas tarde mediria otra corrida.
 CALL bdm_datos.sp_cert_evaluar_criterios_ord_mock(CAST('DELTA2' AS VARCHAR(16)), 1356604);
+
+-- NOVEDADES de la MISMA corrida. Corre DESPUES del Ordenamiento porque lee su
+-- salida: la etapa 1 del dominio Ubicacion filtra por orden de prioridad no
+-- nulo (Novedad.sql:7593) y ese orden lo escribe sp_ordenamiento_consolidacion
+-- en bdm_datos.rpu_orden_prioridad. Invertido el orden, Novedades saldria
+-- vacio por un efecto de secuencia y no por un defecto.
+CALL bdm_datos.sp_novedades_mock_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('DELTA' AS VARCHAR(256)), CAST('1356604' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
+CALL bdm_datos.sp_cert_evaluar_criterios_nov_mock(CAST('DELTA2' AS VARCHAR(16)), 1356604);
+
 
 -- ------------------------------------------------------------
 -- (5) VEREDICTO
