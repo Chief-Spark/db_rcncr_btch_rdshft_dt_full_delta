@@ -242,7 +242,28 @@ INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
 SELECT
   rpu.cod_dw_persona_ubic,
   1000 + j.j                       AS id_buro_suscriptor,
-  CAST('2026-02-01' AS DATE)       AS fecha_reporte
+  -- LA FECHA DE LOS ARQ 16..20 VA POR ENCIMA DEL WATERMARK, A PROPOSITO.
+  -- Es el unico sitio del mock donde una fecha_reporte queda despues del
+  -- 2026-03-01, y existe para que el DELTA del dominio ACTIVIDAD ECONOMICA
+  -- tenga algo que recoger POR FECHA: su ventana es
+  -- fecha_reporte >= watermark OR fecha IS NULL
+  -- (sp_novedades_actividad_economica_edf.sql:149-151) y con toda la semilla
+  -- en febrero la rama de fecha no la ejercitaba nadie -- el DELTA salia en
+  -- CERO y NOV-AE-05 no tenia dato. Es la misma leccion que NOV-UB-12.
+  --
+  -- POR QUE ESTOS Y NO OTROS: los ARQ 16..20 son el EMPATE PURO de la Regla 1
+  -- (R1-08), que decide por numero de entidades reportantes y no por fecha.
+  -- Se cambia el VALOR de la fecha, no el numero de filas ni el de
+  -- suscriptores distintos, de modo que ni numero_entidades_reportan ni el
+  -- empate se mueven. Lo unico que cambia es meses_reporte de esas 5000
+  -- personas en el Ordenamiento, y sus dos direcciones se mueven JUNTAS: el
+  -- empate de score tampoco se rompe.
+  --
+  -- NO MUEVE EL WATERMARK: el de Unificacion y el de Novedades salen de
+  -- MAX(fecha_relacion_persona_ubicaci), no de esta columna.
+  CASE WHEN (rpu.id_buro_persona - 9000000) / 10000 BETWEEN 16 AND 20
+       THEN CAST('2026-04-10' AS DATE)
+       ELSE CAST('2026-02-01' AS DATE) END AS fecha_reporte
 FROM bdm_stage.relacion_persona_ubicacion rpu
 CROSS JOIN (SELECT 1 AS j UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) j
 WHERE (rpu.id_buro_persona BETWEEN 9010000 AND 9200999

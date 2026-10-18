@@ -1,6 +1,6 @@
 -- ============================================================
 -- validacion_certificacion_nov.sql
--- SLCOPRBA-1355: tablero de certificacion de NOVEDADES (32 criterios).
+-- SLCOPRBA-1355: tablero de certificacion de NOVEDADES (41 criterios).
 -- Gemelo de validacion_certificacion_ord.sql. Solo SELECT: no crea ni
 -- modifica nada. UTF-8 sin BOM, sin acentos.
 -- ============================================================
@@ -8,14 +8,18 @@
 -- ------------------------------------------------------------
 -- 1) EL NUMERO DE LA CERTIFICACION QA.
 --
---    ALCANCE: los criterios del dominio UBICACION que el evaluador puede
---    verificar hoy, es decir NOV-UB-01..NOV-UB-15.
+--    ALCANCE: los criterios de los DOS dominios portados que el evaluador
+--    puede verificar hoy: NOV-UB-01..NOV-UB-15 y NOV-AE-01..NOV-AE-10 menos
+--    los dos bloqueados.
 --
 --    Quedan FUERA del alcance, con estado explicito en el tablero:
 --      - NOV-UB-16..NOV-UB-22, bloqueados porque falta un catalogo que no se
 --        entrego o una columna del contrato GEO que no esta pinada;
---      - los siete dominios no portados (NOV-CAT, NOV-INB, NOV-CON, NOV-PIN,
---        NOV-HIS, NOV-MOV, NOV-AGR);
+--      - NOV-AE-06 y NOV-AE-07, bloqueados por V_ACTIVIDAD_ECONO_CIIU y
+--        V_Hom_Tip_Ident_Linea, que tampoco se entregaron;
+--      - los SEIS dominios no portados (NOV-CAT, NOV-INB, NOV-CON, NOV-PIN,
+--        NOV-MOV, NOV-AGR). NOV-HIS-01 estaba aqui y se retiro: el historial
+--        de actividad economica ES el bloque ACTIVIDAD_ECONOMICA;
 --      - NOV-G-01..NOV-G-03, que son decisiones y no consultas.
 --
 --    El alcance se CUENTA, no se escribe a mano: si el catalogo crece, el
@@ -30,12 +34,13 @@ SELECT
                THEN c.criterio END, ', ') WITHIN GROUP (ORDER BY c.criterio) AS cuales_faltan
 FROM            bdm_datos.cert_criterio_nov c
 LEFT JOIN       bdm_datos.v_cert_nov_ultimo r ON r.criterio = c.criterio
-WHERE c.bloque = 'UBICACION'
+WHERE c.bloque IN ('UBICACION', 'ACTIVIDAD_ECONOMICA')
   AND c.criterio NOT IN ('NOV-UB-16', 'NOV-UB-17', 'NOV-UB-18', 'NOV-UB-19',
-                         'NOV-UB-20', 'NOV-UB-21', 'NOV-UB-22');
+                         'NOV-UB-20', 'NOV-UB-21', 'NOV-UB-22',
+                         'NOV-AE-06', 'NOV-AE-07');
 
 -- ------------------------------------------------------------
--- 2) EL TABLERO: las 32 filas, siempre.
+-- 2) EL TABLERO: las 41 filas, siempre.
 --    El LEFT JOIN desde el catalogo mas el COALESCE garantizan que ninguna
 --    falte: un criterio que el gate no escribio sale SIN_EVALUAR, que
 --    significa "defecto del gate", no "no hay dato".
@@ -48,9 +53,10 @@ SELECT c.bloque,
        COALESCE(r.detalle, c.evidencia)  AS detalle
 FROM            bdm_datos.cert_criterio_nov c
 LEFT JOIN       bdm_datos.v_cert_nov_ultimo r ON r.criterio = c.criterio
-ORDER BY CASE c.bloque WHEN 'UBICACION'      THEN 1
-                       WHEN 'OTROS_DOMINIOS' THEN 2
-                       ELSE 3 END,
+ORDER BY CASE c.bloque WHEN 'UBICACION'           THEN 1
+                       WHEN 'ACTIVIDAD_ECONOMICA' THEN 2
+                       WHEN 'OTROS_DOMINIOS'      THEN 3
+                       ELSE 4 END,
          c.criterio;
 
 -- ------------------------------------------------------------
@@ -66,7 +72,7 @@ SELECT c.criterio,
        MAX(CASE WHEN r.modo = 'DELTA2' THEN r.estado END) AS delta2
 FROM            bdm_datos.cert_criterio_nov c
 LEFT JOIN       bdm_datos.cert_resultado_nov r ON r.criterio = c.criterio
-WHERE c.bloque = 'UBICACION'
+WHERE c.bloque IN ('UBICACION', 'ACTIVIDAD_ECONOMICA')
 GROUP BY c.criterio
 ORDER BY c.criterio;
 
