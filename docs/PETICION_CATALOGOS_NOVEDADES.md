@@ -1,4 +1,4 @@
-# Petición de catálogos y columnas para Novedades — dominios Ubicación y Actividad Económica
+# Petición de catálogos y columnas para Novedades — dominios Ubicación, Actividad Económica y Ubicación Agregada
 
 **SLCOPRBA-1355.** Qué falta para que `MAT_INFO_UBICACION` salga completa, por
 qué falta, y qué columna concreta desbloquea cada cosa.
@@ -6,6 +6,40 @@ qué falta, y qué columna concreta desbloquea cada cosa.
 El port de `PRO_Novedad_Linea_Ubicacion` está hecho y corre: produce las 42
 columnas del contrato. **Cinco de ellas salen NULL** y dos CSV entregados
 llegaron truncados. Nada de esto se resuelve escribiendo código.
+
+---
+
+## 0. LO MÁS URGENTE: `V_Hom_Tip_Ident_Linea` bloquea un dominio entero
+
+**Ha dejado de ser "una columna sale NULL". Hoy vacía la salida completa de
+Ubicación Agregada**, el tercer dominio portado.
+
+`TIPO_IDENTIFICACION` sale NULL en toda fila porque falta este catálogo
+(`sp_novedades_ubicacion_edf.sql:362`). La etapa 5 del legado une por igualdad
+en esa columna (`Novedad.sql:5431`), y `NULL = NULL` es falso: el join vacía la
+cadena entera. Medido en el banco con el mock: **las etapas 1 a 4 traen 8.500
+filas y la 5 trae cero**, de modo que `MAT_UBICACION_AGREGADA` queda vacía.
+
+**No es un defecto del port y no se arregla con código.** El legado no pone
+centinela ahí y la etapa 2 arrastra la columna cruda (`:8624`). Meter un
+`COALESCE` fundiría filas que el legado no funde: cambiaría un bloqueo visible
+por un defecto silencioso.
+
+**Lo que se pide son dos columnas y pocas filas:**
+
+| Columna | Para qué |
+|---|---|
+| `Valor_Fuente` | la llave; se une contra `COD_TIPO_IDENT_FTE`, que **ya tenemos** |
+| `Descripcion_Hom_Tip_Ident_Linea` | el valor publicable |
+
+En el mock `cod_tipo_ident_fte` está poblado con dos valores distintos (`1` en
+7.000 filas y `3` en 1.500), así que la llave existe; sólo falta contra qué
+unirla. Con este volcado se desbloquean `NOV-UB-18`, `NOV-AE-07` y los siete
+`NOV-AG-02..08`.
+
+**Matiz para cuando se porte `Info_Basica`:** allí la llave no es la columna
+pelada sino `COALESCE(COD_TIPO_IDENT_FTE_2, COD_TIPO_IDENT_FTE)` (`:3475`), y
+`cod_tipo_ident_fte_2` hoy no está en nuestras vistas.
 
 ---
 
@@ -24,7 +58,7 @@ Cruzados los catálogos que `PRO_Novedad_Linea_Ubicacion` lee
 | `V_GESTION_REGISTRO` | sí | — | — |
 | **`V_Hom_TipoUbic_Dir_Linea`** | **no** | `TIPO` | `NOV-UB-16` |
 | **`V_ZONA_UBICACION`** y **`V_Hom_Zona_Linea`** | **no** | `ZONA` | `NOV-UB-17` |
-| **`V_Hom_Tip_Ident_Linea`** | **no** | `TIPO_IDENTIFICACION` | `NOV-UB-18` |
+| **`V_Hom_Tip_Ident_Linea`** | **no** | `TIPO_IDENTIFICACION` | `NOV-UB-18`, `NOV-AE-07` y `NOV-AG-02..08` — **ver §0: vacía un dominio entero** |
 | **`V_TELEFONO_FIJO`** | **no** | `INDICATIVO` | `NOV-UB-19` |
 | **`V_TIPO_CORREO`** | **no** | `TIPO_CUENTA` | `NOV-UB-20` |
 | **`V_DIRECCION_ELECTRONICA`** | **no** | puente a `V_TIPO_CORREO` | `NOV-UB-20` |
@@ -99,6 +133,7 @@ falten por portar, y para el `INDICATIVO`, que en `V_Geografia` viene como
 
 | # | Qué | Desbloquea |
 |---|---|---|
+| **0** | **`V_Hom_Tip_Ident_Linea`** (dos columnas, ver §0) | **el dominio Ubicación Agregada entero**, más `NOV-UB-18` y `NOV-AE-07` |
 | 1 | `Salida_Geo.pdf` (contrato de 32 columnas con su orden) | `BARRIO`, `ESTRATO`, `LOCALIDAD`, `CODIGO_POSTAL` — y de paso `ZONA` y `tipo_via`, que también viajan en ese contrato |
 | 2 | Los cuatro catálogos de homologación a Línea | `TIPO`, `ZONA`, `TIPO_IDENTIFICACION` y la fuente de la etapa 2 |
 | 3 | `V_TELEFONO_FIJO`, `V_TIPO_CORREO`, `V_DIRECCION_ELECTRONICA`, `V_ZONA_UBICACION`, `V_Tipo_Via` | `INDICATIVO`, `TIPO_CUENTA` |

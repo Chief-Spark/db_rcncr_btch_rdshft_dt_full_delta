@@ -1,6 +1,6 @@
 -- ============================================================
 -- validacion_certificacion_nov.sql
--- SLCOPRBA-1355: tablero de certificacion de NOVEDADES (41 criterios).
+-- SLCOPRBA-1355: tablero de certificacion de NOVEDADES (49 criterios).
 -- Gemelo de validacion_certificacion_ord.sql. Solo SELECT: no crea ni
 -- modifica nada. UTF-8 sin BOM, sin acentos.
 -- ============================================================
@@ -8,18 +8,23 @@
 -- ------------------------------------------------------------
 -- 1) EL NUMERO DE LA CERTIFICACION QA.
 --
---    ALCANCE: los criterios de los DOS dominios portados que el evaluador
---    puede verificar hoy: NOV-UB-01..NOV-UB-15 y NOV-AE-01..NOV-AE-10 menos
---    los dos bloqueados.
+--    ALCANCE: los criterios de los TRES dominios portados que el evaluador
+--    puede verificar hoy: NOV-UB-01..NOV-UB-15, NOV-AE-01..NOV-AE-10 menos
+--    los dos bloqueados, y NOV-AG-01 -- el unico de su dominio que mira el
+--    contrato y no las filas.
 --
 --    Quedan FUERA del alcance, con estado explicito en el tablero:
 --      - NOV-UB-16..NOV-UB-22, bloqueados porque falta un catalogo que no se
 --        entrego o una columna del contrato GEO que no esta pinada;
 --      - NOV-AE-06 y NOV-AE-07, bloqueados por V_ACTIVIDAD_ECONO_CIIU y
 --        V_Hom_Tip_Ident_Linea, que tampoco se entregaron;
---      - los SEIS dominios no portados (NOV-CAT, NOV-INB, NOV-CON, NOV-PIN,
---        NOV-MOV, NOV-AGR). NOV-HIS-01 estaba aqui y se retiro: el historial
---        de actividad economica ES el bloque ACTIVIDAD_ECONOMICA;
+--      - NOV-AG-02..NOV-AG-08, bloqueados por V_Hom_Tip_Ident_Linea. No es
+--        el mismo caso que los dos de arriba: alli el catalogo deja columnas
+--        en NULL y aqui VACIA EL DOMINIO -- la etapa 5 une por igualdad en
+--        tipo_identificacion (Novedad.sql:5431) y NULL = NULL es falso;
+--      - los CINCO dominios no portados (NOV-CAT, NOV-INB, NOV-CON, NOV-PIN,
+--        NOV-MOV). Eran siete: NOV-HIS-01 y NOV-AGR-01 se retiraron segun se
+--        portaba su dominio;
 --      - NOV-G-01..NOV-G-03, que son decisiones y no consultas.
 --
 --    El alcance se CUENTA, no se escribe a mano: si el catalogo crece, el
@@ -34,13 +39,15 @@ SELECT
                THEN c.criterio END, ', ') WITHIN GROUP (ORDER BY c.criterio) AS cuales_faltan
 FROM            bdm_datos.cert_criterio_nov c
 LEFT JOIN       bdm_datos.v_cert_nov_ultimo r ON r.criterio = c.criterio
-WHERE c.bloque IN ('UBICACION', 'ACTIVIDAD_ECONOMICA')
+WHERE c.bloque IN ('UBICACION', 'ACTIVIDAD_ECONOMICA', 'UBICACION_AGREGADA')
   AND c.criterio NOT IN ('NOV-UB-16', 'NOV-UB-17', 'NOV-UB-18', 'NOV-UB-19',
                          'NOV-UB-20', 'NOV-UB-21', 'NOV-UB-22',
-                         'NOV-AE-06', 'NOV-AE-07');
+                         'NOV-AE-06', 'NOV-AE-07',
+                         'NOV-AG-02', 'NOV-AG-03', 'NOV-AG-04', 'NOV-AG-05',
+                         'NOV-AG-06', 'NOV-AG-07', 'NOV-AG-08');
 
 -- ------------------------------------------------------------
--- 2) EL TABLERO: las 41 filas, siempre.
+-- 2) EL TABLERO: las 49 filas, siempre.
 --    El LEFT JOIN desde el catalogo mas el COALESCE garantizan que ninguna
 --    falte: un criterio que el gate no escribio sale SIN_EVALUAR, que
 --    significa "defecto del gate", no "no hay dato".
@@ -55,8 +62,9 @@ FROM            bdm_datos.cert_criterio_nov c
 LEFT JOIN       bdm_datos.v_cert_nov_ultimo r ON r.criterio = c.criterio
 ORDER BY CASE c.bloque WHEN 'UBICACION'           THEN 1
                        WHEN 'ACTIVIDAD_ECONOMICA' THEN 2
-                       WHEN 'OTROS_DOMINIOS'      THEN 3
-                       ELSE 4 END,
+                       WHEN 'UBICACION_AGREGADA'  THEN 3
+                       WHEN 'OTROS_DOMINIOS'      THEN 4
+                       ELSE 5 END,
          c.criterio;
 
 -- ------------------------------------------------------------
@@ -72,7 +80,7 @@ SELECT c.criterio,
        MAX(CASE WHEN r.modo = 'DELTA2' THEN r.estado END) AS delta2
 FROM            bdm_datos.cert_criterio_nov c
 LEFT JOIN       bdm_datos.cert_resultado_nov r ON r.criterio = c.criterio
-WHERE c.bloque IN ('UBICACION', 'ACTIVIDAD_ECONOMICA')
+WHERE c.bloque IN ('UBICACION', 'ACTIVIDAD_ECONOMICA', 'UBICACION_AGREGADA')
 GROUP BY c.criterio
 ORDER BY c.criterio;
 
