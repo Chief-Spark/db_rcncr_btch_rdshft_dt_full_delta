@@ -1,0 +1,39 @@
+# Framework Batch - RECONOCER: pipeline MOCK de extremo a extremo.
+# Cluster consumidor: reconocerbatch / dba_rncr_batch
+#
+# Identificadores registrados (ver PIPELINE_MOCK_FRAMEWORK_BATCH.md):
+#   mnemotecnico : reconocermockval      (fila en mnemotecnicos.csv, NIT 123456789)
+#   este archivo : PP9999reconocermock.yaml   -> bucket de DEFINICIONES
+#   carpeta .val : PP9999reconocermock/       -> bucket de SOURCE
+#
+# LOS TRES SP LLEVAN LA FIRMA DE 6 VARCHAR DEL FRAMEWORK, verificada en el repo
+# pgm. NO se invocan las reglas sueltas (sp_unificacion_mock_regla1/2/3): esas
+# llevan (p_modo VARCHAR, p_lote INTEGER, p_watermark DATE) y el Framework no
+# puede llamarlas. sp_unificacion_mock_ciclo ya encadena regla1 -> 2 -> 3.
+#
+# EL ORDEN NO ES NEGOCIABLE: Novedades va DESPUES de Ordenamiento porque su
+# etapa 1 filtra por orden de prioridad no nulo (Novedad.sql:7593). Al reves
+# saldria vacio por un efecto de secuencia y no por un defecto.
+#
+# GEO NO ENTRA: su ciclo mock es sp_cert_geo_mock(), sin parametros, y el
+# Framework no puede invocarlo. El unico GEO con firma valida es
+# bdm_stage.sp_geo_ciclo_lote, que es el real y hace UNLOAD a S3 con un rol IAM
+# que no esta asociado al cluster DEV.
+#
+# FUERA DEL YAML, y es la mitad del extremo a extremo: reset_mock.sql, las
+# cuatro semillas seed_mock_*.sql y los cuatro tableros NO son procedimientos.
+# Hoy solo los corre el job dt del pipeline de Jenkins.
+procesos:
+  pipeline: RECONOCER
+  directorio:
+    ruta: PP9999reconocermock
+  niveles:
+    - nivel: 0
+      procedimientos:
+        - step_procedure: bdm_datos.sp_unificacion_mock_ciclo
+    - nivel: 1
+      procedimientos:
+        - step_procedure: bdm_datos.sp_ordenamiento_ejecucion_mock
+    - nivel: 2
+      procedimientos:
+        - step_procedure: bdm_datos.sp_novedades_mock_ciclo
