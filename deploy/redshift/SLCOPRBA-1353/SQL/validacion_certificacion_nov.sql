@@ -1,6 +1,6 @@
 -- ============================================================
 -- validacion_certificacion_nov.sql
--- SLCOPRBA-1355: tablero de certificacion de NOVEDADES (49 criterios).
+-- SLCOPRBA-1355: tablero de certificacion de NOVEDADES (48 criterios).
 -- Gemelo de validacion_certificacion_ord.sql. Solo SELECT: no crea ni
 -- modifica nada. UTF-8 sin BOM, sin acentos.
 -- ============================================================
@@ -47,7 +47,7 @@ WHERE c.bloque IN ('UBICACION', 'ACTIVIDAD_ECONOMICA', 'UBICACION_AGREGADA')
                          'NOV-AG-06', 'NOV-AG-07', 'NOV-AG-08');
 
 -- ------------------------------------------------------------
--- 2) EL TABLERO: las 49 filas, siempre.
+-- 2) EL TABLERO: las 48 filas, siempre.
 --    El LEFT JOIN desde el catalogo mas el COALESCE garantizan que ninguna
 --    falte: un criterio que el gate no escribio sale SIN_EVALUAR, que
 --    significa "defecto del gate", no "no hay dato".
