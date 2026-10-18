@@ -86,8 +86,12 @@ TRUNCATE TABLE bdm_datos.nov_control_mock;
 --   mat_info_actividad_economica_mock: es INSERT-ONLY por diseno del legado
 --     (sp_novedades_cargar_mat_acteco_edf.sql:40-46). Sin truncar, la segunda
 --     pasada la duplicaria y la Severidad daria -1 en toda la etapa.
+--   mat_ubicacion_agregada_mock: el cargador borra por las SIETE columnas de
+--     la llave y vuelve a insertar (130.TPT:1060-1066); lo que deja de entrar
+--     se queda, igual que en mat_info_ubicacion_mock.
 TRUNCATE TABLE bdm_datos.mat_info_ubicacion_mock;
 TRUNCATE TABLE bdm_datos.mat_info_actividad_economica_mock;
+TRUNCATE TABLE bdm_datos.mat_ubicacion_agregada_mock;
 
 -- Contratos de etapa. Los SP los truncan al empezar, igual que el diccionario
 -- de complementos; se vacian aqui por el mismo motivo que aquel: un fallo a
@@ -95,6 +99,7 @@ TRUNCATE TABLE bdm_datos.mat_info_actividad_economica_mock;
 TRUNCATE TABLE bdm_tempo.stg_nov_ubica_etapa_9_mock;
 TRUNCATE TABLE bdm_tempo.stg_nov_ubica_etapa_2_mock;
 TRUNCATE TABLE bdm_tempo.stg_nov_acteco_etapa_1_mock;
+TRUNCATE TABLE bdm_tempo.stg_nov_ubiagr_etapa_final_mock;
 
 -- ------------------------------------------------------------
 -- Tableros de certificacion. Los dos evaluadores ya son idempotentes por
