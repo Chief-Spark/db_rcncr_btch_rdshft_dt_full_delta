@@ -14,7 +14,18 @@
 #   ./banco.sh desde <tag>         restaura y sigue (re-correr rapido)
 #   ./banco.sh psql                consola
 #   ./banco.sh parar | estado | limpio
+#
+#   BANCO_N=100 ./banco.sh todo    baja la replica por arquetipo SOLO AQUI
+#                                  (el repo y Redshift siguen en 1000; minimo
+#                                  100, ver el comentario en corre_archivo)
 set -uo pipefail
+
+# Piso de 100: por debajo, la mutacion de la fase 3 de la bateria -- que
+# siembra un 'n.i < 100' FIJO -- apuntaria a personas no sembradas.
+if [ -n "${BANCO_N:-}" ] && [ "$BANCO_N" -lt 100 ] 2>/dev/null; then
+  echo "BANCO_N=$BANCO_N es menor que el piso de 100; se usa 100" >&2
+  BANCO_N=100
+fi
 
 BANCO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DT="$(dirname "$BANCO")"
@@ -53,15 +64,34 @@ arranca() {
   if runuser -u postgres -- "$PGBIN/pg_ctl" -D "$PGROOT" status >/dev/null 2>&1; then
     return 0
   fi
+  # EL -o VA EN UNA SOLA LINEA, Y NO ES ESTILO: pg_ctl DEJA DE PARSEAR LA
+  # CADENA EN EL PRIMER SALTO DE LINEA, sin avisar. Partida en siete lineas
+  # como estaba, lo unico que llegaba al servidor era
+  #   -p 55432 -k /tmp -c listen_addresses=''
+  # y los doce ajustes restantes se perdian. Comprobado con pg_settings: con
+  # la version partida, fsync salia 'on' por DEFAULT y work_mem 4MB por
+  # DEFAULT; en una linea, las dos salen con source 'command line'.
+  #
+  # Lo que costaba: el banco corria con los valores de fabrica -- work_mem de
+  # 4MB sobre tablas de 85.000 filas, que desborda cada hash join y cada sort
+  # a disco (medidos 855 archivos temporales y 2,7 GB), y ADEMAS con fsync y
+  # synchronous_commit en 'on', de modo que cada commit esperaba al disco.
+  # Nada de esto se veia: Postgres arrancaba y respondia igual.
+  #
+  # Los valores son seguros aqui y solo aqui: es un banco desechable de una
+  # sola sesion. fsync=off se puede perder la base entera ante un corte, y da
+  # igual -- se reconstruye con 'init nueva'. NUNCA en nada que no sea esto.
+  local OPC="-p $PUERTO -k $SOCK -c listen_addresses=''"
+  OPC="$OPC -c fsync=off -c full_page_writes=off -c synchronous_commit=off"
+  OPC="$OPC -c shared_buffers=2GB -c work_mem=512MB"
+  OPC="$OPC -c maintenance_work_mem=1GB -c max_connections=20"
+  OPC="$OPC -c effective_cache_size=10GB -c random_page_cost=1.1"
+  OPC="$OPC -c max_locks_per_transaction=4096"
+  OPC="$OPC -c max_parallel_workers_per_gather=4 -c max_parallel_workers=4"
+  OPC="$OPC -c plan_cache_mode=force_custom_plan"
+  OPC="$OPC -c TimeZone=UTC -c DateStyle='ISO, YMD'"
   runuser -u postgres -- "$PGBIN/pg_ctl" -D "$PGROOT" -w -t 30 \
-    -l "$PGROOT/pg.log" \
-    -o "-p $PUERTO -k $SOCK -c listen_addresses=''
-        -c fsync=off -c full_page_writes=off -c synchronous_commit=off
-        -c shared_buffers=1GB -c work_mem=128MB
-        -c maintenance_work_mem=256MB -c max_connections=20
-        -c max_locks_per_transaction=4096
-        -c plan_cache_mode=force_custom_plan
-        -c TimeZone=UTC -c DateStyle='ISO, YMD'" start >/dev/null
+    -l "$PGROOT/pg.log" -o "$OPC" start >/dev/null
 }
 
 cmd_init() {
@@ -145,6 +175,33 @@ corre_archivo() {
     printf '%s\t%s\t-\tTRANSPILA\tHUECO_BANCO\tel transpilador rechazo el archivo\n' \
            "$fase" "$entrada" >> "$OUT/errores.tsv"
     return 1
+  fi
+  # ------------------------------------------------------------------
+  # BANCO_N: la replica por arquetipo, SOLO EN EL BANCO.
+  #
+  # Las semillas acotan con 'WHERE n.i < 1000', que son ~85.000 personas y
+  # unas dos horas de bateria en un nodo. Para una hipotesis barata no hace
+  # falta ese volumen. Con BANCO_N=100 el mismo recorrido pasa a minutos.
+  #
+  # EL REPO NO SE TOCA Y REDSHIFT SIGUE EN 1000. La sustitucion ocurre sobre
+  # la COPIA transpilada que vive en out/, nunca sobre el archivo del paquete.
+  # Es deliberado que este aqui y no en transpila.py: aquel corrige SINTAXIS
+  # de Redshift a Postgres y su cabecera dice que reescribir texto es la
+  # ultima opcion. Esto cambia los DATOS, que es otra cosa, y tiene que verse.
+  #
+  # PISO DE 100, Y NO ES ARBITRARIO: la mutacion de la fase 3 siembra un
+  # 'WHERE n.i < 100' FIJO sobre los ARQ 21 y 22
+  # (run_reconocer_e2e_mock_full_delta.sql:169,181). Por debajo de 100
+  # referenciaria personas que no existen y DELTA2 daria FAILED por un efecto
+  # de siembra, no por un defecto.
+  #
+  # El gate por arquetipo MIDE N del dato desde SLCOPRBA-1355
+  # (sp_unificacion_mock_gate_arq.sql, tabla stg_gate_n), de modo que sus
+  # conteos acompanan. Antes clavaba 66000/8000/5000/1000 y cualquier N
+  # distinto lo ponia entero en FAILED.
+  # ------------------------------------------------------------------
+  if [ -n "${BANCO_N:-}" ] && [ "$BANCO_N" != 1000 ]; then
+    sed -i -E "s/\bn\.i < 1000\b/n.i < $BANCO_N/g" "$dest"
   fi
   local log="$OUT/$fase/$entrada.log"
   "${PSQL[@]}" -d "$BD" -v ON_ERROR_STOP="$parar" --echo-errors \
