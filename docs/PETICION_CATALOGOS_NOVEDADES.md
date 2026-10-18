@@ -1,4 +1,4 @@
-# Petición de catálogos y columnas para Novedades — dominio Ubicación
+# Petición de catálogos y columnas para Novedades — dominios Ubicación y Actividad Económica
 
 **SLCOPRBA-1355.** Qué falta para que `MAT_INFO_UBICACION` salga completa, por
 qué falta, y qué columna concreta desbloquea cada cosa.
@@ -103,6 +103,7 @@ falten por portar, y para el `INDICATIVO`, que en `V_Geografia` viene como
 | 2 | Los cuatro catálogos de homologación a Línea | `TIPO`, `ZONA`, `TIPO_IDENTIFICACION` y la fuente de la etapa 2 |
 | 3 | `V_TELEFONO_FIJO`, `V_TIPO_CORREO`, `V_DIRECCION_ELECTRONICA`, `V_ZONA_UBICACION`, `V_Tipo_Via` | `INDICATIVO`, `TIPO_CUENTA` |
 | 4 | Reexport completo de `V_Geografia` y `V_Cod_Entrega_Dato` | los dominios que faltan por portar |
+| 5 | **`V_ACTIVIDAD_ECONO_CIIU`** (ver §6) | `ACTIVIDAD_ECONOMICA` y `VERSION` de `MAT_INFO_ACTIVIDAD_ECONOMICA` |
 
 ---
 
@@ -151,3 +152,55 @@ FULL** y la lógica DELTA es código latente nunca ejercitado. Además
 Hemos construido el control desde cero sobre el patrón `unif_control`, que sí
 está certificado. **Hay que confirmar que el TO-BE quiere delta de verdad**, y
 no la recarga completa que el AS-IS hace en la práctica.
+
+---
+
+## 6. Dominio ACTIVIDAD ECONÓMICA: un catálogo más, y dos columnas en blanco
+
+El segundo dominio ya está portado
+(`sp_novedades_actividad_economica_edf.sql`, del legado
+`PRO_Novedad_Linea_Historial`, `Novedad.sql:1060-1420`) y corre en Redshift
+real. Produce las ocho columnas del contrato y **dos salen NULL por el mismo
+motivo que las de Ubicación: falta el catálogo.**
+
+| Catálogo del legado | ¿Entregado? | Columna que bloquea | Cita |
+|---|---|---|---|
+| **`V_ACTIVIDAD_ECONO_CIIU`** | **no** | `ACTIVIDAD_ECONOMICA` y `VERSION` | `Novedad.sql:1352-1354` |
+| `V_Hom_Tip_Ident_Linea` | **no** (ya pedido en §1) | `TIPO_IDENTIFICACION` | — |
+
+**`V_ACTIVIDAD_ECONO_CIIU` no estaba en esta petición y es un olvido nuestro:**
+no aparece en los diez CSV de `novedades_mapeo_y_catalogos.zip` y tampoco se
+había pedido. Se pide ahora, en el mismo formato que el resto.
+
+**Lo que NO se pide, para no confundir una divergencia con un dato que falta:**
+
+- **`V_PERSONA_ACT_ECONOMICA_CIIU`.** El legado arma su universo de ahí y trae
+  `COD_DW_ACT_ECONO_CIIU`, `FECHA_REPORTE` e `INFO_BASICA_ID` por fila.
+  Nosotros lo sacamos de `v_xpm_ciiu_persona`, que son **dos** columnas
+  (`02_vistas_insumo_edf_views.sql:364-370`), y el CIIU viene directo del
+  datashare en `bestpersonalinformation.mainisiccodeforproduct`. Funciona; no
+  hay nada que pedir.
+- **`V_Persona_Juridica_Camara`.** El legado hace
+  `COALESCE(VPAE.FECHA_REPORTE, VPJC.Fecha_Matricula)` (`:1355`). Esa vista no
+  está en el datashare y la rama de `Fecha_Matricula` no se porta. **Es una
+  divergencia de grano, no un catálogo:** nuestro único fechado es `cutoffdate`,
+  que vive por ubicación, así que agregamos con `MAX` por persona. Lo que
+  escribimos es *"la fecha más reciente en que se vio a la persona"*, no la del
+  reporte de su CIIU. Si el TO-BE necesita el grano fino, hay que pedir la
+  vista; si no, esto es lo que hay y queda documentado.
+
+**(d) ABIERTA — la tabla final sólo crece, y es del legado.** El UPSERT de
+`130.TPT` no actualiza nunca en este dominio: el `ID` se asigna como
+`MAX(ID) + SUM(1) OVER (ROWS UNBOUNDED PRECEDING)` sobre la tabla viva
+(`120.TPT:177`), de modo que cada fila preparada estrena un `ID` por encima del
+máximo y el `UPDATE … WHERE ID = :IN_ID` (`:722`) no encuentra nada; el
+`INSERT FOR MISSING UPDATE ROWS` (`:750`) inserta siempre. Y el `DELETE` de
+`:753` es código muerto, porque ninguna rama de su Severidad devuelve 2
+(`120.TPT:186-197`) — el mismo patrón que el `FLAG_OP = 'E'` de §5(b).
+
+**Hoy no se nota** porque `ACTIVIDAD_ECONOMICA` y `VERSION` salen NULL y la
+comparación de Severidad da falso. **El día que llegue
+`V_ACTIVIDAD_ECONO_CIIU`, una persona cuyo CIIU cambie de descripción acumulará
+una fila nueva en cada corrida.** Lo reproducimos literal, como el resto, pero
+esta es la decisión funcional que hay que tomar **antes** de entregar el
+catálogo, no después.

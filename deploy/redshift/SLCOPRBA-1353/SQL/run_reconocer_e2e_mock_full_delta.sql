@@ -23,20 +23,61 @@
 
 -- ------------------------------------------------------------
 -- (0) RESET. Mismo contenido que reset_mock.sql, en linea para que este script
--- sea auto-contenido y se pueda correr suelto. Se borra unif_control_mock
--- porque ahi vive el Watermark: sin eso un 'FULL' heredaria el de la corrida
--- anterior y no partiria de cero.
+-- sea auto-contenido y se pueda correr suelto. Se borran unif_control_mock y
+-- nov_control_mock porque ahi vive el Watermark: sin eso un 'FULL' heredaria el
+-- de la corrida anterior y no partiria de cero.
+--
+-- ESTA COPIA SE HABIA QUEDADO ATRAS, y esa es la leccion de mantenerla al dia.
+-- Le faltaban el diccionario de via, el censo de escenarios, los siete
+-- mock_ord_* y cert_resultado, ademas de Novedades entera. En el pipeline no se
+-- notaba porque reset_mock.sql es el archivo 1 de deploy.par y ya habia hecho
+-- el trabajo; se notaba corriendo la bateria suelta -- que es como la corre el
+-- banco --, de modo que el banco no reproducia a Jenkins. Si se anade una tabla
+-- a reset_mock.sql, se anade tambien aqui, y al reves.
 -- ------------------------------------------------------------
+-- Salidas de Unificacion
 TRUNCATE TABLE bdm_datos.unificacion_direccion_mock;
 TRUNCATE TABLE bdm_datos.rpu_generada_mock;
 TRUNCATE TABLE bdm_datos.direccion_fisica_generada_mock;
 TRUNCATE TABLE bdm_stage.diccionario_complementos;
+TRUNCATE TABLE bdm_stage.diccionario_via;
+
+-- Control y traza de Unificacion (aqui vive el Watermark)
 TRUNCATE TABLE bdm_datos.unif_control_etapa_mock;
 TRUNCATE TABLE bdm_datos.unif_control_mock;
+TRUNCATE TABLE bdm_datos.unif_escenario_censo_mock;
+
+-- Ciclo GEO mock
 TRUNCATE TABLE bdm_datos.geo_atributos_mock;
 TRUNCATE TABLE bdm_datos.geo_lote_control_mock;
+
+-- Evidencia de gates
 TRUNCATE TABLE bdm_stage.mock_unif_ca_result;
 TRUNCATE TABLE bdm_stage.mock_unif_convergencia;
+
+-- Salidas de Ordenamiento mock
+TRUNCATE TABLE bdm_stage.mock_ord_score;
+TRUNCATE TABLE bdm_stage.mock_ord_prioridad;
+TRUNCATE TABLE bdm_stage.mock_ord_rpu;
+TRUNCATE TABLE bdm_stage.mock_ord_escenario;
+TRUNCATE TABLE bdm_stage.mock_ord_control_etapa;
+TRUNCATE TABLE bdm_stage.mock_ord_control;
+TRUNCATE TABLE bdm_stage.mock_ord_ca_result;
+
+-- Novedades (P0035): control, tablas finales, contratos de etapa y tablero.
+-- Lo que falto hasta el job #412. mat_info_actividad_economica_mock es
+-- insert-only por diseno del legado y sin truncar se duplica entre pasadas.
+TRUNCATE TABLE bdm_datos.nov_control_etapa_mock;
+TRUNCATE TABLE bdm_datos.nov_control_mock;
+TRUNCATE TABLE bdm_datos.mat_info_ubicacion_mock;
+TRUNCATE TABLE bdm_datos.mat_info_actividad_economica_mock;
+TRUNCATE TABLE bdm_tempo.stg_nov_ubica_etapa_9_mock;
+TRUNCATE TABLE bdm_tempo.stg_nov_ubica_etapa_2_mock;
+TRUNCATE TABLE bdm_tempo.stg_nov_acteco_etapa_1_mock;
+
+-- Tableros de certificacion
+TRUNCATE TABLE bdm_datos.cert_resultado;
+TRUNCATE TABLE bdm_datos.cert_resultado_nov;
 
 -- Las direcciones que agrego una mutacion anterior (k = 3 de los ARQ 21 y 22).
 -- Se borran aqui y no en el reset generico porque son INSUMO, no salida.
