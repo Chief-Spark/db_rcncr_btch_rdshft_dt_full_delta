@@ -2,6 +2,7 @@
 -- reset_mock.sql
 -- SLCOPRBA-1356 (Fase 5): deja el mock en estado virgen para poder repetir la
 -- bateria desde cero.
+-- SLCOPRBA-1399: el bloque de Novedades del final, que falto hasta el #412.
 --
 -- Borra SALIDAS y CONTROL, no las tablas de insumo. Las de insumo las re-siembran
 -- seed_mock_matriz.sql y seed_mock_matriz_r2.sql, que ya hacen su propio DELETE
