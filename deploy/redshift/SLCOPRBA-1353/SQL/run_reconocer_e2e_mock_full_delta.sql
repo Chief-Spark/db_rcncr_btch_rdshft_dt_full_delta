@@ -89,9 +89,11 @@ TRUNCATE TABLE bdm_tempo.stg_nov_ubica_etapa_2_mock;
 TRUNCATE TABLE bdm_tempo.stg_nov_acteco_etapa_1_mock;
 TRUNCATE TABLE bdm_tempo.stg_nov_ubiagr_etapa_final_mock;
 
--- Tableros de certificacion
+-- Tableros de certificacion. El de Ordenamiento tambien: su pivote por fase
+-- lee la tabla cruda y MAX sobre texto tapa un FAILED con un PASSED viejo.
 TRUNCATE TABLE bdm_datos.cert_resultado;
 TRUNCATE TABLE bdm_datos.cert_resultado_nov;
+TRUNCATE TABLE bdm_datos.cert_resultado_ord;
 
 -- Las direcciones que agrego una mutacion anterior (k = 3 de los ARQ 21 y 22).
 -- Se borran aqui y no en el reset generico porque son INSUMO, no salida.

@@ -119,6 +119,16 @@ TRUNCATE TABLE bdm_tempo.stg_nov_ubiagr_etapa_final_mock;
 -- sp_cert_evaluar_criterios_nov_mock.sql:64 --, pero la bateria debe arrancar
 -- sin veredictos de corridas anteriores: un PASSED viejo junto a un lote nuevo
 -- se lee mal.
+--
+-- Y EN ORDENAMIENTO NO SE LEE MAL: ENMASCARA. El pivote por fase de
+-- validacion_certificacion_ord.sql:112-119 hace MAX(CASE WHEN modo = ...)
+-- sobre la tabla CRUDA, sin filtro de corrida, y MAX sobre texto es
+-- lexicografico: PASSED es mayor que FAILED. Con las filas de la primera
+-- pasada de DPLY todavia dentro, un FAILED de la segunda sale tapado por el
+-- PASSED de la primera. cert_resultado_ord faltaba aqui y era el unico
+-- incumplimiento de la regla del job DEV/DATABASE #412 -- lo que una corrida
+-- escribe, el reset lo borra.
 -- ------------------------------------------------------------
 TRUNCATE TABLE bdm_datos.cert_resultado;
 TRUNCATE TABLE bdm_datos.cert_resultado_nov;
+TRUNCATE TABLE bdm_datos.cert_resultado_ord;
