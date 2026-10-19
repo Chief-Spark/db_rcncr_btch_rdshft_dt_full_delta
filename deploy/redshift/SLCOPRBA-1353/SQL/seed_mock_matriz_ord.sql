@@ -804,3 +804,76 @@ FROM (
   SELECT '31012', 40
 ) c
 CROSS JOIN bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+-- ============================================================
+-- ARQ 96 -- FASE 1: la persona que NO cambio (SLCOPRBA-1355)
+--
+-- QUE PRUEBA, Y POR QUE NINGUN OTRO ARQUETIPO LO PRUEBA. Los ARQ 80..95
+-- certifican el SCORING: todos se siembran con fecha 2026-03-01, que es el
+-- Watermark, y el predicado del alcance es inclusivo, de modo que los
+-- dieciseis entran en todas las corridas. Ninguno puede decir que pasa con
+-- una persona a la que el DELTA NO debe tocar. ARQ 96 es esa persona.
+--
+-- LA FECHA ES 2026-01-15, ESTRICTAMENTE ANTERIOR AL WATERMARK, Y NO ES NULA.
+-- Las dos cosas importan: la rama de ubicacion del alcance es
+-- "fecha >= watermark OR fecha IS NULL" (preparar_insumos:44-46), asi que una
+-- fecha nula la meteria igual. Y no se le siembra ninguna unificacion, que es
+-- la otra rama por la que podria entrar.
+--
+-- Consecuencia esperada, que es lo que mide F1-04:
+--   FULL    -> entra (en FULL entra todo el universo) y recibe score
+--   DELTA1  -> NO entra. fuera_ventana_dentro = 0 en el censo
+--   DELTA2  -> NO entra. idem
+--
+-- UNA SOLA DIRECCION POR PERSONA, A PROPOSITO. Con dos se formaria un grupo
+-- de empate en el canal DIR y se moverian los conteos de grupos_con_empate
+-- que el tablero del Ordenamiento ya tiene medidos. El radio de impacto sobre
+-- lo certificado tiene que ser cero; con una sola direccion la persona entra
+-- en el ranking con lugar 1 y no empata con nadie.
+--
+-- Y SU SCORE NO SE RECALCULA NUNCA MAS, que no es un defecto sino el otro
+-- lado de lo mismo: score_ordenamiento solo se limpia por
+-- "DELETE ... WHERE id_buro_persona IN (stg_ord_personas_alcance)", de modo
+-- que lo que no entra al alcance conserva el score del FULL. Es exactamente
+-- la propiedad que el criterio afirma.
+-- ============================================================
+INSERT INTO bdm_stage.relacion_persona_ubicacion (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, cod_dw_ubic,
+  cod_dw_direccion_fisica, cod_dw_tipo_ubicacion_dir, ind_unificacion,
+  orden_prioridad, fecha_relacion_persona_ubicaci, lote, cod_tipo_ident_fte
+)
+SELECT
+  (9960000 + n.i) * 10 + 1,
+  9960000 + n.i,
+  9960000 + n.i,
+  (9960000 + n.i) * 10 + 1,
+  (9960000 + n.i) * 10 + 1,
+  1,                                  -- RES
+  NULL,                               -- vigente: no es hija de unificacion
+  1,
+  CAST('2026-01-15' AS DATE),         -- ANTERIOR al Watermark 2026-03-01
+  1356301,
+  '1'
+FROM bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+INSERT INTO bdm_stage.ubicacion_estandarizada (
+  cod_dw_ubic, texto_ubicacion, cod_dw_ciudad, municipio, departamento,
+  latitud, longitud, tipo_ubicacion
+)
+SELECT
+  (9960000 + n.i) * 10 + 1,
+  CAST('ORD ARQ 9960000 P' || CAST(n.i AS VARCHAR) || ' DIR1' AS VARCHAR(500)),
+  11001, 'BOGOTA', 'CUNDINAMARCA', NULL, NULL, NULL
+FROM bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+-- Sin reporte no hay score DIR: el insumo une contra stg_reporte_rpu con
+-- INNER JOIN. La fecha es relativa (DATEADD) porque el scoring calcula
+-- meses_reporte contra CURRENT_DATE y un literal derivaria con el calendario.
+INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
+  cod_dw_persona_ubic, id_buro_suscriptor, fecha_reporte
+)
+SELECT
+  (9960000 + n.i) * 10 + 1,
+  7001,
+  DATEADD(month, -15, CURRENT_DATE)
+FROM bdm_stage.mock_numeros n WHERE n.i < 1000;

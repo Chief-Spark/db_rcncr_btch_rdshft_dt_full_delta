@@ -66,6 +66,9 @@ TRUNCATE TABLE bdm_stage.mock_ord_rpu;
 TRUNCATE TABLE bdm_stage.mock_ord_escenario;
 TRUNCATE TABLE bdm_stage.mock_ord_control_etapa;
 TRUNCATE TABLE bdm_stage.mock_ord_control;
+-- SLCOPRBA-1355: el censo de alcance de la Fase 1. Entra aqui en el MISMO
+-- commit que su DDL, que es la regla que dejo el job #412.
+TRUNCATE TABLE bdm_stage.mock_ord_alcance_censo;
 TRUNCATE TABLE bdm_stage.mock_ord_ca_result;
 
 
