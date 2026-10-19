@@ -109,8 +109,181 @@ lo que el criterio exige**, y por eso sale PASSED.
 
 ## Regla 1 - unificacion por CIIU y entidades reportantes
 
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
+### R1-01
+
+**CIIU 10 (asalariado): el padre es la direccion LAB o CRR con mayor numero de entidades reportantes.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | parejas CIIU 10 donde el tipo preferido perdio=0 |
+| Arquetipos | ARQ 1..5 (`id_buro_persona` 9010000..9050999) |
+| Caso de uso / evidencia | unificacion_direccion_mock + arquetipos ARQ 1..5; SP sp_unificacion_r1_esc1 |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:172` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'R1-01' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 5
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
+```
+
+### R1-02
+
+**CIIU 81, 82 o 90 (sin actividad): el padre es la direccion RES o CRR con mayor numero de entidades reportantes.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | parejas CIIU 81/82/90 donde el tipo preferido perdio=0 |
+| Arquetipos | ARQ 6..10 (`id_buro_persona` 9060000..9100999) |
+| Caso de uso / evidencia | ARQ 6..10 (CIIU 81) y los arquetipos de CIIU 82 y 90; SP sp_unificacion_r1_esc2 |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:185` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'R1-02' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 6 AND 10
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
+```
+
+### R1-03
+
+**CIIU distinto de 10, 81, 82 y 90: gana la direccion con mayor numero de entidades reportantes, sin preferencia de tipo.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | parejas otros CIIU donde la hija tenia mas entidades=0 |
+| Arquetipos | ARQ 11..15 (`id_buro_persona` 9110000..9150999) |
+| Caso de uso / evidencia | ARQ 11..15 (CIIU 47); SP sp_unificacion_r1_esc3 |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:199` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'R1-03' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 11 AND 15
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
+```
+
+### R1-04
+
+**La direccion que pierde la comparacion queda marcada como hija (ind_unificacion = 1).**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | hijas sin ind_unificacion=1 en la vista=0 |
+| Arquetipos | ARQ 1..20 (`id_buro_persona` 9010000..9200999) |
+| Caso de uso / evidencia | v_mock_relacion_persona_ubicacion.ind_unificacion derivado de unificacion_direccion_mock |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:214` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'R1-04' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
@@ -140,98 +313,6 @@ SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
  LIMIT 40;
 ```
 
-### R1-01
-
-**CIIU 10 (asalariado): el padre es la direccion LAB o CRR con mayor numero de entidades reportantes.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | parejas CIIU 10 donde el tipo preferido perdio=0 |
-| Arquetipos | ARQ 1..5 (`id_buro_persona` 9010000..9050999) |
-| Caso de uso / evidencia | unificacion_direccion_mock + arquetipos ARQ 1..5; SP sp_unificacion_r1_esc1 |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:172` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de R1-01 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'R1-01' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 5
-```
-
-### R1-02
-
-**CIIU 81, 82 o 90 (sin actividad): el padre es la direccion RES o CRR con mayor numero de entidades reportantes.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | parejas CIIU 81/82/90 donde el tipo preferido perdio=0 |
-| Arquetipos | ARQ 6..10 (`id_buro_persona` 9060000..9100999) |
-| Caso de uso / evidencia | ARQ 6..10 (CIIU 81) y los arquetipos de CIIU 82 y 90; SP sp_unificacion_r1_esc2 |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:185` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de R1-02 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'R1-02' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 6 AND 10
-```
-
-### R1-03
-
-**CIIU distinto de 10, 81, 82 y 90: gana la direccion con mayor numero de entidades reportantes, sin preferencia de tipo.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | parejas otros CIIU donde la hija tenia mas entidades=0 |
-| Arquetipos | ARQ 11..15 (`id_buro_persona` 9110000..9150999) |
-| Caso de uso / evidencia | ARQ 11..15 (CIIU 47); SP sp_unificacion_r1_esc3 |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:199` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de R1-03 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'R1-03' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 11 AND 15
-```
-
-### R1-04
-
-**La direccion que pierde la comparacion queda marcada como hija (ind_unificacion = 1).**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | hijas sin ind_unificacion=1 en la vista=0 |
-| Arquetipos | ARQ 1..20 (`id_buro_persona` 9010000..9200999) |
-| Caso de uso / evidencia | v_mock_relacion_persona_ubicacion.ind_unificacion derivado de unificacion_direccion_mock |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:214` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de R1-04 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'R1-04' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 20
-```
-
 ### R1-05
 
 **El par padre-hijo queda insertado en unificacion_direccion para trazabilidad.**
@@ -245,14 +326,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:224` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R1-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R1-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 20
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 20
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R1-06
@@ -268,14 +376,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:251` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R1-06 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R1-06' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 20
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 20
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R1-07
@@ -291,14 +426,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:282` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R1-07 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R1-07' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 20
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 20
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R1-08
@@ -314,22 +476,72 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:309` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R1-08 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R1-08' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 20
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 20
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ---
 
 ## Regla 2 - cascada de seis escenarios y cuatro motores
 
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
+### R2-01
+
+**Escenario 1 (vacio vs informado): el padre es la direccion con complemento informado.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=NO_APLICA &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | sello H1: direcciones=600, personas=600 |
+| Arquetipos | ARQ 21..55 (`id_buro_persona` 9210000..9550999) |
+| Caso de uso / evidencia | censo n_id = H1; legado PRO_UnificacionR2.sql linea 201 |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:363` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'R2-01' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
@@ -359,29 +571,6 @@ SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
  LIMIT 40;
 ```
 
-### R2-01
-
-**Escenario 1 (vacio vs informado): el padre es la direccion con complemento informado.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=NO_APLICA &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | sello H1: direcciones=600, personas=600 |
-| Arquetipos | ARQ 21..55 (`id_buro_persona` 9210000..9550999) |
-| Caso de uso / evidencia | censo n_id = H1; legado PRO_UnificacionR2.sql linea 201 |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:363` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de R2-01 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'R2-01' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 21 AND 55
-```
-
 ### R2-02
 
 **Escenario 2 (uno incluido en otro): el padre es la direccion con el complemento mas completo.**
@@ -395,14 +584,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:364` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R2-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R2-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 21 AND 55
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 21 AND 55
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R2-03
@@ -418,14 +634,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:365` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R2-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R2-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 21 AND 55
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 21 AND 55
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R2-04
@@ -441,14 +684,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:366` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R2-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R2-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 21 AND 55
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 21 AND 55
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R2-05
@@ -464,14 +734,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:367` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R2-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R2-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 21 AND 55
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 21 AND 55
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R2-06
@@ -487,14 +784,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:399` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R2-06 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R2-06' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 71 AND 71
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 71 AND 71
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R2-07
@@ -510,14 +834,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:460` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R2-07 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R2-07' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 72 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 72 AND 73
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R2-08
@@ -533,14 +884,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:527` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R2-08 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R2-08' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 21 AND 55
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 21 AND 55
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R2-09
@@ -556,14 +934,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:541` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R2-09 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R2-09' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 21 AND 55
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 21 AND 55
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R2-10
@@ -579,14 +984,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:554` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R2-10 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R2-10' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 21 AND 55
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 21 AND 55
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R2-11
@@ -602,14 +1034,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:568` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R2-11 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R2-11' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 21 AND 55
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 21 AND 55
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R2-12
@@ -625,14 +1084,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:582` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R2-12 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R2-12' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 21 AND 55
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 21 AND 55
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R2-13
@@ -648,14 +1134,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:618` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R2-13 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R2-13' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 21 AND 55
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 21 AND 55
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R2-14
@@ -671,22 +1184,72 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:637` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R2-14 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R2-14' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 21 AND 55
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 21 AND 55
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ---
 
 ## Regla 3 - unificacion geografica
 
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
+### R3-01
+
+**La regla aplica exclusivamente a direcciones de tipo Via. Se excluyen Manzana y Rural.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | direcciones de tipo MZ=200, de tipo Rural=200, de ellas unificadas por R3=0 (debe ser 0: el insumo de R3 exige tipo Via). |
+| Arquetipos | ARQ 61..70 (`id_buro_persona` 9610000..9700999) |
+| Caso de uso / evidencia | v_xpm_ubicacion_estandarizada.tipo_ubicacion; insumo de sp_unificacion_r3_esc1 |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:686` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'R3-01' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
@@ -716,29 +1279,6 @@ SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
  LIMIT 40;
 ```
 
-### R3-01
-
-**La regla aplica exclusivamente a direcciones de tipo Via. Se excluyen Manzana y Rural.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | direcciones de tipo MZ=200, de tipo Rural=200, de ellas unificadas por R3=0 (debe ser 0: el insumo de R3 exige tipo Via). |
-| Arquetipos | ARQ 61..70 (`id_buro_persona` 9610000..9700999) |
-| Caso de uso / evidencia | v_xpm_ubicacion_estandarizada.tipo_ubicacion; insumo de sp_unificacion_r3_esc1 |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:686` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de R3-01 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'R3-01' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 61 AND 70
-```
-
 ### R3-02
 
 **Si solo una de las direcciones tiene coordenadas, el padre es la direccion geolocalizada.**
@@ -752,14 +1292,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:713` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R3-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R3-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 61 AND 70
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 61 AND 70
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R3-03
@@ -775,14 +1342,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:732` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R3-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R3-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 61 AND 70
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 61 AND 70
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R3-04
@@ -798,14 +1392,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:775` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R3-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R3-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 61 AND 70
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 61 AND 70
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R3-05
@@ -821,14 +1442,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:819` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R3-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R3-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 61 AND 70
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 61 AND 70
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R3-06
@@ -844,14 +1492,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:839` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R3-06 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R3-06' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 61 AND 70
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 61 AND 70
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R3-07
@@ -867,14 +1542,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:856` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R3-07 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R3-07' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 61 AND 70
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 61 AND 70
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R3-08
@@ -890,14 +1592,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:877` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R3-08 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R3-08' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 61 AND 70
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 61 AND 70
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R3-09
@@ -913,14 +1642,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:912` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R3-09 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R3-09' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 61 AND 70
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 61 AND 70
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### R3-10
@@ -936,22 +1692,72 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:935` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de R3-10 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'R3-10' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 61 AND 70
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 61 AND 70
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ---
 
 ## Ciclo GEO
 
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
+### CA-01
+
+**Exportar: se crea un Lote nuevo en geo_lote_control en estado exportado y cada candidato queda en geo_atributos con estado_geo pendiente de geocodificacion y el lote asignado.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | lote GEO=1, estado=exportado, conteo_esperado=10300, ubicaciones pendientes de geocodificacion=10300 |
+| Arquetipos | ARQ 56..56 (`id_buro_persona` 9560000..9560999) |
+| Caso de uso / evidencia | geo_lote_control y geo_atributos del ultimo lote |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1208` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'CA-01' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. El Lote GEO, sus candidatos y lo que el cargador escribio.
@@ -967,29 +1773,6 @@ SELECT g.cod_dw_ubic, g.latitud, g.longitud, g.status_match, g.estado_geo,
  ORDER BY g.cod_dw_ubic LIMIT 40;
 ```
 
-### CA-01
-
-**Exportar: se crea un Lote nuevo en geo_lote_control en estado exportado y cada candidato queda en geo_atributos con estado_geo pendiente de geocodificacion y el lote asignado.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | lote GEO=1, estado=exportado, conteo_esperado=10300, ubicaciones pendientes de geocodificacion=10300 |
-| Arquetipos | ARQ 56..56 (`id_buro_persona` 9560000..9560999) |
-| Caso de uso / evidencia | geo_lote_control y geo_atributos del ultimo lote |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1208` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de CA-01 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'CA-01' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 56 AND 56
-```
-
 ### CA-02
 
 **Cargar Status M: la ubicacion queda estado_geo geocodificada, status_match M y con latitud y longitud pobladas.**
@@ -1003,14 +1786,27 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_geo_mock.sql:62` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'CA-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 56 AND 56
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. El Lote GEO, sus candidatos y lo que el cargador escribio.
+SELECT lote, estado, conteo_esperado, conteo_cargado, intentos,
+       fase_fallo, ultimo_error, ambiente
+  FROM bdm_datos.geo_lote_control_mock ORDER BY lote DESC;
+
+-- Las ubicaciones del ARQ 56 (banda 9560000..9560999) con sus coordenadas.
+SELECT g.cod_dw_ubic, g.latitud, g.longitud, g.status_match, g.estado_geo,
+       u.cod_dw_direccion_unificada AS padre, u.unifica_atributos AS regla
+  FROM bdm_datos.geo_atributos_mock g
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u ON u.cod_dw_persona_ubic = g.cod_dw_ubic * 10
+ ORDER BY g.cod_dw_ubic LIMIT 40;
 ```
 
 ### CA-03
@@ -1026,14 +1822,27 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_geo_mock.sql:62` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'CA-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 56 AND 56
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. El Lote GEO, sus candidatos y lo que el cargador escribio.
+SELECT lote, estado, conteo_esperado, conteo_cargado, intentos,
+       fase_fallo, ultimo_error, ambiente
+  FROM bdm_datos.geo_lote_control_mock ORDER BY lote DESC;
+
+-- Las ubicaciones del ARQ 56 (banda 9560000..9560999) con sus coordenadas.
+SELECT g.cod_dw_ubic, g.latitud, g.longitud, g.status_match, g.estado_geo,
+       u.cod_dw_direccion_unificada AS padre, u.unifica_atributos AS regla
+  FROM bdm_datos.geo_atributos_mock g
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u ON u.cod_dw_persona_ubic = g.cod_dw_ubic * 10
+ ORDER BY g.cod_dw_ubic LIMIT 40;
 ```
 
 ### CA-04
@@ -1049,14 +1858,27 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_geo_mock.sql:63` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'CA-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 56 AND 56
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. El Lote GEO, sus candidatos y lo que el cargador escribio.
+SELECT lote, estado, conteo_esperado, conteo_cargado, intentos,
+       fase_fallo, ultimo_error, ambiente
+  FROM bdm_datos.geo_lote_control_mock ORDER BY lote DESC;
+
+-- Las ubicaciones del ARQ 56 (banda 9560000..9560999) con sus coordenadas.
+SELECT g.cod_dw_ubic, g.latitud, g.longitud, g.status_match, g.estado_geo,
+       u.cod_dw_direccion_unificada AS padre, u.unifica_atributos AS regla
+  FROM bdm_datos.geo_atributos_mock g
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u ON u.cod_dw_persona_ubic = g.cod_dw_ubic * 10
+ ORDER BY g.cod_dw_ubic LIMIT 40;
 ```
 
 ### CA-05
@@ -1072,22 +1894,58 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_geo_mock.sql:63` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'CA-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 56 AND 56
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. El Lote GEO, sus candidatos y lo que el cargador escribio.
+SELECT lote, estado, conteo_esperado, conteo_cargado, intentos,
+       fase_fallo, ultimo_error, ambiente
+  FROM bdm_datos.geo_lote_control_mock ORDER BY lote DESC;
+
+-- Las ubicaciones del ARQ 56 (banda 9560000..9560999) con sus coordenadas.
+SELECT g.cod_dw_ubic, g.latitud, g.longitud, g.status_match, g.estado_geo,
+       u.cod_dw_direccion_unificada AS padre, u.unifica_atributos AS regla
+  FROM bdm_datos.geo_atributos_mock g
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u ON u.cod_dw_persona_ubic = g.cod_dw_ubic * 10
+ ORDER BY g.cod_dw_ubic LIMIT 40;
 ```
 
 ---
 
 ## Unificacion - transversales
 
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
+### G-01
+
+**Las reglas se ejecutan en cascada estricta R1 -> R2 -> R3. El resultado de una alimenta la siguiente.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | orden de etapas segun la traza=regla1 -> regla2 -> geo -> regla3 |
+| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
+| Caso de uso / evidencia | unif_control_etapa_mock ordenado por fecha_hora_inicio |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:974` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'G-01' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
@@ -1115,29 +1973,6 @@ SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
  WHERE a.arq BETWEEN 1 AND 73
  ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
  LIMIT 40;
-```
-
-### G-01
-
-**Las reglas se ejecutan en cascada estricta R1 -> R2 -> R3. El resultado de una alimenta la siguiente.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | orden de etapas segun la traza=regla1 -> regla2 -> geo -> regla3 |
-| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
-| Caso de uso / evidencia | unif_control_etapa_mock ordenado por fecha_hora_inicio |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:974` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de G-01 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'G-01' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
 ```
 
 ### G-02
@@ -1153,14 +1988,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1009` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de G-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'G-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 60 AND 60
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 60 AND 60
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### G-03
@@ -1176,183 +2038,14 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1038` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de G-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'G-03' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
 ```
 
-### G-04
-
-**Las direcciones marcadas como bloqueadas (reclamacion del titular) se excluyen de todo el proceso de unificacion.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | direcciones bloqueadas en el universo=100. Con 0 el filtro de los insumos no se puede afirmar. |
-| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
-| Caso de uso / evidencia | bloqueado = 1 en el seed mock; ausencia del par en unificacion_direccion_mock |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1052` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de G-04 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'G-04' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
-```
-
-### G-05
-
-**Toda unificacion genera registro de trazabilidad: padre, hijo, regla aplicada y fecha de ejecucion.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | unificaciones sin padre, sin regla o sin fecha=0 |
-| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
-| Caso de uso / evidencia | unificacion_direccion_mock: cod_dw_direccion_unificada, cod_dw_persona_ubic, unifica_atributos, fecha_unificacion, lote |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1063` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de G-05 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'G-05' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
-```
-
-### G-06   _(no cerrado)_
-
-**El proceso es idempotente: dos ejecuciones consecutivas con los mismos datos producen el mismo resultado sin unificaciones adicionales.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=SIN_DATO &middot; DELTA1=SIN_DATO &middot; DELTA2=SIN_DATO &middot; FULL2=PASSED` |
-| Lo que midio la corrida | criterios de convergencia=0, fallidos=0. Detalle en bdm_stage.mock_unif_ca_result (CA-C01..CA-C08). |
-| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
-| Caso de uso / evidencia | mock_unif_convergencia: checksums de FULL / DELTA1 / DELTA2 / FULL2 |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1078` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de G-06 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'G-06' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
-```
-
-### G-07
-
-**El sistema nunca compara direcciones de personas diferentes. Toda evaluacion es intra-persona.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | parejas entre personas distintas=0 |
-| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
-| Caso de uso / evidencia | unificacion_direccion_mock cruzado con la persona de padre e hija |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1093` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de G-07 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'G-07' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
-```
-
-### G-08
-
-**La unificacion es logica: no se eliminan datos. Solo se marcan estados y se registran relaciones padre-hijo.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | direcciones unificadas que dejaron de existir en las tablas de entrada=0. La unificacion solo marca estado y registra la pareja. |
-| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
-| Caso de uso / evidencia | toda hija y todo padre siguen existiendo en relacion_persona_ubicacion o rpu_generada tras la corrida |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1112` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de G-08 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'G-08' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
-```
-
-### G-09
-
-**Las direcciones marcadas como hijas nunca pasan al proceso de Ordenamiento.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | hijas que siguen vigentes en la vista (ind_unificacion <> 1)=0 |
-| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
-| Caso de uso / evidencia | insumo de Ordenamiento: COALESCE(ind_unificacion,0) <> 1 |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1131` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de G-09 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'G-09' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
-```
-
-### G-10
-
-**Las direcciones vigentes (padres y no procesadas) siempre pasan al proceso de Ordenamiento.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
-| Lo que midio la corrida | direcciones vigentes que pasan a Ordenamiento=10800 |
-| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
-| Caso de uso / evidencia | conteo del insumo de Ordenamiento contra el universo vigente |
-| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1142` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de G-10 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
- WHERE criterio = 'G-10' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
-```
-
----
-
-## Gobernanza
-
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
@@ -1382,6 +2075,364 @@ SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
  LIMIT 40;
 ```
 
+### G-04
+
+**Las direcciones marcadas como bloqueadas (reclamacion del titular) se excluyen de todo el proceso de unificacion.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | direcciones bloqueadas en el universo=100. Con 0 el filtro de los insumos no se puede afirmar. |
+| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
+| Caso de uso / evidencia | bloqueado = 1 en el seed mock; ausencia del par en unificacion_direccion_mock |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1052` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'G-04' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 73
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
+```
+
+### G-05
+
+**Toda unificacion genera registro de trazabilidad: padre, hijo, regla aplicada y fecha de ejecucion.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | unificaciones sin padre, sin regla o sin fecha=0 |
+| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
+| Caso de uso / evidencia | unificacion_direccion_mock: cod_dw_direccion_unificada, cod_dw_persona_ubic, unifica_atributos, fecha_unificacion, lote |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1063` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'G-05' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 73
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
+```
+
+### G-06   _(no cerrado)_
+
+**El proceso es idempotente: dos ejecuciones consecutivas con los mismos datos producen el mismo resultado sin unificaciones adicionales.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=SIN_DATO &middot; DELTA1=SIN_DATO &middot; DELTA2=SIN_DATO &middot; FULL2=PASSED` |
+| Lo que midio la corrida | criterios de convergencia=0, fallidos=0. Detalle en bdm_stage.mock_unif_ca_result (CA-C01..CA-C08). |
+| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
+| Caso de uso / evidencia | mock_unif_convergencia: checksums de FULL / DELTA1 / DELTA2 / FULL2 |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1078` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'G-06' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 73
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
+```
+
+### G-07
+
+**El sistema nunca compara direcciones de personas diferentes. Toda evaluacion es intra-persona.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | parejas entre personas distintas=0 |
+| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
+| Caso de uso / evidencia | unificacion_direccion_mock cruzado con la persona de padre e hija |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1093` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'G-07' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 73
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
+```
+
+### G-08
+
+**La unificacion es logica: no se eliminan datos. Solo se marcan estados y se registran relaciones padre-hijo.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | direcciones unificadas que dejaron de existir en las tablas de entrada=0. La unificacion solo marca estado y registra la pareja. |
+| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
+| Caso de uso / evidencia | toda hija y todo padre siguen existiendo en relacion_persona_ubicacion o rpu_generada tras la corrida |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1112` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'G-08' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 73
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
+```
+
+### G-09
+
+**Las direcciones marcadas como hijas nunca pasan al proceso de Ordenamiento.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | hijas que siguen vigentes en la vista (ind_unificacion <> 1)=0 |
+| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
+| Caso de uso / evidencia | insumo de Ordenamiento: COALESCE(ind_unificacion,0) <> 1 |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1131` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'G-09' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 73
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
+```
+
+### G-10
+
+**Las direcciones vigentes (padres y no procesadas) siempre pasan al proceso de Ordenamiento.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED &middot; FULL2=PASSED` |
+| Lo que midio la corrida | direcciones vigentes que pasan a Ordenamiento=10800 |
+| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
+| Caso de uso / evidencia | conteo del insumo de Ordenamiento contra el universo vigente |
+| SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1142` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
+ WHERE criterio = 'G-10' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 73
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
+```
+
+---
+
+## Gobernanza
+
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
 ### GOB-01
 
 **Toda diferencia entre resultados Teradata y Redshift se clasifica en: error de migracion, diferencia de datos, cambio funcional aprobado, o no clasificada.**
@@ -1395,14 +2446,41 @@ SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1166` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de GOB-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'GOB-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 73
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### GOB-02
@@ -1418,14 +2496,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1168` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de GOB-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'GOB-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 73
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### GOB-03   _(no cerrado)_
@@ -1441,14 +2546,41 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1170` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de GOB-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'GOB-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 73
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ### GOB-04
@@ -1464,37 +2596,50 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
 | SQL que lo decide | `sp_cert_evaluar_criterios_mock.sql:1172` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de GOB-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado
  WHERE criterio = 'GOB-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Una fila por direccion del arquetipo, con el atributo que
+-- decide y el resultado. La fila con 'padre' vacio ES el padre; la que lo lleva
+-- es la hija y apunta a quien gano.
+--   ARQ se deriva del id:  ARQ = (cod_dw_persona_ubic / 10 - 9000000) / 10000
+WITH arq AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir AS tipo_ubic, rpu.cod_dw_ubic,
+         rpu.fecha_relacion_persona_ubicaci AS fecha, rpu.ind_unificacion,
+         (rpu.cod_dw_persona_ubic / 10 - 9000000) / 10000 AS arq
+    FROM bdm_tempo.v_mock_relacion_persona_ubicacion rpu)
+SELECT a.arq, a.id_buro_persona AS persona, a.cod_dw_persona_ubic AS direccion,
+       ci.cod_act_econo_ciiu_fte AS ciiu, a.tipo_ubic, a.fecha,
+       ue.texto_ubicacion AS texto,
+       (SELECT COUNT(DISTINCT r.id_buro_suscriptor)
+          FROM bdm_tempo.v_mock_reporte_relacion_persona_ubica r
+         WHERE r.cod_dw_persona_ubic = a.cod_dw_persona_ubic) AS entidades_reportan,
+       u.cod_dw_direccion_unificada AS padre,
+       u.unifica_atributos          AS regla_que_sello
+  FROM arq a
+  LEFT JOIN bdm_tempo.v_mock_ciiu_persona ci        ON ci.id_buro_persona = a.id_buro_persona
+  LEFT JOIN bdm_tempo.v_mock_ubicacion_estandarizada ue ON ue.cod_dw_ubic = a.cod_dw_ubic
+  LEFT JOIN bdm_datos.unificacion_direccion_mock u  ON u.cod_dw_persona_ubic = a.cod_dw_persona_ubic
+ WHERE a.arq BETWEEN 1 AND 73
+ ORDER BY a.id_buro_persona, a.cod_dw_persona_ubic
+ LIMIT 40;
 ```
 
 ---
 
 ## Scoring - reglas generales
 
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
-
-```sql
--- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
--- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
--- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
--- reportes, que las dos filas comparten.
-SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
-       s.id_buro_persona AS persona, s.canal,
-       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
-       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
-  FROM bdm_datos.score_ordenamiento s
- WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
- ORDER BY s.id_buro_persona, s.canal, s.lugar
- LIMIT 40;
-```
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
 
 ### RG-01   _(no cerrado)_
 
@@ -1509,14 +2654,28 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1075` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de RG-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'RG-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### RG-02
@@ -1532,14 +2691,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:574` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de RG-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'RG-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### RG-03
@@ -1555,14 +2728,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:576` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de RG-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'RG-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### RG-04   _(no cerrado)_
@@ -1578,14 +2765,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1077` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de RG-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'RG-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### RG-05
@@ -1601,14 +2802,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:577` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de RG-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'RG-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### RG-06   _(no cerrado)_
@@ -1624,14 +2839,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1079` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de RG-06 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'RG-06' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### RG-07
@@ -1647,14 +2876,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1038` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de RG-07 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'RG-07' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### RG-08
@@ -1670,14 +2913,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:594` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de RG-08 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'RG-08' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### RG-09   _(no cerrado)_
@@ -1693,14 +2950,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1091` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de RG-09 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'RG-09' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### RG-10   _(no cerrado)_
@@ -1716,22 +2987,14 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1093` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de RG-10 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'RG-10' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
 ```
 
----
-
-## Scoring - criterios funcionales
-
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
@@ -1748,6 +3011,14 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
  LIMIT 40;
 ```
 
+---
+
+## Scoring - criterios funcionales
+
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
 ### CA-F01
 
 **Cada dato de contacto vigente tiene un orden_prioridad calculado dentro de su canal.**
@@ -1761,14 +3032,28 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:456` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-F01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-F01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### CA-F02
@@ -1784,14 +3069,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:479` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-F02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-F02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### CA-F03
@@ -1807,14 +3106,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:663` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-F03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-F03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### CA-F04
@@ -1830,14 +3143,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:503` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-F04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-F04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### CA-F05
@@ -1853,14 +3180,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:531` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-F05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-F05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### CA-F06
@@ -1876,22 +3217,14 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:544` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-F06 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-F06' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
 ```
 
----
-
-## Scoring - criterios de migracion
-
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
@@ -1908,6 +3241,14 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
  LIMIT 40;
 ```
 
+---
+
+## Scoring - criterios de migracion
+
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
 ### CA-M01   _(no cerrado)_
 
 **Para el mismo corte funcional y mismos parametros, Redshift debe reproducir el resultado de Teradata.**
@@ -1921,14 +3262,28 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1087` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-M01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-M01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### CA-M02   _(no cerrado)_
@@ -1944,14 +3299,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1101` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-M02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-M02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### CA-M03   _(no cerrado)_
@@ -1967,14 +3336,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1102` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-M03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-M03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### CA-M04   _(no cerrado)_
@@ -1990,22 +3373,14 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1083` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-M04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-M04' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
 ```
 
----
-
-## Scoring - criterios tecnicos
-
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
@@ -2022,6 +3397,14 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
  LIMIT 40;
 ```
 
+---
+
+## Scoring - criterios tecnicos
+
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
 ### CA-T01   _(no cerrado)_
 
 **El hash MD5 produce una salida consistente y deterministica de 32 caracteres.**
@@ -2035,14 +3418,28 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1081` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-T01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-T01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### CA-T02
@@ -2058,14 +3455,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:595` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-T02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-T02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### CA-T03
@@ -2081,14 +3492,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:616` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-T03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-T03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### CA-T04
@@ -2104,14 +3529,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1041` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-T04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-T04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### CA-T05   _(no cerrado)_
@@ -2127,22 +3566,14 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:627` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de CA-T05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'CA-T05' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
 ```
 
----
-
-## Scoring - Fase 4 (caracteristicas)
-
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
@@ -2159,6 +3590,14 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
  LIMIT 40;
 ```
 
+---
+
+## Scoring - Fase 4 (caracteristicas)
+
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
 ### F4-01
 
 **El score se debe calcular para 4 canales: Direccion (DIR), Telefono Fijo (TEL), Celular (CEL) y Email (EMA).**
@@ -2172,14 +3611,28 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:155` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-02
@@ -2195,14 +3648,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:171` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-03
@@ -2218,14 +3685,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:196` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-04
@@ -2241,14 +3722,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:212` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-05
@@ -2264,14 +3759,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:242` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-06
@@ -2287,14 +3796,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:258` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-06 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-06' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-07
@@ -2310,14 +3833,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:280` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-07 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-07' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-08
@@ -2333,14 +3870,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:348` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-08 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-08' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-09
@@ -2356,14 +3907,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:393` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-09 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-09' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-DIR-01
@@ -2379,14 +3944,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:425` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-DIR-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-DIR-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-DIR-02
@@ -2402,14 +3981,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:889` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-DIR-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-DIR-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-DIR-03
@@ -2425,14 +4018,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:924` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-DIR-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-DIR-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-DIR-04
@@ -2448,14 +4055,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1045` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-DIR-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-DIR-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-DIR-05
@@ -2471,14 +4092,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:753` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-DIR-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-DIR-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-DIR-06
@@ -2494,14 +4129,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:431` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-DIR-06 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-DIR-06' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-TEL-01
@@ -2517,14 +4166,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:428` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-TEL-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-TEL-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-TEL-02
@@ -2540,14 +4203,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:962` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-TEL-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-TEL-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-TEL-03
@@ -2563,14 +4240,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1070` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-TEL-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-TEL-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-TEL-04
@@ -2586,14 +4277,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1002` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-TEL-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-TEL-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-TEL-05
@@ -2609,14 +4314,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:432` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-TEL-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-TEL-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-CEL-01
@@ -2632,14 +4351,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:429` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-CEL-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-CEL-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-CEL-02
@@ -2655,14 +4388,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:783` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-CEL-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-CEL-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-CEL-03
@@ -2678,14 +4425,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:851` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-CEL-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-CEL-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-CEL-04
@@ -2701,14 +4462,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:817` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-CEL-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-CEL-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-CEL-05
@@ -2724,14 +4499,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:433` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-CEL-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-CEL-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-CEL-06
@@ -2747,14 +4536,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1047` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-CEL-06 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-CEL-06' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-EMA-01
@@ -2770,14 +4573,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:430` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-EMA-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-EMA-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-EMA-02
@@ -2793,14 +4610,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1049` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-EMA-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-EMA-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-EMA-03   _(no cerrado)_
@@ -2816,14 +4647,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:1051` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-EMA-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-EMA-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F4-EMA-04
@@ -2839,22 +4684,14 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | SQL que lo decide | `sp_cert_evaluar_criterios_ord_mock.sql:434` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F4-EMA-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F4-EMA-04' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
 ```
 
----
-
-## Scoring - Fase 1 (no portada)
-
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
@@ -2871,6 +4708,14 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
  LIMIT 40;
 ```
 
+---
+
+## Scoring - Fase 1 (no portada)
+
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
 ### F1-01   _(no cerrado)_
 
 **El sistema debe identificar que personas tuvieron lotes nuevos en el modelo BTT (cuentas, comportamiento crediticio) desde la ultima ejecucion.**
@@ -2883,14 +4728,28 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
 | Caso de uso / evidencia | legado PRO_ORD_MATERIALIZA_BTT / PRO_ORD_MATERIALIZA_REC / PRO_ORD_UNIF_BTT_REC. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F1-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F1-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F1-02   _(no cerrado)_
@@ -2905,14 +4764,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_MATERIALIZA_BTT / PRO_ORD_MATERIALIZA_REC / PRO_ORD_UNIF_BTT_REC. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F1-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F1-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F1-03   _(no cerrado)_
@@ -2927,14 +4800,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_MATERIALIZA_BTT / PRO_ORD_MATERIALIZA_REC / PRO_ORD_UNIF_BTT_REC. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F1-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F1-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F1-04   _(no cerrado)_
@@ -2949,14 +4836,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_MATERIALIZA_BTT / PRO_ORD_MATERIALIZA_REC / PRO_ORD_UNIF_BTT_REC. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F1-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F1-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F1-05   _(no cerrado)_
@@ -2971,14 +4872,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_MATERIALIZA_BTT / PRO_ORD_MATERIALIZA_REC / PRO_ORD_UNIF_BTT_REC. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F1-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F1-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F1-06   _(no cerrado)_
@@ -2993,14 +4908,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_MATERIALIZA_BTT / PRO_ORD_MATERIALIZA_REC / PRO_ORD_UNIF_BTT_REC. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F1-06 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F1-06' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F1-07   _(no cerrado)_
@@ -3015,14 +4944,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_MATERIALIZA_BTT / PRO_ORD_MATERIALIZA_REC / PRO_ORD_UNIF_BTT_REC. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F1-07 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F1-07' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F1-08   _(no cerrado)_
@@ -3037,22 +4980,14 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_MATERIALIZA_BTT / PRO_ORD_MATERIALIZA_REC / PRO_ORD_UNIF_BTT_REC. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F1-08 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F1-08' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
 ```
 
----
-
-## Scoring - Fase 2 (no portada)
-
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
@@ -3069,6 +5004,14 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
  LIMIT 40;
 ```
 
+---
+
+## Scoring - Fase 2 (no portada)
+
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
 ### F2-01   _(no cerrado)_
 
 **Solo se deben extraer cuentas de personas identificadas en la Fase 1 (materializacion).**
@@ -3081,14 +5024,28 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
 | Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F2-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F2-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F2-02   _(no cerrado)_
@@ -3103,198 +5060,14 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F2-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F2-02' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
 ```
 
-### F2-03   _(no cerrado)_
-
-**Se debe extraer el comportamiento activo dentro de esa ventana.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
-| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
-| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
-| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de F2-03 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
- WHERE criterio = 'F2-03' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
-```
-
-### F2-04   _(no cerrado)_
-
-**Se debe extraer el comportamiento pasivo dentro de esa ventana.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
-| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
-| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
-| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de F2-04 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
- WHERE criterio = 'F2-04' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
-```
-
-### F2-05   _(no cerrado)_
-
-**Cada cuenta se debe clasificar en uno de 9 portafolios: CO, RO, VE, HP, IN, OT, CC, AH, CT. No puede haber valores fuera de este catalogo.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
-| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
-| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
-| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de F2-05 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
- WHERE criterio = 'F2-05' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
-```
-
-### F2-06   _(no cerrado)_
-
-**No puede haber portafolios vacios (NULL).**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
-| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
-| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
-| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de F2-06 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
- WHERE criterio = 'F2-06' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
-```
-
-### F2-07   _(no cerrado)_
-
-**Se debe generar un hash MD5 de exactamente 32 caracteres por cada registro para detectar cambios entre ejecuciones.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
-| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
-| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
-| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de F2-07 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
- WHERE criterio = 'F2-07' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
-```
-
-### F2-08   _(no cerrado)_
-
-**El campo concatena no puede ser vacio ni NULL.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
-| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
-| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
-| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de F2-08 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
- WHERE criterio = 'F2-08' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
-```
-
-### F2-09   _(no cerrado)_
-
-**Se debe registrar inicio y fin de la fase en el log de ejecucion.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
-| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
-| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
-| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de F2-09 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
- WHERE criterio = 'F2-09' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
-```
-
-### F2-10   _(no cerrado)_
-
-**Se generan 3 fechas de insumo por cada Persona - Cuenta - Suscriptor para el calculo de numero de meses de reporte.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
-| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
-| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
-| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de F2-10 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
- WHERE criterio = 'F2-10' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
-```
-
----
-
-## Scoring - Fase 3 (no portada)
-
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
@@ -3311,6 +5084,302 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
  LIMIT 40;
 ```
 
+### F2-03   _(no cerrado)_
+
+**Se debe extraer el comportamiento activo dentro de esa ventana.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
+| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
+| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
+| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
+ WHERE criterio = 'F2-03' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
+```
+
+### F2-04   _(no cerrado)_
+
+**Se debe extraer el comportamiento pasivo dentro de esa ventana.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
+| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
+| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
+| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
+ WHERE criterio = 'F2-04' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
+```
+
+### F2-05   _(no cerrado)_
+
+**Cada cuenta se debe clasificar en uno de 9 portafolios: CO, RO, VE, HP, IN, OT, CC, AH, CT. No puede haber valores fuera de este catalogo.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
+| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
+| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
+| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
+ WHERE criterio = 'F2-05' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
+```
+
+### F2-06   _(no cerrado)_
+
+**No puede haber portafolios vacios (NULL).**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
+| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
+| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
+| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
+ WHERE criterio = 'F2-06' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
+```
+
+### F2-07   _(no cerrado)_
+
+**Se debe generar un hash MD5 de exactamente 32 caracteres por cada registro para detectar cambios entre ejecuciones.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
+| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
+| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
+| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
+ WHERE criterio = 'F2-07' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
+```
+
+### F2-08   _(no cerrado)_
+
+**El campo concatena no puede ser vacio ni NULL.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
+| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
+| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
+| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
+ WHERE criterio = 'F2-08' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
+```
+
+### F2-09   _(no cerrado)_
+
+**Se debe registrar inicio y fin de la fase en el log de ejecucion.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
+| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
+| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
+| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
+ WHERE criterio = 'F2-09' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
+```
+
+### F2-10   _(no cerrado)_
+
+**Se generan 3 fechas de insumo por cada Persona - Cuenta - Suscriptor para el calculo de numero de meses de reporte.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=NO_IMPLEMENTADO &middot; DELTA1=NO_IMPLEMENTADO &middot; DELTA2=NO_IMPLEMENTADO` |
+| Lo que midio la corrida | Fase 2 no portada a Redshift. Verificado: BTT, REC, cta_atributos, portafolio y MD5 dan cero coincidencias en los tres repos. El legado esta en PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS. |
+| Arquetipos | ARQ 80..90 (`id_buro_persona` 9800000..9900999) |
+| Caso de uso / evidencia | legado PRO_ORD_CTA_ATRIBUTOS / PRO_ORD_CTA_TOTALES_PERSONAS / PRO_ORD_CONCAT_ATRIBUTOS. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
+ WHERE criterio = 'F2-10' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
+```
+
+---
+
+## Scoring - Fase 3 (no portada)
+
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
 ### F3-01   _(no cerrado)_
 
 **Se deben excluir automaticamente los registros bloqueados.**
@@ -3323,14 +5392,28 @@ SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
 | Caso de uso / evidencia | legado Prc_Ordenamiento2.sql:1123-1126 (anti-join contra bloqueo). NO existe filtro de bloqueo en el Ordenamiento de Redshift. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F3-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F3-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F3-02   _(no cerrado)_
@@ -3345,14 +5428,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_CALC_UBICACIONES_2 (Prc_Ordenamiento2.sql:1127, b.Ind_Unificacion IS NULL). PARCIAL en Redshift: el filtro existe en sp_ordenamiento_preparar_insumos_edf (7 veces) y en consolidacion, pero sin la persistencia por hash de la fase. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F3-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F3-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F3-03   _(no cerrado)_
@@ -3367,14 +5464,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_CALC_UBICACIONES / PRO_ORD_UBIC_DIRECCIONES / PRO_ORD_FINAL_UBIC_DIRECCIONES. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F3-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F3-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F3-04   _(no cerrado)_
@@ -3389,14 +5500,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_CALC_UBICACIONES / PRO_ORD_UBIC_DIRECCIONES / PRO_ORD_FINAL_UBIC_DIRECCIONES. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F3-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F3-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F3-05   _(no cerrado)_
@@ -3411,14 +5536,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_CALC_UBICACIONES / PRO_ORD_UBIC_DIRECCIONES / PRO_ORD_FINAL_UBIC_DIRECCIONES. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F3-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F3-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F3-06   _(no cerrado)_
@@ -3433,14 +5572,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_CALC_UBICACIONES / PRO_ORD_UBIC_DIRECCIONES / PRO_ORD_FINAL_UBIC_DIRECCIONES. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F3-06 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F3-06' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F3-07   _(no cerrado)_
@@ -3455,14 +5608,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_CALC_UBICACIONES / PRO_ORD_UBIC_DIRECCIONES / PRO_ORD_FINAL_UBIC_DIRECCIONES. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F3-07 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F3-07' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F3-08   _(no cerrado)_
@@ -3477,14 +5644,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_CALC_UBICACIONES / PRO_ORD_UBIC_DIRECCIONES / PRO_ORD_FINAL_UBIC_DIRECCIONES. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F3-08 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F3-08' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F3-09   _(no cerrado)_
@@ -3499,14 +5680,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_CALC_UBICACIONES / PRO_ORD_UBIC_DIRECCIONES / PRO_ORD_FINAL_UBIC_DIRECCIONES. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F3-09 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F3-09' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F3-10   _(no cerrado)_
@@ -3521,14 +5716,28 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | legado PRO_ORD_CALC_UBICACIONES / PRO_ORD_UBIC_DIRECCIONES / PRO_ORD_FINAL_UBIC_DIRECCIONES. Fase no portada a Redshift. El evaluador la marca NO_IMPLEMENTADO: el criterio existe en el RF y el codigo no. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F3-10 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F3-10' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ### F3-11   _(no cerrado)_
@@ -3543,33 +5752,37 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
 | Caso de uso / evidencia | mismo predicado que F3-02; se evalua junto a el. |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de F3-11 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_ord
  WHERE criterio = 'F3-11' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 80 AND 90
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Los arquetipos del Ordenamiento se certifican por la
+-- DIFERENCIA de score entre las dos filas de la misma persona, nunca por el
+-- valor absoluto: el delta es inmune a la fecha, al catalogo y al numero de
+-- reportes, que las dos filas comparten.
+SELECT (s.id_buro_persona - 9000000) / 10000 AS arq,
+       s.id_buro_persona AS persona, s.canal,
+       s.cod_dw_persona_ubic AS ubicacion, s.score, s.lugar,
+       s.score - MIN(s.score) OVER (PARTITION BY s.id_buro_persona, s.canal) AS delta_score
+  FROM bdm_datos.score_ordenamiento s
+ WHERE (s.id_buro_persona - 9000000) / 10000 BETWEEN 80 AND 90
+ ORDER BY s.id_buro_persona, s.canal, s.lugar
+ LIMIT 40;
 ```
 
 ---
 
 ## Novedades - Ubicacion
 
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
-
-```sql
--- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
-SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
-       e9.flag_op, e9.tipo_identificacion, e9.fuente,
-       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
-  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
-  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
- ORDER BY e9.info_basica, e9.id
- LIMIT 40;
-```
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
 
 ### NOV-UB-01
 
@@ -3584,14 +5797,24 @@ SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:125` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-02
@@ -3607,14 +5830,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:135` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-03
@@ -3630,14 +5863,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:147` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-04
@@ -3653,14 +5896,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:160` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-05   _(no cerrado)_
@@ -3676,14 +5929,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:181` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-06
@@ -3699,14 +5962,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:188` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-06 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-06' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-07
@@ -3722,14 +5995,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:208` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-07 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-07' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-08
@@ -3745,14 +6028,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:226` (repo pgm) |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-08 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-08' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-09
@@ -3768,14 +6061,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:249` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-09 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-09' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-10
@@ -3791,14 +6094,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:273` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-10 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-10' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-11
@@ -3814,14 +6127,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:291` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-11 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-11' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-12
@@ -3837,14 +6160,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:338` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-12 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-12' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-13
@@ -3860,14 +6193,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:369` (repo pgm) |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-13 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-13' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-14
@@ -3883,14 +6226,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:420` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-14 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-14' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-15
@@ -3906,14 +6259,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:441` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-15 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-15' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-16   _(no cerrado)_
@@ -3929,14 +6292,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:684` (repo pgm) |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-16 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-16' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-17   _(no cerrado)_
@@ -3952,14 +6325,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:686` (repo pgm) |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-17 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-17' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-18   _(no cerrado)_
@@ -3975,14 +6358,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:687` (repo pgm) |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-18 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-18' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-19   _(no cerrado)_
@@ -3998,14 +6391,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:688` (repo pgm) |
 | Prioridad | Baja |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-19 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-19' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-20   _(no cerrado)_
@@ -4021,14 +6424,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:689` (repo pgm) |
 | Prioridad | Baja |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-20 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-20' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-21   _(no cerrado)_
@@ -4044,14 +6457,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:690` (repo pgm) |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-21 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-21' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ### NOV-UB-22   _(no cerrado)_
@@ -4067,33 +6490,33 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:691` (repo pgm) |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-UB-22 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-UB-22' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. Lo que entro por las dos etapas y lo que quedo en la MAT.
+SELECT e9.info_basica AS persona, e9.id, e9.dato, e9.clase, e9.orden,
+       e9.flag_op, e9.tipo_identificacion, e9.fuente,
+       m.id IS NOT NULL AS llego_a_mat, m.orden AS orden_en_mat
+  FROM bdm_tempo.stg_nov_ubica_etapa_9_mock e9
+  LEFT JOIN bdm_datos.mat_info_ubicacion_mock m ON m.id = e9.id
+ ORDER BY e9.info_basica, e9.id
+ LIMIT 40;
 ```
 
 ---
 
 ## Novedades - Actividad Economica
 
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
-
-```sql
--- QUIEN y POR QUE. La etapa 1 y su reflejo en la tabla MAT.
-SELECT a.info_basica_id AS persona, a.id, a.ciiu, a.actividad_economica,
-       a.version, a.fecha_reporte, a.tipo_identificacion, a.flag_op,
-       m.id IS NOT NULL AS llego_a_mat
-  FROM bdm_tempo.stg_nov_acteco_etapa_1_mock a
-  LEFT JOIN bdm_datos.mat_info_actividad_economica_mock m ON m.id = a.id
- ORDER BY a.info_basica_id
- LIMIT 40;
-```
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
 
 ### NOV-AE-01
 
@@ -4108,14 +6531,24 @@ SELECT a.info_basica_id AS persona, a.id, a.ciiu, a.actividad_economica,
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:497` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AE-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AE-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa 1 y su reflejo en la tabla MAT.
+SELECT a.info_basica_id AS persona, a.id, a.ciiu, a.actividad_economica,
+       a.version, a.fecha_reporte, a.tipo_identificacion, a.flag_op,
+       m.id IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_acteco_etapa_1_mock a
+  LEFT JOIN bdm_datos.mat_info_actividad_economica_mock m ON m.id = a.id
+ ORDER BY a.info_basica_id
+ LIMIT 40;
 ```
 
 ### NOV-AE-02
@@ -4131,14 +6564,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:513` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AE-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AE-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa 1 y su reflejo en la tabla MAT.
+SELECT a.info_basica_id AS persona, a.id, a.ciiu, a.actividad_economica,
+       a.version, a.fecha_reporte, a.tipo_identificacion, a.flag_op,
+       m.id IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_acteco_etapa_1_mock a
+  LEFT JOIN bdm_datos.mat_info_actividad_economica_mock m ON m.id = a.id
+ ORDER BY a.info_basica_id
+ LIMIT 40;
 ```
 
 ### NOV-AE-03
@@ -4154,14 +6597,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:527` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AE-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AE-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa 1 y su reflejo en la tabla MAT.
+SELECT a.info_basica_id AS persona, a.id, a.ciiu, a.actividad_economica,
+       a.version, a.fecha_reporte, a.tipo_identificacion, a.flag_op,
+       m.id IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_acteco_etapa_1_mock a
+  LEFT JOIN bdm_datos.mat_info_actividad_economica_mock m ON m.id = a.id
+ ORDER BY a.info_basica_id
+ LIMIT 40;
 ```
 
 ### NOV-AE-04
@@ -4177,14 +6630,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:540` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AE-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AE-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa 1 y su reflejo en la tabla MAT.
+SELECT a.info_basica_id AS persona, a.id, a.ciiu, a.actividad_economica,
+       a.version, a.fecha_reporte, a.tipo_identificacion, a.flag_op,
+       m.id IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_acteco_etapa_1_mock a
+  LEFT JOIN bdm_datos.mat_info_actividad_economica_mock m ON m.id = a.id
+ ORDER BY a.info_basica_id
+ LIMIT 40;
 ```
 
 ### NOV-AE-05
@@ -4200,14 +6663,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:567` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AE-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AE-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa 1 y su reflejo en la tabla MAT.
+SELECT a.info_basica_id AS persona, a.id, a.ciiu, a.actividad_economica,
+       a.version, a.fecha_reporte, a.tipo_identificacion, a.flag_op,
+       m.id IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_acteco_etapa_1_mock a
+  LEFT JOIN bdm_datos.mat_info_actividad_economica_mock m ON m.id = a.id
+ ORDER BY a.info_basica_id
+ LIMIT 40;
 ```
 
 ### NOV-AE-06   _(no cerrado)_
@@ -4223,14 +6696,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:625` (repo pgm) |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AE-06 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AE-06' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa 1 y su reflejo en la tabla MAT.
+SELECT a.info_basica_id AS persona, a.id, a.ciiu, a.actividad_economica,
+       a.version, a.fecha_reporte, a.tipo_identificacion, a.flag_op,
+       m.id IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_acteco_etapa_1_mock a
+  LEFT JOIN bdm_datos.mat_info_actividad_economica_mock m ON m.id = a.id
+ ORDER BY a.info_basica_id
+ LIMIT 40;
 ```
 
 ### NOV-AE-07   _(no cerrado)_
@@ -4246,14 +6729,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:627` (repo pgm) |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AE-07 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AE-07' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa 1 y su reflejo en la tabla MAT.
+SELECT a.info_basica_id AS persona, a.id, a.ciiu, a.actividad_economica,
+       a.version, a.fecha_reporte, a.tipo_identificacion, a.flag_op,
+       m.id IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_acteco_etapa_1_mock a
+  LEFT JOIN bdm_datos.mat_info_actividad_economica_mock m ON m.id = a.id
+ ORDER BY a.info_basica_id
+ LIMIT 40;
 ```
 
 ### NOV-AE-08
@@ -4269,14 +6762,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:585` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AE-08 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AE-08' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa 1 y su reflejo en la tabla MAT.
+SELECT a.info_basica_id AS persona, a.id, a.ciiu, a.actividad_economica,
+       a.version, a.fecha_reporte, a.tipo_identificacion, a.flag_op,
+       m.id IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_acteco_etapa_1_mock a
+  LEFT JOIN bdm_datos.mat_info_actividad_economica_mock m ON m.id = a.id
+ ORDER BY a.info_basica_id
+ LIMIT 40;
 ```
 
 ### NOV-AE-09
@@ -4292,14 +6795,24 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:597` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AE-09 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AE-09' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa 1 y su reflejo en la tabla MAT.
+SELECT a.info_basica_id AS persona, a.id, a.ciiu, a.actividad_economica,
+       a.version, a.fecha_reporte, a.tipo_identificacion, a.flag_op,
+       m.id IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_acteco_etapa_1_mock a
+  LEFT JOIN bdm_datos.mat_info_actividad_economica_mock m ON m.id = a.id
+ ORDER BY a.info_basica_id
+ LIMIT 40;
 ```
 
 ### NOV-AE-10
@@ -4315,22 +6828,55 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:610` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AE-10 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AE-10' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa 1 y su reflejo en la tabla MAT.
+SELECT a.info_basica_id AS persona, a.id, a.ciiu, a.actividad_economica,
+       a.version, a.fecha_reporte, a.tipo_identificacion, a.flag_op,
+       m.id IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_acteco_etapa_1_mock a
+  LEFT JOIN bdm_datos.mat_info_actividad_economica_mock m ON m.id = a.id
+ ORDER BY a.info_basica_id
+ LIMIT 40;
 ```
 
 ---
 
 ## Novedades - Ubicacion Agregada
 
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
+
+### NOV-AG-01
+
+**La etapa final debe exponer las 30 columnas del contrato y la tabla final las 32, porque las dos son contrato publico y un CTAS dejaria que el tipo lo infiriera la consulta.**
+
+| | |
+|---|---|
+| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED` |
+| Lo que midio la corrida | columnas de stg_nov_ubiagr_etapa_final_mock=30 (esperado 30 = 29 del contrato de 130.TPT:1033-1147 mas flag_op) y de mat_ubicacion_agregada_mock=32 (esperado 32 = 29 mas lote, fecha_actualizacion y usuario_bd) |
+| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
+| Caso de uso / evidencia | contrato en 35_ddl_nov_ubi_agregada.sql; origen en P0035_Extractor_Novedades_130.TPT:1033-1147 |
+| SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:656` (repo pgm) |
+| Prioridad | Alta |
+
+**1) Veredicto**
+
+```sql
+SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
+ WHERE criterio = 'NOV-AG-01' ORDER BY modo;
+```
+
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- QUIEN y POR QUE. La etapa final y su reflejo en la tabla MAT.
@@ -4346,29 +6892,6 @@ SELECT f.info_basica AS persona, f.tipo_identificacion, f.numero_identificacion,
  LIMIT 40;
 ```
 
-### NOV-AG-01
-
-**La etapa final debe exponer las 30 columnas del contrato y la tabla final las 32, porque las dos son contrato publico y un CTAS dejaria que el tipo lo infiriera la consulta.**
-
-| | |
-|---|---|
-| Fases y estado | `FULL=PASSED &middot; DELTA1=PASSED &middot; DELTA2=PASSED` |
-| Lo que midio la corrida | columnas de stg_nov_ubiagr_etapa_final_mock=30 (esperado 30 = 29 del contrato de 130.TPT:1033-1147 mas flag_op) y de mat_ubicacion_agregada_mock=32 (esperado 32 = 29 mas lote, fecha_actualizacion y usuario_bd) |
-| Arquetipos | ARQ 1..73 (`id_buro_persona` 9010000..9730999) |
-| Caso de uso / evidencia | contrato en 35_ddl_nov_ubi_agregada.sql; origen en P0035_Extractor_Novedades_130.TPT:1033-1147 |
-| SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:656` (repo pgm) |
-| Prioridad | Alta |
-
-```sql
--- 1) VEREDICTO de NOV-AG-01 en todas las fases.
-SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
- WHERE criterio = 'NOV-AG-01' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
-```
-
 ### NOV-AG-02   _(no cerrado)_
 
 **La tabla final no debe tener dos filas con la misma llave de siete columnas.**
@@ -4382,14 +6905,27 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:669` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AG-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AG-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa final y su reflejo en la tabla MAT.
+-- NOTA: hoy este dominio emite CERO filas porque falta V_Hom_Tip_Ident_Linea;
+-- la consulta esta aqui para el dia que llegue el catalogo.
+SELECT f.info_basica AS persona, f.tipo_identificacion, f.numero_identificacion,
+       f.ubicacion_dato, f.ubicacion_clase, f.ubicacion_orden, f.flag_op,
+       m.info_basica IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_ubiagr_etapa_final_mock f
+  LEFT JOIN bdm_datos.mat_ubicacion_agregada_mock m
+         ON m.info_basica = f.info_basica AND m.ubicacion_dato = f.ubicacion_dato
+ ORDER BY f.info_basica
+ LIMIT 40;
 ```
 
 ### NOV-AG-03   _(no cerrado)_
@@ -4405,14 +6941,27 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:671` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AG-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AG-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa final y su reflejo en la tabla MAT.
+-- NOTA: hoy este dominio emite CERO filas porque falta V_Hom_Tip_Ident_Linea;
+-- la consulta esta aqui para el dia que llegue el catalogo.
+SELECT f.info_basica AS persona, f.tipo_identificacion, f.numero_identificacion,
+       f.ubicacion_dato, f.ubicacion_clase, f.ubicacion_orden, f.flag_op,
+       m.info_basica IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_ubiagr_etapa_final_mock f
+  LEFT JOIN bdm_datos.mat_ubicacion_agregada_mock m
+         ON m.info_basica = f.info_basica AND m.ubicacion_dato = f.ubicacion_dato
+ ORDER BY f.info_basica
+ LIMIT 40;
 ```
 
 ### NOV-AG-04   _(no cerrado)_
@@ -4428,14 +6977,27 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:672` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AG-04 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AG-04' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa final y su reflejo en la tabla MAT.
+-- NOTA: hoy este dominio emite CERO filas porque falta V_Hom_Tip_Ident_Linea;
+-- la consulta esta aqui para el dia que llegue el catalogo.
+SELECT f.info_basica AS persona, f.tipo_identificacion, f.numero_identificacion,
+       f.ubicacion_dato, f.ubicacion_clase, f.ubicacion_orden, f.flag_op,
+       m.info_basica IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_ubiagr_etapa_final_mock f
+  LEFT JOIN bdm_datos.mat_ubicacion_agregada_mock m
+         ON m.info_basica = f.info_basica AND m.ubicacion_dato = f.ubicacion_dato
+ ORDER BY f.info_basica
+ LIMIT 40;
 ```
 
 ### NOV-AG-05   _(no cerrado)_
@@ -4451,14 +7013,27 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:673` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AG-05 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AG-05' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa final y su reflejo en la tabla MAT.
+-- NOTA: hoy este dominio emite CERO filas porque falta V_Hom_Tip_Ident_Linea;
+-- la consulta esta aqui para el dia que llegue el catalogo.
+SELECT f.info_basica AS persona, f.tipo_identificacion, f.numero_identificacion,
+       f.ubicacion_dato, f.ubicacion_clase, f.ubicacion_orden, f.flag_op,
+       m.info_basica IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_ubiagr_etapa_final_mock f
+  LEFT JOIN bdm_datos.mat_ubicacion_agregada_mock m
+         ON m.info_basica = f.info_basica AND m.ubicacion_dato = f.ubicacion_dato
+ ORDER BY f.info_basica
+ LIMIT 40;
 ```
 
 ### NOV-AG-06   _(no cerrado)_
@@ -4474,14 +7049,27 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:674` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AG-06 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AG-06' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa final y su reflejo en la tabla MAT.
+-- NOTA: hoy este dominio emite CERO filas porque falta V_Hom_Tip_Ident_Linea;
+-- la consulta esta aqui para el dia que llegue el catalogo.
+SELECT f.info_basica AS persona, f.tipo_identificacion, f.numero_identificacion,
+       f.ubicacion_dato, f.ubicacion_clase, f.ubicacion_orden, f.flag_op,
+       m.info_basica IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_ubiagr_etapa_final_mock f
+  LEFT JOIN bdm_datos.mat_ubicacion_agregada_mock m
+         ON m.info_basica = f.info_basica AND m.ubicacion_dato = f.ubicacion_dato
+ ORDER BY f.info_basica
+ LIMIT 40;
 ```
 
 ### NOV-AG-07   _(no cerrado)_
@@ -4497,14 +7085,27 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:675` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AG-07 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AG-07' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa final y su reflejo en la tabla MAT.
+-- NOTA: hoy este dominio emite CERO filas porque falta V_Hom_Tip_Ident_Linea;
+-- la consulta esta aqui para el dia que llegue el catalogo.
+SELECT f.info_basica AS persona, f.tipo_identificacion, f.numero_identificacion,
+       f.ubicacion_dato, f.ubicacion_clase, f.ubicacion_orden, f.flag_op,
+       m.info_basica IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_ubiagr_etapa_final_mock f
+  LEFT JOIN bdm_datos.mat_ubicacion_agregada_mock m
+         ON m.info_basica = f.info_basica AND m.ubicacion_dato = f.ubicacion_dato
+ ORDER BY f.info_basica
+ LIMIT 40;
 ```
 
 ### NOV-AG-08   _(no cerrado)_
@@ -4520,29 +7121,36 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:676` (repo pgm) |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-AG-08 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-AG-08' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- QUIEN y POR QUE. La etapa final y su reflejo en la tabla MAT.
+-- NOTA: hoy este dominio emite CERO filas porque falta V_Hom_Tip_Ident_Linea;
+-- la consulta esta aqui para el dia que llegue el catalogo.
+SELECT f.info_basica AS persona, f.tipo_identificacion, f.numero_identificacion,
+       f.ubicacion_dato, f.ubicacion_clase, f.ubicacion_orden, f.flag_op,
+       m.info_basica IS NOT NULL AS llego_a_mat
+  FROM bdm_tempo.stg_nov_ubiagr_etapa_final_mock f
+  LEFT JOIN bdm_datos.mat_ubicacion_agregada_mock m
+         ON m.info_basica = f.info_basica AND m.ubicacion_dato = f.ubicacion_dato
+ ORDER BY f.info_basica
+ LIMIT 40;
 ```
 
 ---
 
 ## Novedades - dominios no portados
 
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
-
-```sql
--- Traza de la corrida de Novedades.
-SELECT corrida_id, lote, modo, estado, relaciones_entrada, personas_distintas,
-       filas_mat_escritas, fecha_hora_inicio, fecha_hora_fin
-  FROM bdm_datos.nov_control_mock ORDER BY corrida_id;
-```
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
 
 ### NOV-CAT-01   _(no cerrado)_
 
@@ -4557,14 +7165,20 @@ SELECT corrida_id, lote, modo, estado, relaciones_entrada, personas_distintas,
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:702` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-CAT-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-CAT-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- Traza de la corrida de Novedades.
+SELECT corrida_id, lote, modo, estado, relaciones_entrada, personas_distintas,
+       filas_mat_escritas, fecha_hora_inicio, fecha_hora_fin
+  FROM bdm_datos.nov_control_mock ORDER BY corrida_id;
 ```
 
 ### NOV-INB-01   _(no cerrado)_
@@ -4580,14 +7194,20 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:704` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-INB-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-INB-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- Traza de la corrida de Novedades.
+SELECT corrida_id, lote, modo, estado, relaciones_entrada, personas_distintas,
+       filas_mat_escritas, fecha_hora_inicio, fecha_hora_fin
+  FROM bdm_datos.nov_control_mock ORDER BY corrida_id;
 ```
 
 ### NOV-CON-01   _(no cerrado)_
@@ -4603,14 +7223,20 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:705` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-CON-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-CON-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- Traza de la corrida de Novedades.
+SELECT corrida_id, lote, modo, estado, relaciones_entrada, personas_distintas,
+       filas_mat_escritas, fecha_hora_inicio, fecha_hora_fin
+  FROM bdm_datos.nov_control_mock ORDER BY corrida_id;
 ```
 
 ### NOV-PIN-01   _(no cerrado)_
@@ -4626,14 +7252,20 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:706` (repo pgm) |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-PIN-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-PIN-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- Traza de la corrida de Novedades.
+SELECT corrida_id, lote, modo, estado, relaciones_entrada, personas_distintas,
+       filas_mat_escritas, fecha_hora_inicio, fecha_hora_fin
+  FROM bdm_datos.nov_control_mock ORDER BY corrida_id;
 ```
 
 ### NOV-MOV-01   _(no cerrado)_
@@ -4649,22 +7281,14 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:707` (repo pgm) |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-MOV-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-MOV-01' ORDER BY modo;
-
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
 ```
 
----
-
-## Gobernanza
-
-**Detalle del bloque — quien y por que.** Misma consulta para todos sus
-criterios; cambia la banda `ARQ` segun el criterio.
+**2) Detalle — los registros de este criterio**
 
 ```sql
 -- Traza de la corrida de Novedades.
@@ -4672,6 +7296,14 @@ SELECT corrida_id, lote, modo, estado, relaciones_entrada, personas_distintas,
        filas_mat_escritas, fecha_hora_inicio, fecha_hora_fin
   FROM bdm_datos.nov_control_mock ORDER BY corrida_id;
 ```
+
+---
+
+## Gobernanza
+
+Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la
+banda de arquetipos del criterio. Son autocontenidas: se copian y se
+ejecutan tal cual.
 
 ### NOV-G-01   _(no cerrado)_
 
@@ -4686,14 +7318,20 @@ SELECT corrida_id, lote, modo, estado, relaciones_entrada, personas_distintas,
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:715` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-G-01 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-G-01' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- Traza de la corrida de Novedades.
+SELECT corrida_id, lote, modo, estado, relaciones_entrada, personas_distintas,
+       filas_mat_escritas, fecha_hora_inicio, fecha_hora_fin
+  FROM bdm_datos.nov_control_mock ORDER BY corrida_id;
 ```
 
 ### NOV-G-02   _(no cerrado)_
@@ -4709,14 +7347,20 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:717` (repo pgm) |
 | Prioridad | Alta |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-G-02 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-G-02' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- Traza de la corrida de Novedades.
+SELECT corrida_id, lote, modo, estado, relaciones_entrada, personas_distintas,
+       filas_mat_escritas, fecha_hora_inicio, fecha_hora_fin
+  FROM bdm_datos.nov_control_mock ORDER BY corrida_id;
 ```
 
 ### NOV-G-03   _(no cerrado)_
@@ -4732,14 +7376,20 @@ SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
 | SQL que lo decide | `sp_cert_evaluar_criterios_nov_mock.sql:718` (repo pgm) |
 | Prioridad | Media |
 
+**1) Veredicto**
+
 ```sql
--- 1) VEREDICTO de NOV-G-03 en todas las fases.
 SELECT modo, estado, detalle FROM bdm_datos.cert_resultado_nov
  WHERE criterio = 'NOV-G-03' ORDER BY modo;
+```
 
--- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque
---    de arriba acotando a su banda:
---       ARQ BETWEEN 1 AND 73
+**2) Detalle — los registros de este criterio**
+
+```sql
+-- Traza de la corrida de Novedades.
+SELECT corrida_id, lote, modo, estado, relaciones_entrada, personas_distintas,
+       filas_mat_escritas, fecha_hora_inicio, fecha_hora_fin
+  FROM bdm_datos.nov_control_mock ORDER BY corrida_id;
 ```
 
 ---

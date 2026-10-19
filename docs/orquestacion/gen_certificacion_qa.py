@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
-import json, collections, io, re
-B = "/tmp/claude-0/-home-user/fe748083-e217-5400-bdfd-fe1498b014c4/scratchpad/"
+import json, collections, io, re, os
+
+# Insumo y salida, relativos a este script: el generador tiene que poder
+# re-correrse en cualquier clon sin depender de rutas de una sesion.
+AQUI = os.path.dirname(os.path.abspath(__file__))
+B    = os.path.join(AQUI, "qa_insumo") + os.sep
+SAL  = os.path.join(AQUI, "..", "CERTIFICACION_ACEPTACION_QA.md")
 C = json.load(open(B + "criterios.json"))
 LOC = {tuple(k.split("|")): v for k, v in json.load(open(B + "evloc.json")).items()}
 est = collections.defaultdict(dict); det = collections.defaultdict(dict)
@@ -212,9 +217,9 @@ for tag, b in ORDEN:
     if not fs: continue
     lo, hi = BANDA.get(b, (1, 90))
     w("## %s\n" % NOMBRE.get(b, b))
-    w("**Detalle del bloque — quien y por que.** Misma consulta para todos sus")
-    w("criterios; cambia la banda `ARQ` segun el criterio.\n")
-    w("```sql"); w(drill(tag, b, lo, hi)); w("```\n")
+    w("Cada ficha de abajo trae su propia consulta de detalle, ya acotada a la")
+    w("banda de arquetipos del criterio. Son autocontenidas: se copian y se")
+    w("ejecutan tal cual.\n")
     for c in fs:
         blo, bhi = banda(c, b)
         w("### %s%s\n" % (c["id"], "" if paso(tag, c["id"]) else "   _(no cerrado)_"))
@@ -232,14 +237,14 @@ for tag, b in ORDEN:
         if ev: w("| SQL que lo decide | `%s` (repo pgm) |" % ev)
         w("| Prioridad | %s |" % c["prioridad"])
         w("")
+        w("**1) Veredicto**\n")
         w("```sql")
-        w("-- 1) VEREDICTO de %s en todas las fases." % c["id"])
         w("SELECT modo, estado, detalle FROM %s" % TABLA[tag])
         w(" WHERE criterio = '%s' ORDER BY modo;" % c["id"])
-        w("")
-        w("-- 2) DETALLE: los registros de este criterio. Usa la consulta del bloque")
-        w("--    de arriba acotando a su banda:")
-        w("--       ARQ BETWEEN %d AND %d" % (blo, bhi))
+        w("```\n")
+        w("**2) Detalle — los registros de este criterio**\n")
+        w("```sql")
+        w(drill(tag, b, blo, bhi))
         w("```\n")
     w("---\n")
 w("## Lo que este documento NO afirma\n")
@@ -252,6 +257,5 @@ w("  para que el alcance sea visible, no porque se hayan probado.")
 w("- **El `UNLOAD` a S3 y el `COPY` de vuelta del ciclo GEO no estan certificados**:")
 w("  el rol IAM no esta asociado al cluster DEV y el mock los sustituye. El resto")
 w("  del ciclo es el mismo SQL que en produccion.")
-io.open("/home/user/db_rcncr_btch_rdshft_dt_full_delta/docs/CERTIFICACION_ACEPTACION_QA.md",
-        "w", encoding="utf-8").write("\n".join(L) + "\n")
+io.open(SAL, "w", encoding="utf-8").write("\n".join(L) + "\n")
 print("lineas:", len(L))
