@@ -74,6 +74,10 @@ TRUNCATE TABLE bdm_stage.mock_ord_alcance_censo;
 -- veria ninguna direccion como nueva y F3-05 saldria en cero. Misma regla del
 -- job #412.
 TRUNCATE TABLE bdm_datos.ubicacion_atributo_hash_mock;
+-- SLCOPRBA-1355: el hash de atributos de cuenta, Fase 2. Mismo motivo que el
+-- de ubicaciones: sin truncarlo, la segunda pasada no veria ninguna cuenta
+-- como nueva y F2-07 saldria en cero.
+TRUNCATE TABLE bdm_datos.cuenta_atributo_hash_mock;
 TRUNCATE TABLE bdm_stage.mock_ord_ca_result;
 
 

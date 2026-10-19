@@ -91,6 +91,15 @@ DELETE FROM bdm_stage.reporte_relacion_persona_ubica
 DELETE FROM bdm_stage.contacto_canal
  WHERE id_buro_persona BETWEEN 9800000 AND 9999999;
 
+-- SLCOPRBA-1355: las dos semillas de la Fase 2. Van aqui por la misma razon
+-- que las de arriba -- que la semilla se pueda re-correr sin duplicar -- y con
+-- WHERE explicito [REDSHIFT:232].
+DELETE FROM bdm_stage.mock_cuenta
+ WHERE id_buro_persona BETWEEN 9800000 AND 9999999;
+
+DELETE FROM bdm_stage.mock_comportamiento_cta
+ WHERE cod_dw_cta BETWEEN 98000000 AND 99999999;
+
 -- ============================================================
 -- ARQ 80 y 81 -- CANAL DIR: dos direcciones por persona
 -- ------------------------------------------------------------
@@ -945,3 +954,109 @@ SELECT
 FROM      (SELECT 9970000 AS base UNION ALL SELECT 9980000) a
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
+
+-- ============================================================
+-- ARQ 99 -- FASE 2: cuentas. CUATRO SEGMENTOS EN UNA SOLA BANDA.
+--
+-- POR QUE SEGMENTADO Y NO CUATRO ARQUETIPOS. El universo mock es
+-- id_buro_persona entre 9000000 y 9999999 (lo filtra asi el evaluador), de
+-- modo que ARQ = 99 es la ULTIMA banda que cabe: un ARQ 100 daria 10000000 y
+-- se saldria del universo. Los cuatro casos que la Fase 2 necesita se reparten
+-- por tramos de n.i dentro de la misma banda:
+--
+--   i 0..199    perfiles de PORTAFOLIO     -> F2-05, F2-06
+--   i 200..399  persona SIN cuenta         -> F2-06 (no puede dar NULL)
+--   i 400..599  comportamiento dentro Y fuera de la ventana -> F2-02
+--   i 600..799  cuenta que CAMBIA antes del DELTA2          -> F2-07
+--
+-- LOS DIEZ PERFILES DE PORTAFOLIO, uno por MOD(i, 10). Son las ramas del CASE
+-- de PRO_ORD_CTA_TOTALES_PERSONAS_2.sql:304-375, elegidas para caer cada una
+-- en una rama distinta SIN que una anterior se las lleve -- que es la misma
+-- disciplina de inmunidad que piden los arquetipos de Unificacion:
+--
+--   0 AH  pasivo, tipo 1, suscriptor 51xxxx
+--   1 CT  pasivo, tipo 1, suscriptor 04xxxx
+--   2 --  pasivo, tipo 2  <- EL CENTINELA DEL LEGADO, que F2-05 no nombra
+--   3 CO  activo, relacion C, tipo 5
+--   4 RO  activo, tipo 3
+--   5 VE  activo, tipo 7, obligacion 2, 24 cuotas, garantia 1
+--   6 HP  activo, tipo 13
+--   7 IN  activo, tipo 9   (no lo recogen RO, VE ni HP)
+--   8 OT  activo, tipo 30
+--   9 CC  activo, tipo 23  (23 no esta en ninguna lista de OT)
+--
+-- fecha_nov = 2026-03-01, el Watermark: asi estas cuentas ENTRAN por la rama
+-- BTT del alcance en los DELTA, que es lo que llena por_cuenta y cierra
+-- F1-01. Las fechas de comportamiento son relativas a fecha_nov, no a
+-- CURRENT_DATE: la ventana de 12 meses es aritmetica entre las dos y no
+-- deriva con el calendario.
+-- ============================================================
+
+-- La RPU de la banda: sin ella la persona no esta en el alcance y el INNER
+-- JOIN de F2-01 se lleva sus cuentas. Una sola direccion, como el ARQ 96.
+INSERT INTO bdm_stage.relacion_persona_ubicacion (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, cod_dw_ubic,
+  cod_dw_direccion_fisica, cod_dw_tipo_ubicacion_dir, ind_unificacion,
+  orden_prioridad, fecha_relacion_persona_ubicaci, lote, cod_tipo_ident_fte
+)
+SELECT (9990000 + n.i) * 10 + 1, 9990000 + n.i, 9990000 + n.i,
+       (9990000 + n.i) * 10 + 1, (9990000 + n.i) * 10 + 1,
+       1, NULL, 1, CAST('2026-03-01' AS DATE), 1356301, '1'
+FROM bdm_stage.mock_numeros n WHERE n.i < 800;
+
+INSERT INTO bdm_stage.ubicacion_estandarizada (
+  cod_dw_ubic, texto_ubicacion, cod_dw_ciudad, municipio, departamento,
+  latitud, longitud, tipo_ubicacion
+)
+SELECT (9990000 + n.i) * 10 + 1,
+       CAST('ORD ARQ 9990000 P' || CAST(n.i AS VARCHAR) AS VARCHAR(500)),
+       11001, 'BOGOTA', 'CUNDINAMARCA', NULL, NULL, NULL
+FROM bdm_stage.mock_numeros n WHERE n.i < 800;
+
+INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
+  cod_dw_persona_ubic, id_buro_suscriptor, fecha_reporte
+)
+SELECT (9990000 + n.i) * 10 + 1, 7001, DATEADD(month, -15, CURRENT_DATE)
+FROM bdm_stage.mock_numeros n WHERE n.i < 800;
+
+-- Las cuentas. El tramo 200..399 NO entra: es la persona sin cuenta.
+INSERT INTO bdm_stage.mock_cuenta (
+  cod_dw_cta, id_buro_persona, cod_pin_persona, cod_suscriptor,
+  cod_tipo_cta_fte, cod_tipo_obligacion_fte, cod_tipo_rel_con_cta_fte,
+  cod_clase_garantia_buro_fte, num_cuotas_pactadas, fecha_nov,
+  valor_saldo, valor_cuota_mensual, numero_dias_mora, num_cuotas_pagadas
+)
+SELECT (9990000 + n.i) * 10 + 1,
+       9990000 + n.i,
+       9990000 + n.i,
+       CASE WHEN MOD(n.i, 10) = 0 THEN '510001' ELSE '040001' END,
+       CASE MOD(n.i, 10) WHEN 0 THEN '1'  WHEN 1 THEN '1'  WHEN 2 THEN '2'
+                         WHEN 3 THEN '5'  WHEN 4 THEN '3'  WHEN 5 THEN '7'
+                         WHEN 6 THEN '13' WHEN 7 THEN '9'  WHEN 8 THEN '30'
+                         ELSE '23' END,
+       CASE WHEN MOD(n.i, 10) = 5 THEN '2' ELSE '1' END,
+       CASE WHEN MOD(n.i, 10) = 3 THEN 'C' ELSE 'X' END,
+       CASE WHEN MOD(n.i, 10) = 5 THEN '1' ELSE '0' END,
+       CASE WHEN MOD(n.i, 10) = 5 THEN 24 ELSE 0 END,
+       CAST('2026-03-01' AS DATE),
+       1500000.00, 85000.00, 0, 6
+FROM bdm_stage.mock_numeros n
+WHERE n.i < 800 AND NOT (n.i BETWEEN 200 AND 399);
+
+-- El comportamiento. Pasivo para los perfiles 0, 1 y 2; activo para el resto.
+-- Seis meses antes de fecha_nov: DENTRO de la ventana de doce.
+INSERT INTO bdm_stage.mock_comportamiento_cta (cod_dw_cta, tipo, fecha_corte)
+SELECT (9990000 + n.i) * 10 + 1,
+       CASE WHEN MOD(n.i, 10) IN (0, 1, 2) THEN 'P' ELSE 'A' END,
+       DATEADD(month, -6, CAST('2026-03-01' AS DATE))
+FROM bdm_stage.mock_numeros n
+WHERE n.i < 800 AND NOT (n.i BETWEEN 200 AND 399);
+
+-- Y el tramo 400..599 lleva ADEMAS una fila DIECIOCHO meses antes, o sea
+-- FUERA de la ventana. Es lo unico que permite afirmar F2-02: sin una fuera,
+-- "la ventana funciona" seria indistinguible de "no filtra nada".
+INSERT INTO bdm_stage.mock_comportamiento_cta (cod_dw_cta, tipo, fecha_corte)
+SELECT (9990000 + n.i) * 10 + 1, 'A',
+       DATEADD(month, -18, CAST('2026-03-01' AS DATE))
+FROM bdm_stage.mock_numeros n
+WHERE n.i BETWEEN 400 AND 599;

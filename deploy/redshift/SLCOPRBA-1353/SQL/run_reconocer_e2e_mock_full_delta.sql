@@ -70,6 +70,10 @@ TRUNCATE TABLE bdm_stage.mock_ord_alcance_censo;
 -- veria ninguna direccion como nueva y F3-05 saldria en cero. Misma regla del
 -- job #412.
 TRUNCATE TABLE bdm_datos.ubicacion_atributo_hash_mock;
+-- SLCOPRBA-1355: el hash de atributos de cuenta, Fase 2. Mismo motivo que el
+-- de ubicaciones: sin truncarlo, la segunda pasada no veria ninguna cuenta
+-- como nueva y F2-07 saldria en cero.
+TRUNCATE TABLE bdm_datos.cuenta_atributo_hash_mock;
 TRUNCATE TABLE bdm_stage.mock_ord_ca_result;
 
 -- Novedades (P0035): control, tablas finales, contratos de etapa y tablero.
@@ -248,6 +252,22 @@ WHERE n.i < 100;
 UPDATE bdm_stage.ubicacion_estandarizada
    SET texto_ubicacion = REPLACE(texto_ubicacion, 'TEXTO ORIGINAL', 'TEXTO MUTADO')
  WHERE cod_dw_ubic BETWEEN 99700000 AND 99709999;
+
+-- ------------------------------------------------------------
+-- (3c) MUTACION DE LA FASE 2. Al tramo 600..799 del ARQ 99 le cambia el
+-- SALDO de su cuenta. El hash tiene que moverse y dejar una SEGUNDA fila en
+-- cuenta_atributo_hash_mock; el resto de la banda, quedarse en una.
+--
+-- Se cambia el saldo y no el portafolio a proposito: mover una de las nueve
+-- columnas del clasificador cambiaria TAMBIEN el portafolio, y entonces el
+-- criterio no sabria si el hash se movio por el atributo o por la
+-- clasificacion. El saldo entra en el concatena y no en el CASE.
+--
+-- WHERE explicito y acotado al tramo [REDSHIFT:232].
+-- ------------------------------------------------------------
+UPDATE bdm_stage.mock_cuenta
+   SET valor_saldo = valor_saldo + 777777.00
+ WHERE id_buro_persona BETWEEN 9990600 AND 9990799;
 
 -- ------------------------------------------------------------
 -- (4) DELTA sobre datos MUTADOS. Debe producir exactamente 200 filas nuevas,

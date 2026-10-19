@@ -52,20 +52,39 @@ misma firma de seis parámetros.
 | `PRO_ORD_CONCAT_ATRIBUTOS.sql` | 161 | arma el campo `concatena` del hash |
 | `PRO_ORD_FINAL_CTA_ATRIBUTOS.sql` | 232 | persistencia por hash MD5 contra `CUENTA_ATRIBUTO_HASH` |
 
-**El corazón de F2 son 20 líneas: `PRO_ORD_CTA_TOTALES_PERSONAS_2.sql:376-396`.**
-Los dos primeros dígitos de `cod_suscriptor` deciden el portafolio, y el
-portafolio decide el `Sector`. Es aritmética de cadena: **no necesita el
-datashare**, y es lo que hoy está sustituido por la bandera de cubeta de hash
-que el `CLAUDE.md` llama ruido.
+**CUIDADO: HAY DOS COLUMNAS DE PORTAFOLIO EN ESTE ARCHIVO, Y CONFUNDIRLAS
+CUESTA EL PLAN ENTERO.** *(Este párrafo decía antes que «el corazón de F2 son
+20 líneas» y que `F2-05` no coincidía con el código. Las dos afirmaciones eran
+falsas y salían de haber leído la columna equivocada.)*
 
-Dos cosas que hay que mirar antes de escribir una línea:
+| Columna | Dónde | Qué es | Valores |
+|---|---|---|---|
+| `Portafolio_Nuevo` | `:376-389` | prefijo de dos dígitos del `cod_suscriptor`; decide el `Sector` (`:391-396`). **Ya está portada**, con catálogo en `23_ddl_catalogo_portafolio_ord.sql` | **once**: `RO, IN, VE, HP, FR, CC, CP, RC, RS, CT, OT` |
+| `Portafolio` | `:304-375` | **la de `F2-05`**: un `CASE` anidado de **179 líneas** | **nueve**: `AH, CC, CO, CT, HP, IN, OT, RO, VE` |
 
-1. El `CASE` produce `RO, IN, VE, HP, FR, CC, CP, RC, RS, CT, OT` — **once
-   valores**. El criterio `F2-05` exige nueve y nombra otros (`CO, RO, VE, HP,
-   IN, OT, CC, AH, CT`). **No coinciden.** Manda el código; hay que dejar
-   escrito cuál es la divergencia.
-2. La rama de `VE` lleva **35 `cod_suscriptor` literales** enumerados. Se
-   copian uno a uno.
+**`F2-05` y el código SÍ coinciden**: los nueve del `CASE` son exactamente los
+nueve que el criterio nombra. No hay divergencia que documentar.
+
+**Y F2 es la fase MÁS cara de las tres, no la más barata.** El `Portafolio`
+consume **nueve** columnas y de ellas hoy solo tenemos `cod_suscriptor`:
+
+```
+Cod_Tipo_Cta_Fte     Cod_Tipo_Obligacion_Fte   Cod_Tipo_Rel_Con_Cta_Fte
+Cod_Clase_Garantia_Buro_Fte                    NUM_CUOTAS_PACTADAS
+Cod_suscriptor       Cod_DW_Cta
+Flag_Comp_Cta_Activo  Flag_Comp_Cta_Pasivo   <- son F2-03 y F2-04
+```
+
+Las dos banderas son justo lo que `F2-03` y `F2-04` piden, y lo que destraba la
+rama `'CO'` que `23_ddl_catalogo_portafolio_ord.sql` dejó sin construir.
+
+Dos detalles más antes de escribir una línea:
+
+1. La ventana de 12 meses es **por cuenta**, no global:
+   `add_months(fecha_nov, -12)` sobre la `fecha_nov` de cada cuenta
+   (`PRO_ORD_CTA_TOTALES_PERSONAS.sql:93`). Es `F2-02`.
+2. La rama de `VE` de `Portafolio_Nuevo` lleva **35 `cod_suscriptor` literales**
+   enumerados. Se copian uno a uno.
 
 ### Fase 3 — Ubicaciones (7 archivos, 3.042 líneas)
 
