@@ -2,7 +2,8 @@
 # banco.sh -- replica en local el job de Jenkins, sobre PostgreSQL 16.
 #
 # Ejecuta los tres deploy.par en orden (strct -> pgm -> dt), archivo a archivo,
-# que es exactamente lo que hace el pipeline. Lo que gana: Redshift NO compila
+# y desde SLCOPRBA-1355 tambien los rollback.par y el ciclo controlado
+# completo. Lo que gana: Redshift NO compila
 # el cuerpo de un procedimiento al crearlo -- los errores salen en la primera
 # invocacion -- y Postgres SI. Un verde aqui NO es una certificacion; ver
 # README.md.
@@ -10,6 +11,13 @@
 #   ./banco.sh init                arranca el cluster, shims y stub
 #   ./banco.sh fase strct|pgm|dt   una fase
 #   ./banco.sh todo                las tres
+#   ./banco.sh rollback <fase>     corre rollback.par (el reverso)
+#   ./banco.sh ciclo <fase>        el ciclo de Jenkins entero:
+#                                  PRECHECK -> DDL_1 -> DPLY -> RLLBCK_FINAL
+#                                  -> DDL_3 -> compare -> DPLY. Es el unico
+#                                  modo que caza un rollback asimetrico
+#                                  ([REDSHIFT:335], job QA #122) o uno que
+#                                  aborta (2BP01, job DEV #422)
 #   ./banco.sh foto <tag>          guarda el estado como plantilla
 #   ./banco.sh desde <tag>         restaura y sigue (re-correr rapido)
 #   ./banco.sh psql                consola
@@ -168,8 +176,14 @@ paq_de() {
 # Transpila y ejecuta un archivo. Devuelve 0 si corrio limpio.
 corre_archivo() {
   local fase="$1" repo="$2" entrada="$3" parar="$4" anota="${5:-1}"
-  local orig; orig="$(paq_de "$repo")/SQL/$entrada"
+  # Sexto parametro: la carpeta de origen. SQL/ es el deploy; RevSQL/ es el
+  # reverso, que hasta SLCOPRBA-1355 el banco NO CORRIA NUNCA. Ese fue el
+  # agujero por el que pasaron el QA #122 y el DEV #422: los dos murieron en
+  # un stage de rollback que aqui no existia.
+  local carpeta="${6:-SQL}"
+  local orig; orig="$(paq_de "$repo")/$carpeta/$entrada"
   local dest="$OUT/$fase/$entrada"
+  [ "$carpeta" = SQL ] || dest="$OUT/$fase/rev/$entrada"
   mkdir -p "$(dirname "$dest")"
   if ! python3 -I "$BANCO/transpila.py" "$orig" "$dest" 2>>"$OUT/transpila.log"; then
     printf '%s\t%s\t-\tTRANSPILA\tHUECO_BANCO\tel transpilador rechazo el archivo\n' \
@@ -203,7 +217,9 @@ corre_archivo() {
   if [ -n "${BANCO_N:-}" ] && [ "$BANCO_N" != 1000 ]; then
     sed -i -E "s/\bn\.i < 1000\b/n.i < $BANCO_N/g" "$dest"
   fi
-  local log="$OUT/$fase/$entrada.log"
+  # El log cuelga del destino, no de la fase: si no, el reverso releeria
+  # el log del DPLY anterior y reportaria fallos que no son suyos.
+  local log="$dest.log"
   "${PSQL[@]}" -d "$BD" -v ON_ERROR_STOP="$parar" --echo-errors \
        -f "$dest" > "$log" 2>&1
   local rc=$?
@@ -327,11 +343,147 @@ cmd_desde() { sql postgres "DROP DATABASE IF EXISTS $BD;" >/dev/null 2>&1
                 echo -e "  ${R}     ${O} Corre './banco.sh fase pgm' y vuelve a tomar la foto."
               fi; }
 
+# ------------------------------------------------------------------
+# EL REVERSO Y EL CICLO CONTROLADO: el QUINTO PUNTO CIEGO del banco.
+#
+# Hasta SLCOPRBA-1355 el banco corria deploy.par y nada mas. El pipeline de
+# Jenkins corre OTRA COSA:
+#   RLLBCK_PRECHECK -> DDL_1 -> DPLY -> DDL_2 -> RLLBCK_FINAL -> DDL_3
+#   -> compare -> DPLY
+# o sea que el rollback se ejecuta DOS VECES y el esquema se fotografia tres.
+# Los dos ultimos builds rojos murieron ahi y el banco no vio ninguno:
+#   QA/DATABASE #122  [REDSHIFT:335]  DDL_1 != DDL_3: objetos sin reverso.
+#   DEV/DATABASE #422 [REDSHIFT:112]  2BP01 en RLLBCK_FINAL: DROP SCHEMA
+#                                     bdm_stage con objetos de pgm dentro.
+#
+# EL #422 SE REPRODUCE AQUI, y es lo que justifica el modo: despues de
+# 'fase pgm' el esquema bdm_stage tiene los tres wrappers GEO, de modo que
+# Postgres aborta el DROP SCHEMA igual que Redshift. El #122 se reproduce por
+# el diff de catalogo.
+#
+# LO QUE SIGUE SIN VERSE, y hay que decirlo: 'DROP TABLE IF EXISTS x.y' con el
+# ESQUEMA ausente es 3F000 en Redshift y en Postgres solo un NOTICE. Ese caso
+# -- el otro fallo del #122 -- es un punto ciego mas, y por eso las guardas
+# CREATE SCHEMA IF NOT EXISTS de RevSQL/ se sostienen en la lectura del log de
+# Jenkins, no en este banco.
+# ------------------------------------------------------------------
+rev_malos=0
+cmd_rollback() {
+  local fase="$1" parar="${2:-0}"
+  local repo; repo="$(repo_de "$fase")"
+  local paq; paq="$(paq_de "$repo")"
+  mkdir -p "$OUT/$fase/rev"
+  local n=0 malos=0
+  while read -r entrada; do
+    [ -z "$entrada" ] && continue
+    n=$((n+1))
+    # ON_ERROR_STOP=0 SIEMPRE, y no es laxitud: las sentencias del hueco
+    # NO FALLAN en Redshift, asi que cortar el archivo ahi deja sin ejecutar
+    # las de abajo y arrastra fallos en cascada que el pipeline no tiene. Es
+    # justo lo que paso con RevSQL/01: su DROP TABLE insumo_direccion solo es
+    # un no-op porque RevSQL/04 ya borro la vista homonima, y al cortarse 04
+    # en su linea 5 la vista seguia en pie. Quien decide abortar la etapa es
+    # el clasificador de abajo, no psql.
+    if corre_archivo "$fase" "$repo" "$entrada" 0 0 RevSQL; then
+      printf "  ${V}ok${O}   %s\n" "$entrada"
+    else
+      # CLASIFICACION, Y ES LO QUE HACE EL MODO UTIL EN VEZ DE RUIDOSO.
+      # 'cannot drop table|view X because other objects depend on it' es un
+      # falso positivo del banco: nuestras vistas van WITH NO SCHEMA BINDING y
+      # en Redshift NO crean dependencia -- por eso existe la clausula. La
+      # prueba es el log del job DEV/DATABASE #422: de los 37 archivos del
+      # precheck fallo UNO, el 00, y los otros 36 -- estos seis incluidos --
+      # corrieron limpios en Redshift.
+      # EL CASO DEL ESQUEMA NO SE PERDONA: ahi los dos motores coinciden, y es
+      # exactamente el 2BP01 que tumbo ese build.
+      local err; err=$(grep -m1 'ERROR:' "$OUT/$fase/rev/$entrada.log" 2>/dev/null)
+      if printf '%s' "$err" | grep -qiE 'cannot drop (table|view) .* because other objects depend'; then
+        printf "  ${A}HUECO${O} %s  ${A}(dependencia que Redshift no tiene: NO SCHEMA BINDING)${O}\n" "$entrada"
+      else
+        malos=$((malos+1))
+        printf "  ${R}FALLA${O} %s\n" "$entrada"
+        grep -m2 'ERROR:' "$OUT/$fase/rev/$entrada.log" 2>/dev/null \
+          | sed -n 's|^psql:[^:]*:\([0-9]*\): ERROR:  |    linea \1: |p'
+        [ "$parar" = 1 ] && { falla=1; return 1; }
+      fi
+    fi
+  done < "$paq/rollback.par"
+  echo "  $n archivos, $malos con error"
+  rev_malos="$malos"
+  [ "$malos" -gt 0 ] && [ "$parar" = 1 ] && falla=1
+  return 0
+}
+
+# La foto del esquema, con el mismo grano que el comparador del pipeline:
+# esquema, tabla, columna y tipo, mas las rutinas. No mira datos.
+foto_ddl() {
+  "${PSQL[@]}" -d "$BD" -At -c "
+    SELECT 'SCHEMA|'||nspname FROM pg_namespace
+     WHERE nspname IN ('bdm_datos','bdm_tempo','bdm_stage')
+    UNION ALL
+    SELECT 'COLUMN|'||table_schema||'|'||table_name||'|'||column_name
+           ||'|'||data_type
+      FROM information_schema.columns
+     WHERE table_schema IN ('bdm_datos','bdm_tempo','bdm_stage')
+    UNION ALL
+    SELECT 'ROUTINE|'||n.nspname||'|'||p.proname
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname IN ('bdm_datos','bdm_tempo','bdm_stage')
+    ORDER BY 1" | sort
+}
+
+cmd_ciclo() {
+  local fase="$1"; shift
+  echo -e "${A}=== ciclo controlado sobre $fase (replica del job de Jenkins) ===${O}"
+  echo -e "${A}[1/6] RLLBCK_PRECHECK${O}  (no para en error, como catchError)"
+  cmd_rollback "$fase" 0
+  echo -e "${A}[2/6] DDL_1${O}"
+  foto_ddl > "$OUT/ddl_1.txt"; echo "  $(wc -l < "$OUT/ddl_1.txt") entradas"
+  echo -e "${A}[3/6] DPLY${O}"
+  # No se corta si el DPLY deja archivos en rojo: en el banco strct arrastra
+  # dos fallos de la misma familia NO SCHEMA BINDING (01_ddl_unificacion_
+  # direccion y 02_vistas_insumo_edf_views) y aun asi deja los 121 objetos en
+  # pie. Cortar aqui dejaria el paso que de verdad importa -- el compare --
+  # sin correr nunca.
+  if ! cmd_fase "$fase" "$@"; then
+    echo -e "  ${A}AVISO${O}: el DPLY dejo archivos en rojo; si son del hueco de"
+    echo -e "  ${A}     ${O} Postgres el compare sigue valiendo, si no, leelo con pinzas"
+  fi
+  foto_ddl > "$OUT/ddl_2.txt"
+  echo -e "${A}[4/6] RLLBCK_FINAL${O}  (PARA en error: aqui murio el #422)"
+  cmd_rollback "$fase" 1 || return 1
+  echo -e "${A}[5/6] DDL_3${O}"
+  foto_ddl > "$OUT/ddl_3.txt"; echo "  $(wc -l < "$OUT/ddl_3.txt") entradas"
+  echo -e "${A}[6/6] compare DDL_1 vs DDL_3${O}"
+  local simetrico=1
+  if diff -u "$OUT/ddl_1.txt" "$OUT/ddl_3.txt" > "$OUT/ddl_diff.txt"; then
+    echo -e "  ${V}OK${O}   sin diferencias: el rollback es simetrico"
+  else
+    simetrico=0; falla=1
+    echo -e "  ${R}FALLA${O} [REDSHIFT:335] el rollback no revierte todo:"
+    grep -E '^[+-][^+-]' "$OUT/ddl_diff.txt" | head -20 | sed 's|^|        |'
+    echo "        detalle en out/ddl_diff.txt"
+  fi
+  echo -e "${A}[+] DPLY de vuelta${O}  (el pipeline tambien redespliega)"
+  cmd_fase "$fase" "$@"
+  # El veredicto va al final y aparte, porque el codigo de salida lo tine el
+  # redespliegue: en strct arrastra dos fallos del hueco de Postgres y daria
+  # rc=1 sobre un ciclo verde.
+  echo
+  if [ "$simetrico" = 1 ] && [ "$rev_malos" = 0 ]; then
+    echo -e "${V}CICLO VERDE${O} sobre $fase: RLLBCK_FINAL sin errores reales y DDL_1 == DDL_3"
+  else
+    echo -e "${R}CICLO ROJO${O} sobre $fase: rollback con $rev_malos error(es), simetrico=$simetrico"
+  fi
+}
+
 case "${1:-}" in
   init)   shift; cmd_init "${1:-}";;
   fase)   shift; : > "$OUT/errores.tsv"; cmd_fase "$@";;
   todo)   shift; cmd_init nueva; : > "$OUT/errores.tsv"
           cmd_fase strct "$@"; cmd_fase pgm "$@"; cmd_fase dt "$@";;
+  rollback) shift; : > "$OUT/errores.tsv"; cmd_rollback "$1" "${2:-0}";;
+  ciclo)  shift; : > "$OUT/errores.tsv"; cmd_ciclo "$@";;
   foto)   cmd_foto "$2";;
   desde)  cmd_desde "$2";;
   psql)   shift; exec "${PSQL[@]}" -d "$BD" "$@";;

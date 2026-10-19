@@ -73,6 +73,11 @@ verde local puede caer igual en Jenkins:
   columna de la lista del `SELECT` (job #315).
 - aqui el tipo de un `UNION ALL` se negocia entre ramas; en Redshift lo fija el
   `CAST` de la primera.
+- aqui `DROP TABLE IF EXISTS x.y` con el **esquema** ausente es un simple
+  NOTICE; en Redshift es `3F000 schema "x" does not exist` -- el `IF EXISTS`
+  cubre la tabla, no el esquema. Tumbo el `RLLBCK_PRECHECK` del job
+  QA/DATABASE #122 y por eso `RevSQL/` lleva guardas
+  `CREATE SCHEMA IF NOT EXISTS bdm_stage;`, que el banco **no puede** validar.
 
 **Y es mas ESTRICTO en tres**, que producen ruido que NO son hallazgos:
 
@@ -86,6 +91,37 @@ verde local puede caer igual en Jenkins:
 - un `CALL` que falla hace rollback completo; en Redshift, `NONATOMIC`, no.
   O sea: el staging desaparece tras un fallo y no se puede hacer la autopsia
   en caliente.
+
+## El ciclo controlado: `./banco.sh ciclo <fase>`
+
+Hasta SLCOPRBA-1355 el banco corria `deploy.par` **y nada mas**, de modo que
+los dos stages de rollback del pipeline no tenian prueba local. Ahi murieron
+los dos ultimos builds rojos:
+
+| Job | Codigo | Causa |
+|---|---|---|
+| QA/DATABASE #122 | `[REDSHIFT:335]` | `DDL_1 != DDL_3`: objetos que el deploy crea y el rollback no borra |
+| DEV/DATABASE #422 | `[REDSHIFT:112]` | `2BP01` en `RLLBCK_FINAL`: un `DROP SCHEMA bdm_stage` con objetos de `pgm` dentro |
+
+El modo `ciclo` corre la secuencia entera -- `PRECHECK -> DDL_1 -> DPLY ->
+RLLBCK_FINAL -> DDL_3 -> compare -> DPLY` -- y cierra con `CICLO VERDE` o
+`CICLO ROJO`. **Reproduce el #422 literalmente, pero solo si `pgm` esta
+desplegado**: son sus tres wrappers GEO los que dejan `bdm_stage` no vacio.
+
+```
+./banco.sh init nueva && ./banco.sh fase strct && ./banco.sh fase pgm
+./banco.sh ciclo strct
+```
+
+Clasifica los errores del reverso en dos clases y eso es lo que lo hace
+usable: `cannot drop table|view ... because other objects depend on it` sale
+como **HUECO** -- seis archivos, y en Redshift no fallan por el enlace tardio,
+como prueba que en el precheck del #422 fallara UNO de 37 --, mientras que
+cualquier otro, el `cannot drop schema` incluido, sale como **FALLA**.
+
+El reverso se corre con `ON_ERROR_STOP=0` a proposito: cortar un archivo en su
+sentencia del hueco deja sin ejecutar las de abajo y arrastra fallos en cascada
+que el pipeline no tiene.
 
 Dos divergencias mas, deliberadas y anotadas:
 
