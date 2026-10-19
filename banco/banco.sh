@@ -451,7 +451,19 @@ cmd_ciclo() {
   fi
   foto_ddl > "$OUT/ddl_2.txt"
   echo -e "${A}[4/6] RLLBCK_FINAL${O}  (PARA en error: aqui murio el #422)"
-  cmd_rollback "$fase" 1 || return 1
+  # SI ESTO FALLA, EL CICLO SE CORTA Y LA BASE QUEDA A MEDIO REVERTIR, igual
+  # que el pipeline deja DEV cuando el RLLBCK_FINAL muere. El banco tiene que
+  # DECIRLO y nombrar la reposicion: sin este aviso uno vuelve a la bateria y
+  # se encuentra con "relation bdm_datos.X does not exist" sin saber por que.
+  if ! cmd_rollback "$fase" 1; then
+    echo
+    echo -e "  ${R}CICLO CORTADO EN EL ROLLBACK${O}: la base queda POST-ROLLBACK,"
+    echo -e "  sin los objetos de la fase $fase. No es un defecto del banco: es"
+    echo -e "  lo que hace el pipeline cuando el RLLBCK_FINAL muere."
+    echo -e "  Para reponerla:  ./banco.sh fase $fase --sigue"
+    echo -e "  Y si la fase era strct, tambien:  ./banco.sh fase pgm --sigue"
+    return 1
+  fi
   echo -e "${A}[5/6] DDL_3${O}"
   foto_ddl > "$OUT/ddl_3.txt"; echo "  $(wc -l < "$OUT/ddl_3.txt") entradas"
   echo -e "${A}[6/6] compare DDL_1 vs DDL_3${O}"
