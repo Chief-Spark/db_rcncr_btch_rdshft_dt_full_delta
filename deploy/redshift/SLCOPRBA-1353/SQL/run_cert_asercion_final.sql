@@ -11,10 +11,16 @@
 -- tenga ya impresa toda la evidencia cuando el error aparezca.
 --
 -- DOS LLAMADAS Y NO UN 'TODO', que es la parte que conviene no "simplificar".
--- 'TODO' encenderia tambien Ordenamiento, cuyo tablero acaba de nacer y
--- arrastra defectos reales ya identificados: el job quedaria en rojo sin
--- informacion nueva. Encender Ordenamiento es una decision aparte y se hace
--- anadiendo su CALL aqui, en cuanto esos defectos esten corregidos.
+-- 'TODO' encenderia tambien Ordenamiento, y con dos CALL explicitos se lee de
+-- un golpe que alcances estan activos.
+--
+-- POR QUE ORDENAMIENTO SIGUE FUERA, Y YA NO ES LO QUE AQUI DECIA. Este parrafo
+-- decia que su tablero "acaba de nacer y arrastra defectos reales ya
+-- identificados". Esos defectos estan corregidos y el tablero da cero FAILED
+-- en las tres fases, con las cuatro fases portadas. Lo que falta es lo mismo
+-- que faltaba a GEO y a Novedades: haber corrido verde en Redshift real. Los
+-- 217 PASSED son del banco, que es PostgreSQL y no certifica. En cuanto el job
+-- DEV/DATABASE salga verde se anade aqui su CALL, en el commit siguiente.
 --
 -- NOVEDADES entra hoy (SLCOPRBA-1355) por el mismo criterio que GEO: ya
 -- corrio verde en Redshift real -- job DEV/DATABASE #409, los quince
