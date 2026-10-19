@@ -877,3 +877,71 @@ SELECT
   7001,
   DATEADD(month, -15, CURRENT_DATE)
 FROM bdm_stage.mock_numeros n WHERE n.i < 1000;
+
+-- ============================================================
+-- ARQ 97 y 98 -- FASE 3: la direccion que cambia y la que no
+--
+-- QUE PRUEBAN. F3-05 pide que una direccion nueva entre en
+-- ubicacion_atributo_hash, y F3-06 que un cambio quede registrado sin tocar
+-- la fila anterior. Hacen falta LOS DOS arquetipos: con solo el que cambia no
+-- se puede distinguir "registro el cambio" de "reinserta en cada corrida", y
+-- con solo el que no cambia no se prueba que detecte nada.
+--
+--   ARQ 97 -> a su direccion le cambia el texto antes del DELTA2
+--             (el paso de mutacion del e2e). Hash nuevo -> SEGUNDA fila.
+--   ARQ 98 -> no le cambia nada nunca. Una sola fila en las cuatro corridas.
+--
+-- LA FECHA ES 2026-03-01, EL WATERMARK, Y ES LO CONTRARIO DEL ARQ 96.
+-- El predicado del alcance es inclusivo, asi que los dos entran en TODAS las
+-- corridas, que es lo que hace falta para que el hash se recalcule cada vez.
+-- El ARQ 96 hace justo lo opuesto a proposito: 2026-01-15 para quedarse
+-- fuera. Los tres juntos cubren las dos caras de la ventana.
+--
+-- Y EL CAMBIO TIENE QUE SER DEL TEXTO, NO DE LA FECHA. Mover la fecha
+-- sacaria a la persona de la ventana o la metria, que es lo que mide F1-04;
+-- aqui lo que se mide es que el HASH reaccione a un atributo. El texto entra
+-- en el concatena como primera columna (PRO_ORD_CONCAT_DIRECCIONES:108).
+--
+-- UNA SOLA DIRECCION POR PERSONA, igual que el ARQ 96 y por el mismo motivo:
+-- con dos se formaria grupo de empate en DIR y moveria grupos_con_empate.
+-- ============================================================
+INSERT INTO bdm_stage.relacion_persona_ubicacion (
+  cod_dw_persona_ubic, id_buro_persona, cod_pin_persona, cod_dw_ubic,
+  cod_dw_direccion_fisica, cod_dw_tipo_ubicacion_dir, ind_unificacion,
+  orden_prioridad, fecha_relacion_persona_ubicaci, lote, cod_tipo_ident_fte
+)
+SELECT
+  (a.base + n.i) * 10 + 1, a.base + n.i, a.base + n.i,
+  (a.base + n.i) * 10 + 1, (a.base + n.i) * 10 + 1,
+  1,                                  -- RES
+  NULL, 1,
+  CAST('2026-03-01' AS DATE),         -- el Watermark: dentro, siempre
+  1356301,
+  -- El ARQ 98 va con tipo de identificacion NIT para que tipo_persona salga
+  -- JURIDICA y F3-03 no mida una sola rama del CASE.
+  CASE WHEN a.base = 9980000 THEN '2' ELSE '1' END
+FROM      (SELECT 9970000 AS base UNION ALL SELECT 9980000) a
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+INSERT INTO bdm_stage.ubicacion_estandarizada (
+  cod_dw_ubic, texto_ubicacion, cod_dw_ciudad, municipio, departamento,
+  latitud, longitud, tipo_ubicacion
+)
+SELECT
+  (a.base + n.i) * 10 + 1,
+  CAST('ORD ARQ ' || CAST(a.base AS VARCHAR) || ' P' || CAST(n.i AS VARCHAR)
+       || ' TEXTO ORIGINAL' AS VARCHAR(500)),
+  11001, 'BOGOTA', 'CUNDINAMARCA', NULL, NULL, NULL
+FROM      (SELECT 9970000 AS base UNION ALL SELECT 9980000) a
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;
+
+INSERT INTO bdm_stage.reporte_relacion_persona_ubica (
+  cod_dw_persona_ubic, id_buro_suscriptor, fecha_reporte
+)
+SELECT
+  (a.base + n.i) * 10 + 1, 7001, DATEADD(month, -15, CURRENT_DATE)
+FROM      (SELECT 9970000 AS base UNION ALL SELECT 9980000) a
+CROSS JOIN bdm_stage.mock_numeros n
+WHERE n.i < 1000;

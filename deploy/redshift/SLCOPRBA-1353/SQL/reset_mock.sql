@@ -69,6 +69,11 @@ TRUNCATE TABLE bdm_stage.mock_ord_control;
 -- SLCOPRBA-1355: el censo de alcance de la Fase 1. Entra aqui en el MISMO
 -- commit que su DDL, que es la regla que dejo el job #412.
 TRUNCATE TABLE bdm_stage.mock_ord_alcance_censo;
+-- SLCOPRBA-1355: el hash de atributos de la Fase 3. Sin truncarlo, la segunda
+-- pasada del pipeline encontraria los hash de la primera, el anti-join no
+-- veria ninguna direccion como nueva y F3-05 saldria en cero. Misma regla del
+-- job #412.
+TRUNCATE TABLE bdm_datos.ubicacion_atributo_hash_mock;
 TRUNCATE TABLE bdm_stage.mock_ord_ca_result;
 
 

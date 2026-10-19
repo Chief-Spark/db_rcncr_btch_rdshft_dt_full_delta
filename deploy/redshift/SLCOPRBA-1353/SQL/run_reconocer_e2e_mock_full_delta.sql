@@ -65,6 +65,11 @@ TRUNCATE TABLE bdm_stage.mock_ord_control;
 -- SLCOPRBA-1355: el censo de alcance de la Fase 1. Entra aqui en el MISMO
 -- commit que su DDL, que es la regla que dejo el job #412.
 TRUNCATE TABLE bdm_stage.mock_ord_alcance_censo;
+-- SLCOPRBA-1355: el hash de atributos de la Fase 3. Sin truncarlo, la segunda
+-- pasada del pipeline encontraria los hash de la primera, el anti-join no
+-- veria ninguna direccion como nueva y F3-05 saldria en cero. Misma regla del
+-- job #412.
+TRUNCATE TABLE bdm_datos.ubicacion_atributo_hash_mock;
 TRUNCATE TABLE bdm_stage.mock_ord_ca_result;
 
 -- Novedades (P0035): control, tablas finales, contratos de etapa y tablero.
@@ -225,6 +230,24 @@ SELECT
 FROM (SELECT 21 AS arq UNION ALL SELECT 22) a
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 100;
+
+-- ------------------------------------------------------------
+-- (3b) MUTACION DE LA FASE 3. Al ARQ 97 le cambia el TEXTO de su direccion;
+-- al ARQ 98 no le cambia nada. El hash del 97 tiene que moverse y dejar una
+-- SEGUNDA fila en ubicacion_atributo_hash_mock; el del 98, quedarse en una.
+-- Sin estas dos lineas, F3-06 no tendria con que distinguir "registro el
+-- cambio" de "reinserta en cada corrida".
+--
+-- SE CAMBIA EL TEXTO Y NO LA FECHA a proposito: la fecha decide si la persona
+-- entra a la ventana, que es lo que mide F1-04; aqui lo que se mide es que el
+-- hash reaccione a un ATRIBUTO. Los dos arquetipos estan sembrados en el
+-- Watermark, de modo que entran en todas las corridas pase lo que pase.
+--
+-- WHERE explicito y acotado a la banda [REDSHIFT:232].
+-- ------------------------------------------------------------
+UPDATE bdm_stage.ubicacion_estandarizada
+   SET texto_ubicacion = REPLACE(texto_ubicacion, 'TEXTO ORIGINAL', 'TEXTO MUTADO')
+ WHERE cod_dw_ubic BETWEEN 99700000 AND 99709999;
 
 -- ------------------------------------------------------------
 -- (4) DELTA sobre datos MUTADOS. Debe producir exactamente 200 filas nuevas,
