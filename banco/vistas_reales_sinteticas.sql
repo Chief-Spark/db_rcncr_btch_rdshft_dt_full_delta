@@ -39,7 +39,8 @@ INSERT INTO edf_views.xpm_location
   (507, 9008, '',  '890000007', '1772323200000', '1', '');
 
 -- Los telefonos de suscriptor llegan como en EDF: 12 digitos con ceros a la
--- izquierda (C22). Los de la fuente 6, sin relleno (C18).
+-- izquierda (C22). Los de la fuente 6, sin relleno (C18). El segundo 4 de P1
+-- es un celular reportado como Residence Telephone (C23).
 INSERT INTO edf_views.xpm_location_val_contactinformations
   (id, "index", "location.val.contactinformations.val.contacttype",
    "location.val.contactinformations.val.standardizedtextoubicacion",
@@ -55,6 +56,7 @@ INSERT INTO edf_views.xpm_location_val_contactinformations
   (9001, '3', '4',  NULL,             '006041234567',   NULL,       NULL,   'MEDELLIN', NULL,     '1772323200000'),
   (9002, '0', '8',  'KR 50 # 30 - 10','KR 50 30 10',    '05001000', NULL,   'MEDELLIN', NULL,     '1772323200000'),
   (9002, '1', '9',  NULL,             '003001234567',   NULL,       NULL,   NULL,       NULL,     '1772323200000'),
+  (9002, '2', '4',  NULL,             '003157778899',   NULL,       NULL,   NULL,       NULL,     '1772323200000'),
   (9003, '0', '8',  'CL 10 # 5 - 20', 'CALLE 10 5-20',  '05001000', NULL,   'MEDELLIN', NULL,     '1772323200000'),
   (9004, '0', '8',  'CL 1 # 1 - 1',   'CL 1 1 1',       '11001000', NULL,   'BOGOTA',   NULL,     '1772323200000'),
   (9004, '1', '4',  NULL,             '006011111111',   NULL,       NULL,   NULL,       NULL,     '1772323200000'),
@@ -94,13 +96,14 @@ SELECT cod_dw_ubic, texto_ubicacion, cod_dw_ciudad, cod_dw_municipio,
        COUNT(*) OVER (PARTITION BY cod_dw_ubic) AS filas_por_lugar
   FROM bdm_tempo.v_xpm_ubicacion_estandarizada ORDER BY 2;
 -- 3. Canales: telefonos sin ceros de relleno; el 6 reparte 3115556677 y
---    3101234567 a CEL y 6042223344 a TEL; el 13 (3209998877) va a CEL y el 14
+--    3101234567 a CEL y 6042223344 a TEL; el 4 con forma de celular
+--    (3157778899) va a CEL; el 13 (3209998877) va a CEL y el 14
 --    a EMA; el 11 vacio no aparece; nada de P4; P5 una sola vez con su
 --    suscriptor propio.
 SELECT contact_type, canal, valor_contacto, cod_dw_persona_ubic, id_buro_suscriptor
   FROM bdm_tempo.v_xpm_contacto_canal ORDER BY canal, valor_contacto;
 -- 4. TEL: 6041234567, 6012222222 y 6042223344, y ninguna direccion.
 SELECT direccion_fisica, descripcion_gestion FROM bdm_datos.insumo_telefono ORDER BY 1;
--- 5. CEL: cuatro celulares con su operador del catalogo real (300, 310, 311,
---    320).
+-- 5. CEL: cinco celulares con su operador del catalogo real (300, 310, 311,
+--    315, 320).
 SELECT celular, operador FROM bdm_datos.insumo_celular ORDER BY 1;

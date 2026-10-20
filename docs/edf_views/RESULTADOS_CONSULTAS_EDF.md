@@ -355,8 +355,8 @@ Entregado por el productor ("Official catalog of contactType"; los campos se lle
 | 1 | Residence Address | DIR | RES | sí (texto con letras, C18) |
 | 2 | Labor Address | DIR | LAB | sí |
 | 3 | Mailing Address | DIR | CRR | sí |
-| 4 | Residence Telephone | TEL | — | sí (fijo de 12 dígitos, C22) |
-| 5 | Labor Telephone | TEL | — | sí |
+| 4 | Residence Telephone | TEL o CEL por la forma | — | sí; el 10-12 % es celular (C23) |
+| 5 | Labor Telephone | TEL o CEL por la forma | — | sí; el 7-11 % es celular (C23) |
 | 6 | Business Telephone | TEL o CEL por la forma | — | sí: 78 % con forma de celular (C18). "Business" es el uso, no la tecnología |
 | 7 | Legal Address-c | DIR | **JUD** (antes `'DIR'`, inventado) | sin filas en DEV |
 | 8 | Business Address-c | DIR | **CCL** (antes CRR) | sí: `standardizedtipo` VIA, RURAL… |
@@ -394,7 +394,7 @@ Celular = 10 dígitos que empiezan por 3. Fijo = de 7 a 10 dígitos que no empie
 
 **Lectura:**
 - **El 9 es celular en el 100 %** en los dos ambientes. Confirma la normalización de D-EDF-10.
-- **Uno de cada diez fijos 4 y 5 es un celular:** 866 en DEV y 11.128 en QA. Hoy se van a TEL.
+- **Uno de cada diez fijos 4 y 5 es un celular:** 866 en DEV y 11.128 en QA. Iban a TEL. **Desde el 2026-10-20 van a CEL**, con la misma regla de forma del 6 y el 13 (OK del usuario; D-EDF-11).
 - **El 6 cuadra con C18** en celulares. Los fijos suben porque C23 cuenta de 7 a 10 dígitos y no solo de 7 a 8.
 - **El 11 viene vacío** en el 99 % (DEV) y el 99,9 % (QA): no leerlo es correcto.
 - Una parte del 4 y del 5 no tiene ninguna de las dos formas: 8-18 %, más en QA. Se queda en TEL como hoy, y la regla de `descripcion_gestion` del SP marca `NO VALIDA` lo que tiene menos de 7 dígitos.
