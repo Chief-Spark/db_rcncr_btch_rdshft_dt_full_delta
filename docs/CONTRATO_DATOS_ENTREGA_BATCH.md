@@ -51,17 +51,18 @@ Evidencia AS-IS en `docs/legado_teradata/`: `SPS` = `batch/Sps_Batch.sql`, `CE12
 | Formatos de la salida real: fecha `dd/mm/aaaa`, DANE de 8 dígitos, tipo multivalor `RES - LAB - CRR` | `legado_teradata/salida_real_esencial/` | el formato final lo aplica el Batch; entregamos `DATE` y códigos en texto |
 
 
-### Qué `contacttype` alimenta cada cubo (medido en DEV y QA, 2026-10-20)
+### Qué `contacttype` alimenta cada cubo (catálogo oficial, 2026-10-20)
 
-Lo decide la columna `canal` de `v_xpm_contacto_canal`. Evidencia en `edf_views/RESULTADOS_CONSULTAS_EDF.md` §14-§15.
+Lo decide la columna `canal` de `v_xpm_contacto_canal`. El catálogo oficial de `contactType` (`edf_views/RESULTADOS_CONSULTAS_EDF.md` §16) **coincide con lo medido en DEV y QA** (§14-§15).
 
-| Cubo | `contacttype` | Forma del dato | Grado |
-|---|---|---|---|
-| DIRECCION | 1, 2, 3, 7, 8 | texto de dirección; el 8 con `standardizedtipo` VIA, RURAL, MANZANA… | PROBABLE (falta el catálogo; el 8 es CONFIRMADO por su `standardizedtipo`) |
-| TELEFONO | 4, 5 y el 6 sin forma de celular | 12 dígitos rellenados con ceros (4, 5) o limpio (6). **Se entrega sin el relleno** | PROBABLE |
-| CELULAR | 9 y el 6 con forma de celular (10 dígitos que empiezan por 3) | igual: **sin el relleno** | PROBABLE |
-| CORREO | 10 | el 100 % con `@` | CONFIRMADO por la forma |
-| — | 11 | vacío | no se lee |
+| Cubo | `contacttype` (catálogo) | Tipo de dirección | Forma del dato | Grado |
+|---|---|---|---|---|
+| DIRECCION | 1 Residence · 2 Labor · 3 Mailing · 7 Legal-c · 8 Business-c | RES · LAB · CRR · **JUD** · **CCL** | texto de dirección | CONFIRMADO. El 8 iba a CRR y el 7 a un `'DIR'` inventado (D-EDF-06) |
+| TELEFONO | 4 Residence · 5 Labor · 6 Business · 13 Notification, si no tienen forma de celular | — | 12 dígitos rellenados con ceros (4, 5) o limpio (6). **Se entrega sin el relleno** | CONFIRMADO el canal; fijo o celular, por la forma |
+| CELULAR | 9 Mobile; y el 6 y el 13 con forma de celular (10 dígitos que empiezan por 3) | — | igual: **sin el relleno** | CONFIRMADO el 9; el 6 y el 13, por la forma |
+| CORREO | 10 Email · 14 Business Email | — | el 100 % con `@` | CONFIRMADO |
+| — | 11 Fax | — | casi vacío | no se lee: el legado no tiene clase fax (`NOV` 8367-8370) |
+| — | 12 Notification Address | por definir | no aparece en DEV ni QA | no se lee hasta saber su tipo de dirección |
 
 ---
 
@@ -106,7 +107,7 @@ Lo decide la columna `canal` de `v_xpm_contacto_canal`. Evidencia en `edf_views/
 | `Departamento` | `DD_DEPARTA` | departamento | `V_GEOGRAFIA.DESCRIPCION_DEPARTAMENTO` | PROBABLE | `ci.standardizeddepartment` / DANE State Code | OK |
 | `Cod_Dane_Ciudad` | `DD_DAN_CIU` | DANE de 8 dígitos, en texto | `V_GEOGRAFIA.COD_DANE_CIUDAD` | PROBABLE | `ci.standardizeddanecode` con relleno a 8 | CORREGIR (D-EDF-02) |
 | `Cod_Dane_Departamento` | `DD_DAN_DEP` | DANE de 2 dígitos | `V_GEOGRAFIA` | PROBABLE | primeros 2 dígitos del de 8 | DERIVAR |
-| `Tipo` | `DD_TIPO` | tipos del contacto, multivalor `RES - LAB - CRR` | `V_Hom_TipoUbic_Dir_Linea` + la cadena de Agregada (`NOV:5972-5977`) | PROBABLE | `ci.contacttype` | PEDIR el catálogo `contacttype` (D-EDF-06) |
+| `Tipo` | `DD_TIPO` | tipos del contacto, multivalor `RES - LAB - CRR` | `V_Hom_TipoUbic_Dir_Linea` + la cadena de Agregada (`NOV:5972-5977`) | PROBABLE | `ci.contacttype` | DERIVAR: el catálogo oficial ya llegó (1 RES, 2 LAB, 3 CRR, 7 JUD, 8 CCL; D-EDF-06). Falta la cadena multivalor de Agregada |
 | `Zona` | `DD_ZONA` | `URB` / `RUR` | `V_ZONA_UBICACION` + `V_Hom_Zona_Linea` | PROBABLE | — | PEDIR |
 | `Estrato` | `DD_ESTRATO` | `0`-`6` | `V_ESTRATO_DIRECCION` | PROBABLE | `loc.stratum` (del reporte) | CONECTAR |
 | `Barrio` | según plantilla | barrio | `RELACION_UBICAC_ESTANDAR_GEO.URBANIZACION_BARRIO` | PROBABLE | `ci.contactneighborhood` | CONECTAR |

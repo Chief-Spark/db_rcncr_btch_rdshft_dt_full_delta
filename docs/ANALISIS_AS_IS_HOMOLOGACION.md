@@ -153,7 +153,7 @@ Perfil completo en `legado_teradata/salida_real_esencial/`. El original tiene da
 
 | Prio | Catálogo | Bloquea |
 |---|---|---|
-| 1 | Catálogo de `contacttype` (EDF) → tipo y clase | tipo, clase, llave de canal |
+| ✓ | ~~Catálogo de `contacttype`~~ recibido 2026-10-20 (`edf_views/RESULTADOS_CONSULTAS_EDF.md` §16) | — |
 | 1 | `V_Hom_Tip_Ident_Linea` (o equivalencias NH ↔ Teradata) | Agregada vacía; tipo de identificación en 5 dominios |
 | 1 | `V_ACTIVIDAD_ECONO_CIIU` | descripción y versión del CIIU |
 | 1 | Layout real de respuesta de ArcGIS | carga GEO; barrio, localidad, estrato, código postal |

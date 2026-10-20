@@ -6,6 +6,10 @@
 -- reproducen lo medido en C4-C22 en DEV y QA
 -- (docs/edf_views/RESULTADOS_CONSULTAS_EDF.md).
 --
+-- Los tipos de contacto siguen el catalogo OFICIAL de contactType
+-- (RESULTADOS_CONSULTAS_EDF.md seccion 16): 7 Legal y 8 Business Address
+-- dan JUD y CCL; 12 no se lee; 13 Notification Phone y 14 Business Email si.
+--
 -- Uso: ./banco.sh init nueva && fase strct && fase pgm, y luego
 --   ./banco.sh psql -f vistas_reales_sinteticas.sql
 -- Lo esperado esta junto a cada consulta.
@@ -61,9 +65,13 @@ INSERT INTO edf_views.xpm_location_val_contactinformations
   (9006, '2', '11', NULL,             '',               NULL,       NULL,   NULL,       NULL,     '1772323200000'),
   (9007, '0', '8',  'CL 60 # 60 - 60','CL 60 60 60',    NULL,       '11001',NULL,       NULL,     '1772323200000'),
   (9007, '1', '6',  NULL,             '6042223344',     NULL,       NULL,   NULL,       NULL,     '1772323200000'),
+  (9007, '2', '13', NULL,             '3209998877',     NULL,       NULL,   NULL,       NULL,     '1772323200000'),
+  (9007, '3', '14', NULL,             'y@empresa.co',   NULL,       NULL,   NULL,       NULL,     '1772323200000'),
   (9008, '0', '1',  'KR 1 # 2 - 3',   'KR 1 2 3',       NULL,       NULL,   U&'Medell\00EDn', NULL, '1772323200000'),
   (9008, '1', '3',  'CL 7 # 8 - 9',   'CL 7 8 9',       NULL,       NULL,   'MIRAFLORES', U&'Boyac\00E1', '1772323200000'),
-  (9008, '2', '2',  'CL 9 # 9 - 9',   'CL 9 9 9',       NULL,       NULL,   'MIRAFLORES', NULL,   '1772323200000');
+  (9008, '2', '2',  'CL 9 # 9 - 9',   'CL 9 9 9',       NULL,       NULL,   'MIRAFLORES', NULL,   '1772323200000'),
+  (9008, '3', '7',  'CL 5 # 5 - 5',   'CL 5 5 5',       '05001000', NULL,   NULL,       NULL,     '1772323200000'),
+  (9008, '4', '12', 'CL 12 # 12 - 12','CL 12 12 12',    '05001000', NULL,   NULL,       NULL,     '1772323200000');
 
 INSERT INTO edf_views.xpm_counterparties (id, "index", "counterparties.val.counterpartyidnumber") VALUES
   (801, '0', '860000001'),
@@ -76,18 +84,23 @@ INSERT INTO edf_views.xpm_counterparties (id, "index", "counterparties.val.count
 --    para MIRAFLORES de Boyaca; NULL para MIRAFLORES sin departamento (hay
 --    dos) y para BOGOTA de P5... salvo que el nombre unico la resuelva:
 --    BOGOTA si es unico en el catalogo -> 11001000.
-SELECT texto_ubicacion, cod_dw_persona_ubic, cod_dw_ubic, cod_dw_ciudad, bloqueado
+--    Tipo: el 8 da 5 (CCL), el 1/2/3 pasan tal cual y el 7 (CL 5) da 4 (JUD);
+--    el 12 (CL 12) no aparece.
+SELECT texto_ubicacion, cod_dw_persona_ubic, cod_dw_ubic, cod_dw_ciudad, bloqueado,
+       cod_dw_tipo_ubicacion_dir
   FROM bdm_tempo.v_xpm_contacto_direccion ORDER BY 1, 2;
 -- 2. Un lugar por fila; municipio = ciudad / 1000.
 SELECT cod_dw_ubic, texto_ubicacion, cod_dw_ciudad, cod_dw_municipio,
        COUNT(*) OVER (PARTITION BY cod_dw_ubic) AS filas_por_lugar
   FROM bdm_tempo.v_xpm_ubicacion_estandarizada ORDER BY 2;
 -- 3. Canales: telefonos sin ceros de relleno; el 6 reparte 3115556677 y
---    3101234567 a CEL y 6042223344 a TEL; el 11 vacio no aparece; nada de P4;
---    P5 una sola vez con su suscriptor propio.
+--    3101234567 a CEL y 6042223344 a TEL; el 13 (3209998877) va a CEL y el 14
+--    a EMA; el 11 vacio no aparece; nada de P4; P5 una sola vez con su
+--    suscriptor propio.
 SELECT contact_type, canal, valor_contacto, cod_dw_persona_ubic, id_buro_suscriptor
   FROM bdm_tempo.v_xpm_contacto_canal ORDER BY canal, valor_contacto;
 -- 4. TEL: 6041234567, 6012222222 y 6042223344, y ninguna direccion.
 SELECT direccion_fisica, descripcion_gestion FROM bdm_datos.insumo_telefono ORDER BY 1;
--- 5. CEL: tres celulares con su operador del catalogo real (300, 310, 311).
+-- 5. CEL: cuatro celulares con su operador del catalogo real (300, 310, 311,
+--    320).
 SELECT celular, operador FROM bdm_datos.insumo_celular ORDER BY 1;

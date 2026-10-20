@@ -14,6 +14,7 @@ Las consultas se corren en el consumidor DEV (`dba_batch_DEV`), solo en modo lec
 | C21 · forma del valor estandarizado de teléfonos y celulares | 2026-10-20 | §14 |
 | C22 · largo y prefijo de 2 dígitos de los teléfonos de suscriptor | 2026-10-20 | §14 |
 | C18, C19, C20 y C22 repetidas en **QA** | 2026-10-20 | §15 |
+| Catálogo oficial de `contactType` (Experian) y C23 pendiente | 2026-10-20 | §16 |
 
 ## 1. Lo que dice el catálogo
 
@@ -345,11 +346,43 @@ Todos tienen exactamente 12 dígitos y ninguno trae caracteres que no sean dígi
 - **La contraparte de la persona sí parece un suscriptor** (NIT, 64 % con número, cifra del orden de los suscriptores de los reportes). El nivel 2 de la regla de suscriptor se queda.
 - La fuente 6 sigue sin suscriptor ni tipo de cuenta (C20 en QA: 0 de 16.927).
 
+## 16. Catálogo oficial de `contactType` (Experian, 2026-10-20)
+
+Entregado por el productor ("Official catalog of contactType"; los campos se llenan según el tipo de fuente).
+
+| COD | Descripción | Canal en Redshift | Tipo de dirección | ¿Coincide con lo medido? |
+|---|---|---|---|---|
+| 1 | Residence Address | DIR | RES | sí (texto con letras, C18) |
+| 2 | Labor Address | DIR | LAB | sí |
+| 3 | Mailing Address | DIR | CRR | sí |
+| 4 | Residence Telephone | TEL | — | sí (fijo de 12 dígitos, C22) |
+| 5 | Labor Telephone | TEL | — | sí |
+| 6 | Business Telephone | TEL o CEL por la forma | — | sí: 78 % con forma de celular (C18). "Business" es el uso, no la tecnología |
+| 7 | Legal Address-c | DIR | **JUD** (antes `'DIR'`, inventado) | sin filas en DEV |
+| 8 | Business Address-c | DIR | **CCL** (antes CRR) | sí: `standardizedtipo` VIA, RURAL… |
+| 9 | Mobile | CEL | — | sí (C22) |
+| 10 | Email Address | EMA | — | sí (100 % con `@`) |
+| 11 | Fax Number | no se lee | — | sí (casi vacío) |
+| 12 | Notification Address | no se lee | por definir | no aparece |
+| 13 | Notification Phone | TEL o CEL por la forma | — | no aparece |
+| 14 | Business Email | EMA | — | no aparece |
+
+**Lo que corrige:**
+- **El 8 no es correspondencia.** Es la dirección comercial: `CCL` en `Information Recognizer (NH).csv:5`. Es el 91 % de las direcciones de DEV (135.084 de 149.097, §5). Contado como CRR, inflaba la elección del padre en la Regla 1, la característica CRR del scoring DIR y `ES_TIPO_CRR` de Novedades. El legado solo pregunta por RES, LAB y CRR (`P0019_UNIFICACION_111.TPT:94,101`, `NOV` 8375-8382), así que CCL y JUD no dan puntos ni banderas, igual que allí.
+- **El 7 es la dirección legal:** `JUD`, que es HIPÓTESIS por el nombre. Antes caía en el `'DIR'` inventado del catálogo local.
+- **Se leen el 13 y el 14** para que no se pierdan en silencio cuando lleguen.
+- Sin DDL: se usan los códigos que ya tiene `tipo_ubicacion_dir` (4 JUD, 5 CCL; `01_ddl_unificacion_direccion.sql:119-128`).
+
+**Lo que deja abierto:**
+- El tipo de dirección del 12.
+- Si los fijos 4 y 5 traen celulares. Se mide con la **C23**, al final de `consultas_perfilado_edf_2026-10-20.sql`.
+- **Esto NO es lo mismo que el catálogo `Cod_DW_Tipo_Ubic`** (1 Dirección, 2 Teléfono, 3 Correo, 4 Sitio web, 5 Apartado postal, 6 Red social), que también llegó el 2026-10-20. Ese es un catálogo de clases de Teradata: no tiene `Celular` y no es el que lee el código, que usa `Geografica`, `Telefono`, `Celular` y `Mail` (`NOV` 8367-8370).
+
 ## 13. Lo que sigue
 
 1. Correr **C17 a C20** (al final de `consultas_perfilado_edf_2026-10-20.sql`); con ellas se cierran las hipótesis de las brechas 2 a 5.
 2. **Pedir al productor:**
-   - el catálogo de `contacttype` (urgente: brechas 1 y 3);
+   - ~~el catálogo de `contacttype`~~ **recibido el 2026-10-20 (§16)**; queda el tipo de dirección del 12;
    - el de `typeofdata` (fuente);
    - género;
    - `idstatus`;

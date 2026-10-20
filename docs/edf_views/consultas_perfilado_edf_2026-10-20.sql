@@ -237,3 +237,25 @@ SELECT ci."location.val.contactinformations.val.contacttype"::VARCHAR AS contact
    AND ci."location.val.contactinformations.val.contacttype"::VARCHAR IN ('4', '5', '9')
  GROUP BY 1, 2, 3
  ORDER BY 1, 5 DESC;
+
+-- ============================================================
+-- C23 (2026-10-20): cuantos telefonos fijos (4, 5) y cuantos 11/13 traen
+-- forma de celular una vez quitado el relleno de ceros. Solo conteos.
+-- Decide si la regla de forma del 6 se extiende a los demas telefonos.
+-- ============================================================
+SELECT ct AS contacttype,
+       COUNT(*) AS filas,
+       SUM(CASE WHEN LEN(n) = 10 AND LEFT(n, 1) = '3' THEN 1 ELSE 0 END) AS forma_celular,
+       SUM(CASE WHEN LEN(n) BETWEEN 7 AND 10 AND LEFT(n, 1) <> '3' THEN 1 ELSE 0 END) AS forma_fijo,
+       SUM(CASE WHEN n IS NULL THEN 1 ELSE 0 END) AS vacios
+FROM (
+  SELECT NULLIF(TRIM(ci."location.val.contactinformations.val.contacttype"::VARCHAR), '') AS ct,
+         NULLIF(LTRIM(REGEXP_REPLACE(COALESCE(
+           NULLIF(TRIM(ci."location.val.contactinformations.val.contactasreportedstandardized"::VARCHAR), ''),
+           NULLIF(TRIM(ci."location.val.contactinformations.val.contactasreported"::VARCHAR), '')),
+           '[^0-9]', ''), '0'), '') AS n
+  FROM ds_dba_rncr_batch.edf_views.xpm_location_val_contactinformations ci
+) x
+WHERE ct IN ('4', '5', '6', '9', '11', '13')
+GROUP BY 1
+ORDER BY 1;

@@ -218,7 +218,7 @@ Archivo: `dt/docs/CONTRATO_DATOS_ENTREGA_BATCH.md`, con una tabla por cubo y est
 
 | Prio | Catálogo | Bloquea | Sustituto parcial |
 |---|---|---|---|
-| 1 | Catálogo de `contacttype` (EDF) → tipo/clase (RES, LAB, CRR, CCL, JUD, TEL, CEL, EMAIL) | Tipo, clase y llave de canal | — |
+| ✓ | ~~Catálogo de `contacttype`~~ **recibido 2026-10-20** (`edf_views/RESULTADOS_CONSULTAS_EDF.md` §16). Queda el tipo del 12 | — | — |
 | 1 | `V_Hom_Tip_Ident_Linea` (o equivalencias NH↔Teradata) | Agregada vacía, tipo de identificación en 5 dominios | ID Type NH |
 | 1 | `V_ACTIVIDAD_ECONO_CIIU` | Descripción y versión del CIIU (cubo CIIU, Info Básica) | — |
 | 1 | Layout real de respuesta de ArcGIS | Carga GEO; barrio, localidad, estrato, postal | P0006 del legado (30 columnas) |
