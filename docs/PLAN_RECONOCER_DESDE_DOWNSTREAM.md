@@ -1,4 +1,4 @@
-> **ESTADO: PROPUESTA, pendiente de aprobacion.** Solo esta hecho F0 (guardar el legado en `docs/legado_teradata/` y el analisis en `docs/ANALISIS_AS_IS_HOMOLOGACION.md`). Nada de `deploy/redshift/` se ha tocado.
+> **ESTADO: APROBADO por el usuario el 2026-10-20.** Avance por fase en `git log` de la rama `codex/ajustes-sp-reales-batch-en-linea` de los tres repos.
 
 # Plan: Reconocer pensado desde el downstream Batch
 
@@ -32,9 +32,11 @@ Leerlos cambió varias premisas, y el resultado es este plan. **Las columnas tie
 | `V_Operador_Ord_Cel` | Cargar el real. Se anticipan y explican las diferencias en el mock |
 | Guardar el legado | DT público, depurado, con un único push de la rama `codex/…` |
 | Batch zip | Oct_16_2 más `InfoAdicional.txt` del zip anterior |
-| Contactabilidad en EDF | **No está verificado.** Ver la nota abajo |
+| Contactabilidad en EDF | **Verificado: no está en `edf_views`** (C1-C2, 2026-10-20). Se pide al productor; mientras tanto, NULL explícito |
+| Bloqueo | **Provisional:** `blockreason` distinto de vacío y de `'0'` (436 filas). `subscriberblockstatus = 1` se trata como activo hasta que el productor lo explique |
+| RF de Ordenamiento | Ya estaba en el catálogo de criterios. Se incorpora su gobernanza: bitácora de diferencias y versión de Betas (§3b) |
 
-**Contactabilidad: corrección de lo que afirmé antes.** Dije que no existía en EDF y eso **no está comprobado**. La afirmación venía de documentos del repo que solo revisaron las 4 tablas que leemos. El volcado de `svv_all_columns` del 15-oct se usó en una sesión anterior pero **nunca se guardó en el repo**. Se decide cuando tengas las consultas C1 a C3 (sección 9).
+Catálogo, perfiles y decisiones de EDF: `dt/docs/edf_views/` (publicado en la rama `codex`).
 
 ---
 
@@ -151,6 +153,32 @@ flowchart TB
 | 14 | GEO: el slot 5 se usa como lote y como ruta S3; el reenganche mezcla numeración de lotes | wrappers GEO | P0 |
 | 15 | `sp_ordenamiento_ejecucion_edf` está roto; `stg_ord_cta_vector` falta en el censo; el bootstrap difiere entre procesos | ver el plan anterior | P0 |
 
+### 3b. Qué dice el RF de Ordenamiento (`Ordenamiento-CA.pdf`, 8 págs.)
+
+**Los 90 criterios del RF ya están en `strct/20_ddl_cert_criterios_ord.sql`.** El documento no agrega criterios. Lo que sí cambia:
+
+| Tema | El RF dice | Consecuencia para el plan |
+|---|---|---|
+| Ranking | "**ranking por persona y canal**… el algoritmo **no compara canales**" (§2, F4-04, Restricciones) y "cada dato vigente tiene `orden_prioridad` **dentro de su canal**" (CA-F01) | Respalda el **#2 como P0**: `MIN(lugar)` entre canales y el orden asignado a una sola RPU violan el RF, no solo el legado |
+| Persistencia | `orden_prioridad` se escribe en `relacion_persona_ubicacion` (F4-06) | Un valor por RPU. Con la llave `(id,index)` cada RPU pertenece a un solo canal, así que es coherente con el #1 |
+| Gobernanza | Toda diferencia Teradata ↔ Redshift se clasifica como (a) paridad, (b) cambio funcional aprobado o (c) asunto técnico pendiente, y queda en una **bitácora con decisión, fecha y responsable** (G-01..G-03, CA-M02) | **Falta.** Las divergencias viven repartidas en `CLAUDE.md`. Se crea `dt/docs/BITACORA_DIFERENCIAS.md` (F1) |
+| Betas | Cada ejecución registra **qué versión de Betas usó** (G-06) | **Falta.** Se agrega `version_betas` a `ord_control` (F3, DDL) |
+| Sin SQL dinámico | esquemas fijos, sin SQL dinámico (RG-07, CA-T04) | Descarta el staging por corrida con nombres dinámicos. La protección de concurrencia es **rechazar una segunda corrida en proceso** (§8) |
+| Paridad | mismo corte y mismos parámetros que Teradata (G-05, CA-M01) | **Hace falta una muestra de salida Teradata** del mismo corte (ver §5) |
+
+**El RF contradice al código legado en estos puntos.** Ya estaban detectados y el repo siguió el código, pero **ninguno está aprobado formalmente** como pide G-02. Van a la bitácora como tipo (a), paridad con el código, pendientes de aprobación:
+
+| RF | Código legado | Evidencia |
+|---|---|---|
+| F3-06 "los modificados se actualizan" | el `UPDATE` está comentado "por solicitud de Experian" | `FINAL_UBIC_DIRECCIONES.sql:216` |
+| F3-09 "solo cuentas activas ICBDIR" | `ICBDIR` no aparece en **todo** el legado | grep sobre `legado_teradata/` |
+| F3-10 "excluir ubicaciones NO VALIDA" | `NO VALIDA` solo existe en F4 (`Caracteristicas.txt`), no en F1-F3 | grep |
+| F4-TEL-02 "TEL010 = % con coincidencia geográfica" | cuota de la ventana ≤12 sobre `Total_Reportes_12` | `CAR` CR2972-2977 |
+| F4-CEL-03 "CEL014 = tiene POSPAGO" | cuota de la ventana >24 | `CAR` CR2450-2453 (`POSPAGO` no aparece) |
+| F4-EMA-02 "dominio conocido: gmail, hotmail, yahoo, outlook" | **5 dominios**, también `live` | `CAR` CR1091 |
+| F4-CEL-06 "operador no mapeado → valor por defecto funcional" | NULL → categoría 0 | hay que fijarlo como decisión |
+| F1-05 "14 tablas intermedias" / CA-T03 "se eliminan al finalizar **cada fase**" | hoy son 18 y se eliminan al final del ciclo (F3 deja insumos que usa el Scoring) | diferencia técnica (c) |
+
 ---
 
 ## 4. Contrato de datos
@@ -204,6 +232,13 @@ Archivo: `dt/docs/CONTRATO_DATOS_ENTREGA_BATCH.md`, con una tabla por cubo y est
 | 3 | Punto de interés: `V_PUNTO_DE_INTERES_GEO`, `V_TIPO_PUNTO_INTERES`, `V_Hom_Tipo_Pto_Int_Linea`, `PRO_HOMOLOGACION_GEO` | d7 | `geo_distancias` (le falta el nombre del PI) |
 | 3 | Batch: `BATCH2_HOMOLOGACION` (ya lo pides), `V_CATEGORIA_INGRESO/EGRESO`, contenido de `V_TIPO_IDENTIFICACION`, definición de `Vstg_BUROPERS_TMP` | contrato del Batch | — |
 | — | `V_Geografia` y `V_Cod_Entrega_Dato` llegaron **truncados a 1000 filas** | | Divipola para Geografía |
+| 1 | **Muestra de salida Teradata de Ordenamiento** para un mismo corte: distribución agregada de `Orden_Prioridad` por canal y número de RPU con orden, o una llave hasheada | paridad G-05 / CA-M01 | — |
+
+**Actualizado con EDF (2026-10-20, `dt/docs/edf_views/`):**
+- Contactabilidad y gestión **no están** en `edf_views` (verificado): hay que pedirlas.
+- Barrio, localidad, código postal, estrato, web, identificación, expedición, nombres, género, rango de edad, CIIU (principal con descripción y secundarios) y cuentas **sí existen**. Dejan de pedirse `V_ESTRATO_DIRECCION`, `V_JERARQUIA_GEOGRAFICA`, `VU_PERSONA` y el layout GEO para barrio, localidad y postal.
+- Siguen haciendo falta los catálogos de **códigos**: género, `contacttype` y `V_ACTIVIDAD_ECONO_CIIU` para los CIIU secundarios.
+- Bloqueo: **regla provisional** = `blockreason` distinto de vacío y de `'0'`. NIT = código 2 (confirmado con datos).
 
 ---
 
@@ -259,7 +294,8 @@ Se conservan las tablas actuales (`*_control`, `*_control_etapa`, `unif_escenari
 - **Novedades:** `EXCEPTION` y validación de lote y modo.
 - **GEO:** `corrida_id` en `geo_lote_control` (DDL).
 - **Etapa:** columna a `VARCHAR(64)` (DDL).
-- **Concurrencia:** se rechaza abrir una corrida si ya hay otra en proceso.
+- **Concurrencia:** se rechaza abrir una corrida si ya hay otra en proceso. No se aíslan los nombres de staging por corrida, porque el RF prohíbe el SQL dinámico (RG-07).
+- **Betas:** `ord_control` registra qué versión de Betas usó cada corrida (G-06, DDL).
 
 ---
 
@@ -284,7 +320,7 @@ Con C1-C2 preparo las consultas de unicidad, huérfanos y fan-out para `xpm_iden
 | Fase | Entrega | Necesita de ti |
 |---|---|---|
 | **F0** | Guardar el legado + `ANALISIS_AS_IS_HOMOLOGACION.md` + corregir las afirmaciones falsas de `CLAUDE.md`/docs que desmiente el legado. Ejemplos: "el AS-IS solo inserta/actualiza", "ACTECO solo crece", citas `:288/:1721/:4808` equivocadas, dos numeraciones de `Caracteristicas.txt` | — |
-| **F1** | Docs: `CONTRATO_DATOS_ENTREGA_BATCH.md` (con grados) y `PATRON_NOMBRES_SP.md` | — |
+| **F1** | Docs: `CONTRATO_DATOS_ENTREGA_BATCH.md` (con grados), `PATRON_NOMBRES_SP.md` y **`BITACORA_DIFERENCIAS.md`** (G-01..G-03: cada diferencia RF/legado/Redshift con tipo a/b/c, decisión, fecha y responsable; arranca con las 8 de §3b y las 15 de §3) | Aprobación funcional de las diferencias tipo (b) |
 | **F2** | Correcciones P0 sin dependencias externas: #3, #6, #7, #14, #15; cargar el `V_Operador_Ord_Cel` real | — |
 | **F3** | Observabilidad real (sección 8) | OK al DDL |
 | **F4** | Renombrado al patrón (estructural) | — |

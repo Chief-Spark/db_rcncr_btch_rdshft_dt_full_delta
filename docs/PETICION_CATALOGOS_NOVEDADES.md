@@ -3,6 +3,26 @@
 **SLCOPRBA-1355.** Qué falta para que `MAT_INFO_UBICACION` salga completa, por
 qué falta, y qué columna concreta desbloquea cada cosa.
 
+> **CORRECCIÓN 2026-10-20.** Escrito sin el legado de Novedades ni el catálogo
+> real de `edf_views`. Con los dos en el repo (`docs/legado_teradata/`,
+> `docs/edf_views/`), cambian cinco cosas:
+> 1. **`V_Geografia` no "corta en Santander".** El archivo no está ordenado (trae
+>    11 departamentos) y su grano es **centro poblado** (~7.978 códigos), no
+>    municipio. El sustituto es `Dane Divipola Villages Codes (NH).csv`.
+> 2. **`INDICATIVO` sale de `V_TELEFONO_FIJO.COD_AREA`** (`Novedad.sql:7966`), no
+>    de `V_Geografia`.
+> 3. **El universo de Actividad Económica** es `TMP_INBAS_ETAPA_10` cruzado con
+>    `VU_PERSONA_ACTIVIDAD_ECONOMICA` (`:1288-1291`): **todas** las actividades,
+>    no solo la principal.
+> 4. **`Fecha_Matricula` sí está en EDF**:
+>    `xpm_chamberofcommerce."…dateofmercantileregistration"`. Los CIIU
+>    secundarios están en `xpm_personalinformation` y `xpm_chamberofcommerce`.
+> 5. **La tabla de Actividad Económica no "sólo crece"**: `111.BTQ:823` la
+>    vacía en cada corrida y el `ID` se renumera.
+>
+> Detalle: `docs/ANALISIS_AS_IS_HOMOLOGACION.md` y
+> `docs/edf_views/RESULTADOS_CONSULTAS_EDF.md`.
+
 El port de `PRO_Novedad_Linea_Ubicacion` está hecho y corre: produce las 42
 columnas del contrato. **Cinco de ellas salen NULL** y dos CSV entregados
 llegaron truncados. Nada de esto se resuelve escribiendo código.
@@ -224,7 +244,7 @@ había pedido. Se pide ahora, en el mismo formato que el resto.
   reporte de su CIIU. Si el TO-BE necesita el grano fino, hay que pedir la
   vista; si no, esto es lo que hay y queda documentado.
 
-**(d) ABIERTA — la tabla final sólo crece, y es del legado.** El UPSERT de
+**(d) ~~ABIERTA — la tabla final sólo crece, y es del legado.~~ CERRADA 2026-10-20: falso. `111.BTQ:823` vacía la tabla antes de cada carga; lo que sigue describe el UPSERT sobre una tabla ya vacía.** El UPSERT de
 `130.TPT` no actualiza nunca en este dominio: el `ID` se asigna como
 `MAX(ID) + SUM(1) OVER (ROWS UNBOUNDED PRECEDING)` sobre la tabla viva
 (`120.TPT:177`), de modo que cada fila preparada estrena un `ID` por encima del

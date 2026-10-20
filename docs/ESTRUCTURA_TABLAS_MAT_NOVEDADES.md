@@ -1,5 +1,17 @@
 # Las 7 tablas `MAT_*` de Novedades — estructura
 
+> **CORRECCIÓN 2026-10-20 (lectura del legado completo, `docs/legado_teradata/`).**
+> Este documento se escribió sin `Novedad.sql` ni los scripts P0035. Dos cosas
+> de abajo son falsas:
+> - **El AS-IS no "sólo inserta y actualiza".** `111.BTQ:817-836` hace
+>   `DELETE … ALL` de las siete `MAT_*` antes de cargar: cada corrida
+>   reconstruye la foto completa. Las novedades reales salen de las vistas
+>   `*_Delta` contra las copias `BK_*` (`120.TPT:455-602`).
+> - **Latitud y longitud no son `VARCHAR(40)` en la tabla final.** Ese es el
+>   tipo de transporte del TPT; la tabla guarda `DECIMAL(38,8)` (`130.TPT:603`).
+>
+> Detalle: `docs/ANALISIS_AS_IS_HOMOLOGACION.md` §6 y §10.
+
 **Son el entregable del proceso P0035 Extractor Novedades.** 131 columnas en
 total. Todo lo de abajo está tomado del legado, no inferido:
 
@@ -24,8 +36,10 @@ total. Todo lo de abajo está tomado del legado, no inferido:
    `WHEN STG.FLAG_OP = 'E' THEN 2` (`120.TPT:163`), y `FLAG_OP = 'E'` es código
    muerto: la etapa 1 anti-une `V_BLOQUEO` (`Novedad.sql:7590-7594`) y la
    etapa 9 vuelve a unir esa misma tabla por esa misma llave para preguntar
-   por `FECHA_BLOQUEO` (`:8393`), que por tanto es siempre NULL. **El AS-IS de
-   Ubicación sólo inserta y actualiza.** La columna del resumen describe la
+   por `FECHA_BLOQUEO` (`:8393`), que por tanto es siempre NULL. ~~El AS-IS de
+   Ubicación sólo inserta y actualiza.~~ **[Corregido: el `DELETE` por `ID`
+   no se ejecuta, pero `111.BTQ:817-836` vacía la tabla entera antes de cada
+   carga.]** La columna del resumen describe la
    llave que el `DELETE` usaría, no que llegue a ejecutarse; para los otros
    seis dominios está sin verificar.
 
@@ -70,7 +84,7 @@ total. Todo lo de abajo está tomado del legado, no inferido:
 | 10 | `ZONA` | VARCHAR(30) | **bloqueada**, faltan `V_ZONA_UBICACION` y `V_Hom_Zona_Linea` |
 | 11 | `CIUDAD` | VARCHAR(30) | |
 | 12 | `DEPARTAMENTO` | VARCHAR(30) | |
-| 13 | `LONGITUD` | VARCHAR(40) | texto, no numérico — es contractual |
+| 13 | `LONGITUD` | VARCHAR(40) | tipo de transporte del TPT; la tabla final es `DECIMAL(38,8)` (`130.TPT:603`) |
 | 14 | `LATITUD` | VARCHAR(40) | ídem |
 | 15 | `REPORTADO_DESDE` | INTEGER | **NULL literal** por esta ruta |
 | 16 | `ULTIMO_REPORTE` | INTEGER | **NULL literal** por esta ruta |
