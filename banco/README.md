@@ -109,6 +109,15 @@ Dos divergencias mas, deliberadas y anotadas:
   cuyos primeros 63 caracteres coincidan con otro, el banco los confundiria en
   silencio. Para Redshift ninguno es problema: el mas largo esta a 80 de 127.
 
+## Las vistas reales, con datos sinteticos
+
+La bateria mock no lee las vistas reales (`v_xpm_*`): el stub del datashare queda
+vacio. `vistas_reales_sinteticas.sql` siembra cinco personas inventadas con la forma
+medida en DEV (C4-C16) y consulta las vistas. Despues se pueden correr los tres
+ciclos reales encima como prueba de humo. Asi se reprodujo el 2026-10-20 el
+`integer out of range` de `info_basica` en Novedades (D-NOV-04), que el mock no
+puede ver porque sus ids caben en INTEGER.
+
 ## El ANALYZE que el banco pone y el repo no
 
 Unificacion tiene **93 `CREATE TABLE AS` y cero `ANALYZE`**; Ordenamiento tiene
