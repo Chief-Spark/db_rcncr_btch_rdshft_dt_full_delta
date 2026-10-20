@@ -88,6 +88,11 @@ El dominio observado (1 a 9) cabe en ID Type NH (0 a 10). El Batch trunca el tip
 - El AS-IS excluía el `cod_dw_persona_ubic` entero si existía en `V_BLOQUEO`, cualquiera fuera la razón. Además, los códigos 1-9 de Teradata **no significan lo mismo** que en NH.
 - En EDF el bloqueo es **por reporte** (fila de `xpm_location`), así que aplicaría a todos los contactos de ese reporte.
 
+**DECISIÓN PROVISIONAL (usuario, 2026-10-20):**
+- **Bloqueado** = `TRIM("location.val.blockreason")` distinto de vacío y de `'0'`. Hoy excluye 436 filas.
+- `subscriberblockstatus = 1` con razón 0 **se trata como activo** hasta que el productor explique qué significa.
+- Al implementarla se marca como provisional en el código y en el criterio que la mida.
+
 ## 4. Lo que sigue
 
 1. Correr `consultas_perfilado_edf_2026-10-20.sql` (C4, C6, C8 a C14) y pegar las salidas aquí.
