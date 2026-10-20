@@ -9,7 +9,7 @@ Las consultas se corren en el consumidor DEV (`dba_batch_DEV`), solo en modo lec
 | C3 · búsqueda de contactabilidad | 2026-10-20 | se resolvió sobre C2 (ver §1) |
 | C5 · dominio de `personidtype` | 2026-10-20 | §2 |
 | C7 · bloqueo | 2026-10-20 | §3 |
-| C4, C6, C8 a C14 | pendientes | `consultas_perfilado_edf_2026-10-20.sql` |
+| C4, C6, C8 a C16 | pendientes | `consultas_perfilado_edf_2026-10-20.sql` |
 
 ## 1. Lo que dice el catálogo
 
@@ -95,6 +95,6 @@ El dominio observado (1 a 9) cabe en ID Type NH (0 a 10). El Batch trunca el tip
 
 ## 4. Lo que sigue
 
-1. Correr `consultas_perfilado_edf_2026-10-20.sql` (C4, C6, C8 a C14) y pegar las salidas aquí.
+1. Correr `consultas_perfilado_edf_2026-10-20.sql` (C4, C6, C8 a C16) y pegar las salidas aquí.
 2. Decidir la regla de bloqueo (§3).
 3. Pedir al productor: contactabilidad/gestión, movilidad, puntos de interés, el catálogo de `contacttype` y el de género, y `V_ACTIVIDAD_ECONO_CIIU` (para los CIIU secundarios).

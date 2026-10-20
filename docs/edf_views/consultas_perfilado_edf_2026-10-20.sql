@@ -108,3 +108,27 @@ SELECT "bestaccounts.val.blockreason", "bestaccounts.val.subscriberblockstatus",
 -- C14. Sector economico de la fuente (para SECTOR y sector financiero)
 SELECT "counterparties.val.businesslines.val.economicsector" AS sector, COUNT(*)
   FROM edf_views.xpm_counterparties_val_businesslines GROUP BY 1 ORDER BY 2 DESC;
+
+-- C15. Fan-out del join a counterparties (D-EDF-03). La vista de reporte une
+-- xpm_counterparties por PERSONA (xpm.counterparties = cp.id): cada reporte se
+-- repite tantas veces como contrapartes tenga la persona. Distribucion de
+-- contrapartes por persona.
+SELECT n_contrapartes, COUNT(*) AS personas
+  FROM (SELECT x.pin, COUNT(cp.id) AS n_contrapartes
+          FROM edf_views.xpm x
+          LEFT JOIN edf_views.xpm_counterparties cp
+            ON x.counterparties = cp.id
+         GROUP BY x.pin) t
+ GROUP BY 1 ORDER BY 1;
+
+-- C16. Llenado del suscriptor y de la fecha de corte del propio reporte
+-- (D-EDF-03 y D-EDF-04): sin suscriptor hoy cae a una cubeta de hash, y sin
+-- fecha cae a CURRENT_DATE.
+SELECT COUNT(*) AS filas,
+       COUNT(NULLIF(TRIM("location.val.counterpartyidnumber"::VARCHAR), '')) AS con_suscriptor,
+       SUM(CASE WHEN TRIM("location.val.counterpartyidnumber"::VARCHAR) ~ '^[0-9]+$'
+                THEN 1 ELSE 0 END)                                          AS suscriptor_numerico,
+       COUNT(NULLIF(TRIM("location.val.cutoffdate"::VARCHAR), ''))           AS con_fecha_corte,
+       SUM(CASE WHEN TRIM("location.val.cutoffdate"::VARCHAR) ~ '^[0-9]+$'
+                THEN 1 ELSE 0 END)                                          AS fecha_epoch
+  FROM edf_views.xpm_location;
