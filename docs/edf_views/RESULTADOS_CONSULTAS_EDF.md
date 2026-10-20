@@ -12,7 +12,7 @@ Las consultas se corren en el consumidor DEV (`dba_batch_DEV`), solo en modo lec
 | C4, C6, C8 a C16 | 2026-10-20 | §4 a §11 |
 | C17 a C20 · verificación de las hipótesis de §4-§11 | 2026-10-20 | §14 |
 | C21 · forma del valor estandarizado de teléfonos y celulares | 2026-10-20 | §14 |
-| C22 · largo y prefijo de 2 dígitos de los teléfonos de suscriptor | pendiente | `consultas_perfilado_edf_2026-10-20.sql` |
+| C22 · largo y prefijo de 2 dígitos de los teléfonos de suscriptor | 2026-10-20 | §14 |
 
 ## 1. Lo que dice el catálogo
 
@@ -256,6 +256,24 @@ Que la fuente 6 no traiga suscriptor ni cuenta encaja con un registro público o
 - **HIPÓTESIS a confirmar con el DBA:** en DEV los teléfonos de suscriptor podrían venir **enmascarados**. Los de la fuente 6 sí tienen forma real (104.851 celulares).
 - C22 mide el largo en dígitos y el prefijo de 2 dígitos, que no identifica a nadie.
 
+### C22: los teléfonos de suscriptor vienen rellenados con ceros hasta 12 dígitos
+
+| Tipo | Filas | Forma (C22) |
+|---|---|---|
+| 9 (celular) | 3.184 | **100 % de 12 dígitos que empiezan por `00`** → `00` + celular de 10 |
+| 4 (fijo) | 4.349 | 12 dígitos; 4.226 con `00` y el resto con otros prefijos |
+| 5 (fijo) | 3.032 | 12 dígitos; 3.001 con `00` |
+
+**Eso cierra el "tipo 9 sin forma":** no está enmascarado, está **rellenado**. Sin los ceros es un celular de 10 dígitos.
+
+**Y CONFIRMA QUE EL CANAL CEL REAL HOY QUEDA VACÍO:**
+1. `sp_ordenamiento_ubicaciones_edf.sql:275,290` toma el celular y su operador del valor **crudo** (`LEFT(c.valor_contacto, 3)` → `'003'`).
+2. `sp_ordenamiento_scoring_cel_edf.sql:121` busca `'003'` en `V_Operador_Ord_Cel`, que no lo tiene: CEL018 = 0.
+3. La compuerta `WHERE cel018 <> 0` (`:261`) saca **todos** los celulares de suscriptor del ranking.
+4. Los de la fuente 6 (tipo 6) ni siquiera se leen.
+
+**Por qué no contradice la regla 4 del legado.** El código anterior quitó a propósito un `LTRIM` de ceros, porque el legado saca el operador con `SUBSTR(Texto_Ubicacion, 1, 3)` sin normalizar (`Caracteristicas.txt:912`). Eso sigue siendo cierto sobre el legado. Pero el `Texto_Ubicacion` del AS-IS **no viene rellenado**: el catálogo de operadores del propio legado tiene llaves 300-350, que solo cuadran con un celular sin ceros. **El relleno es un formato de transporte de EDF** y se homologa en la vista, no en el scoring. Así el SP sigue haciendo lo mismo que el legado sobre un valor equivalente.
+
 ### Ciudad: hay con qué llenarla (C18)
 
 - Dirección de la fuente 6 (8): `citycode` en el 100 %, con 4-5 dígitos = municipio DANE. Donde falta el DANE de 8 dígitos (41k), `citycode` da el municipio y `citycode * 1000` la cabecera municipal.
@@ -279,7 +297,7 @@ Que la fuente 6 no traiga suscriptor ni cuenta encaja con un registro público o
 | # | Cambio | Ganancia en DEV | Dónde |
 |---|---|---|---|
 | A | **Leer el tipo 6** y repartirlo por forma: 3 + 9 dígitos → CEL; si no → TEL | +104.851 celulares y +23.044 fijos | `v_xpm_contacto_canal` y los filtros de canal |
-| B | **Normalizar los teléfonos a solo dígitos** (`REGEXP_REPLACE(valor, '[^0-9]', '')`), porque el estandarizado viene vacío (C21). *Reemplaza a la propuesta anterior de quitar el 57, que C21 desmintió* | operador y comparación de números correctos en la fuente 6; el tipo 9 depende de C22 | `v_xpm_contacto_canal` |
+| B | **Normalizar los teléfonos** (tipos 4, 5, 6, 9 y 11): solo dígitos y **sin los ceros de relleno** (C21, C22). *Reemplaza la propuesta del prefijo 57, que C21 desmintió* | **el canal CEL deja de quedar vacío**: 3.184 celulares de suscriptor recuperan su operador | `v_xpm_contacto_canal` (el SP no se toca) |
 | C | **Ciudad de respaldo**: `citycode` para el tipo 8; Divipola por nombre para 1, 2 y 3 | ciudad en ~55k direcciones que hoy quedan en NULL | `v_xpm_contacto_direccion` + catálogo Divipola en strct |
 
 ## 13. Lo que sigue
