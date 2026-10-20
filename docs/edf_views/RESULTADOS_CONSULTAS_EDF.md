@@ -479,6 +479,30 @@ Lectura de solo consulta en experian.atlassian.net: espacio SCEND ("EITS SLA CO 
 - La librería solo puntúa direcciones (Alpha: `contactType` 1, 2, 3 y 8). Un teléfono o correo sin score no debe caer por el umbral.
 - La consulta **C24 está corregida**: la versión anterior comparaba contra 80 y en escala 0-1 siempre habría dado cero.
 
+**C24 en DEV (2026-10-20) y decisión del usuario: umbral `>= 0.80`.**
+
+| `contactType` | Filas | Con score | `>= 0.80` | `< 0.80` |
+|---|---|---|---|---|
+| 8 (Business Address, Cámara de Comercio) | 135.084 | 135.082 | **90.104 (66,7 %)** | **44.978 (33,3 %)** |
+| 1, 2, 3 (direcciones de suscriptor) | 14.013 | **0** | — | — |
+| 4, 5, 6, 9, 10, 11 (teléfonos, correos, fax) | 424.447 | 0 | — | — |
+
+Distribución del tipo 8: 0.30 → 40.935 · 0.50 → 1.841 · 0.65 → 2.198 · 0.67 → 1 · 0.75 → 3 · 0.87 → 8.250 · 0.92 → 1.641 · 0.95 → 55.332 · 0.96 → 24.881 · sin score → 2.
+
+- **Solo el tipo 8 trae score.** Las direcciones de suscriptor (1, 2, 3) no tienen ninguno. Un filtro que exija score las borraría todas.
+- **El 0.80 no aparece**, así que `>` y `>=` dan hoy lo mismo: 90.104.
+- **El 0.30 es el 30 % del tipo 8.** Está por debajo de 0.50, el nivel "no estandarizable" de la librería.
+- 0.87 y 0.92 no figuran en la tabla de Confluence (§18): la tabla está incompleta.
+
+**Dónde usa el legado el equivalente (`V_Gestion_Registro`: `VALIDA` / `NO VALIDA`):**
+
+| Proceso | Qué hace el legado | Cita |
+|---|---|---|
+| Unificación | no lo usa | — |
+| Ordenamiento F4 | lo `NO VALIDA` no cuenta en los totales; lo NULL sí (`<> 'NO VALIDA' OR … IS NULL`) | `Caracteristicas.txt` LF 2, 6 (TEL), 46, 75, 86 (EMA), 131 (CEL), 160 (DIR) |
+| Novedades, Ubicación | solo entran las `VALIDA` (`INNER JOIN`) | `Novedad.sql:7679-7680` |
+| Novedades, Info Básica | el filtro **no filtra**: el join compara la columna consigo misma (`UES.COD_DW_GESTION_REGISTRO = UES.COD_DW_GESTION_REGISTRO`) | `Novedad.sql:2397`, `:2469` |
+
 ### Bloqueo
 
 | Tema | Qué dice | Página |
