@@ -261,18 +261,38 @@ GROUP BY 1
 ORDER BY 1;
 
 -- ============================================================
--- C24 (2026-10-20): score de la direccion estandarizada. Negocio: debe ser
--- mayor a 80. Hipotesis: es el VALIDA / NO VALIDA del legado. Solo conteos.
+-- C24 (2026-10-20, CORREGIDA): score de la direccion estandarizada.
+-- Negocio: debe ser mayor a 80 %. Confluence (Libreria Estandarizacion,
+-- EDCLMI 345374895): escala 0 a 1 como texto; 0.96 y 0.95 alta, 0.80
+-- urbana sin geografia confiable, 0.65 rural, 0.50 descriptiva. La version
+-- anterior comparaba contra 80 y siempre habria dado cero.
+-- Distribucion por contacttype y valor redondeado a 2 decimales. Solo conteos.
 -- ============================================================
-SELECT ct AS contacttype, COUNT(*) AS filas,
-       SUM(CASE WHEN s IS NULL THEN 1 ELSE 0 END) AS sin_score,
-       MIN(s) AS min_txt, MAX(s) AS max_txt,
-       SUM(CASE WHEN s ~ '^[0-9]+([.][0-9]+)?$' AND CAST(s AS DECIMAL(12,4)) > 80 THEN 1 ELSE 0 END) AS mayor_80,
-       SUM(CASE WHEN s ~ '^[0-9]+([.][0-9]+)?$' AND CAST(s AS DECIMAL(12,4)) <= 1 THEN 1 ELSE 0 END) AS escala_0_1
+SELECT ct AS contacttype,
+       CASE WHEN s IS NULL THEN '(sin score)'
+            WHEN s !~ '^[0-9]+([.][0-9]+)?$' THEN '(no numerico)'
+            ELSE CAST(ROUND(CAST(s AS DECIMAL(12,4)), 2) AS VARCHAR(10)) END AS score,
+       COUNT(*) AS filas
 FROM (SELECT NULLIF(TRIM(ci."location.val.contactinformations.val.contacttype"::VARCHAR),'') AS ct,
              NULLIF(TRIM(ci."location.val.contactinformations.val.contactasstandardizedscore"::VARCHAR),'') AS s
-      FROM ds_dba_rncr_batch.edf_views.xpm_location_val_contactinformations ci) x
-GROUP BY 1 ORDER BY 1;
+      FROM ds_dba_rncr_batch.edf_views.xpm_location_val_contactinformations ci
+      WHERE ci."index" IS NOT NULL) x
+GROUP BY 1, 2
+ORDER BY 1, 2;
+
+-- C24b: resumen de las dos lecturas del umbral, solo direcciones (1, 2, 3, 7, 8).
+SELECT ct AS contacttype,
+       COUNT(*) AS direcciones,
+       SUM(CASE WHEN s ~ '^[0-9]+([.][0-9]+)?$' AND CAST(s AS DECIMAL(12,4)) >  0.80 THEN 1 ELSE 0 END) AS mayor_080,
+       SUM(CASE WHEN s ~ '^[0-9]+([.][0-9]+)?$' AND CAST(s AS DECIMAL(12,4)) >= 0.80 THEN 1 ELSE 0 END) AS mayor_igual_080,
+       SUM(CASE WHEN s IS NULL THEN 1 ELSE 0 END) AS sin_score
+FROM (SELECT NULLIF(TRIM(ci."location.val.contactinformations.val.contacttype"::VARCHAR),'') AS ct,
+             NULLIF(TRIM(ci."location.val.contactinformations.val.contactasstandardizedscore"::VARCHAR),'') AS s
+      FROM ds_dba_rncr_batch.edf_views.xpm_location_val_contactinformations ci
+      WHERE ci."index" IS NOT NULL) x
+WHERE ct IN ('1','2','3','7','8')
+GROUP BY 1
+ORDER BY 1;
 
 -- ============================================================
 -- C25 (2026-10-20): GENERO. Dominio del codigo y una pista para deducir cual
@@ -381,3 +401,58 @@ WHERE loc."index" IS NOT NULL
 GROUP BY 1
 ORDER BY 2 DESC;
 
+-- ============================================================
+-- C31 (2026-10-20): BLOQUEO DE CUENTA. Confluence (Data Provisioning -
+-- Filters, 251240769): los reportes de location cuya cuenta tiene
+-- bestaccounts.blockseverity = 1 no se muestran a productos. La llave es
+-- businesslinecode + accounttype + accountnumber + personidtype +
+-- personidnumber, dentro de la misma persona (xpm). Primero se agrega por
+-- reporte para no contar dos veces uno que case con dos cuentas. Solo conteos.
+-- ============================================================
+SELECT r.typeofdata,
+       CASE WHEN r.con_cuenta = 0 THEN '(sin cuenta que case)'
+            ELSE COALESCE(r.severidad, '(vacio)') END AS blockseverity,
+       COUNT(*) AS reportes
+FROM (
+  SELECT loc.id, loc."index",
+         MAX(loc."location.val.typeofdata"::VARCHAR) AS typeofdata,
+         MAX(CASE WHEN ba.id IS NOT NULL THEN 1 ELSE 0 END) AS con_cuenta,
+         MAX(NULLIF(TRIM(ba."bestaccounts.val.blockseverity"), '')) AS severidad
+  FROM ds_dba_rncr_batch.edf_views.xpm x
+  JOIN ds_dba_rncr_batch.edf_views.xpm_location loc
+    ON loc.id = x."location"
+   AND loc."index" IS NOT NULL
+  LEFT JOIN ds_dba_rncr_batch.edf_views.xpm_bestaccounts ba
+    ON ba.id = x."bestaccounts"
+   AND ba."index" IS NOT NULL
+   AND NULLIF(TRIM(ba."bestaccounts.val.businesslinecode"), '') = NULLIF(TRIM(loc."location.val.businesslinecode"), '')
+   AND NULLIF(TRIM(ba."bestaccounts.val.accounttype"), '')      = NULLIF(TRIM(loc."location.val.accounttype"), '')
+   AND NULLIF(TRIM(ba."bestaccounts.val.accountnumber"), '')    = NULLIF(TRIM(loc."location.val.accountnumber"), '')
+   AND ba."bestaccounts.val.personidtype"                       = loc."location.val.personidtype"
+   AND NULLIF(TRIM(ba."bestaccounts.val.personidnumber"), '')   = NULLIF(TRIM(loc."location.val.personidnumber"), '')
+  GROUP BY 1, 2
+) r
+GROUP BY 1, 2
+ORDER BY 1, 3 DESC;
+
+-- ============================================================
+-- C32 (2026-10-20): los catalogos oficiales en Redshift. Confluence
+-- ("19. BusinessIdStatus", CCBR 251263885) dice que viven en
+-- catalogs_collibra.catalogs_output. Ese esquema NO aparece en el volcado
+-- de svv_all_tables de DEV: la primera consulta dice si el cluster lo ve.
+-- Son catalogos, sin datos personales.
+-- ============================================================
+SELECT database_name, schema_name, table_name
+FROM svv_all_tables
+WHERE schema_name ILIKE '%collibra%' OR table_name ILIKE '%catalogs_output%';
+
+SELECT *
+FROM catalogs_collibra.catalogs_output
+WHERE code IN ('124_REGISTRADURIA_STATUS_OF_PERSON_HO',
+               '180_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH',
+               '180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH',
+               '28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH',
+               '27_SUBSCRIBER_BLOCK_TYPE_NH',
+               '170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH',
+               '93_GENDER_HO')
+ORDER BY code, "code/text";

@@ -16,6 +16,7 @@ Las consultas se corren en el consumidor DEV (`dba_batch_DEV`), solo en modo lec
 | C18, C19, C20 y C22 repetidas en **QA** | 2026-10-20 | §15 |
 | Catálogo oficial de `contactType` (Experian) y C23 pendiente | 2026-10-20 | §16 |
 | C25-C27 · género, estado del documento, sector económico | 2026-10-20 | §17 |
+| Fichas de Confluence (EDF y reglas de negocio) · C31 y C32 propuestas | 2026-10-20 | §18 |
 
 ## 1. Lo que dice el catálogo
 
@@ -87,6 +88,8 @@ El dominio observado (1 a 9) cabe en ID Type NH (0 a 10). El Batch trunca el tip
 | 4 | 0 | 19 | Inconsistencia en el sistema |
 | 5 | 0 | 5 | Validación de la entidad |
 | 1 | 0 | 1 | Por solicitud SIC |
+
+**CORRECCIÓN (2026-10-20, §18):** las etiquetas de la última columna salen del CSV `Subscriber Blocking Reasons (NH)`, que se describe como *"razones de los bloqueos **por cuentas**"*. Confluence da al mismo código 28 otro significado, el del **suscriptor** (0 sin bloqueo, 1 voluntario, 2 incumplimiento, 3 fraude, 4 proceso legal, 5 administrativa, 6 normativa), y dice que el `blockReason` de `location` viene de `subscriber.json`. Las etiquetas de esta tabla no valen para `location`; los conteos sí.
 
 **La regla de bloqueo no se puede deducir y hay que decidirla:**
 - `subscriberblockstatus = 1` aparece **solo** con razón 0 ("Activo"). Son 6.502 filas (4,4 %). ¿Es un bloqueo del suscriptor o un estado activo?
@@ -169,7 +172,7 @@ xpm                         125.703 personas (1 fila por pin)
 | **3** | **113** | los únicos con `stratum` (113 filas): **el estrato llega como reporte propio, sin contactos** |
 | 17 | 20 | — |
 
-**HIPÓTESIS:** `typeofdata` es la **fuente** del dato y sería el insumo de `FUENTE` (SUS/CIU/CAM). `businesslines.listoftypeofdata` sugiere que existe un catálogo. **PEDIR.**
+~~**HIPÓTESIS:** `typeofdata` es la **fuente** del dato … **PEDIR.**~~ **CONFIRMADO (Confluence, §18):** catálogo `170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH`. 1 crédito, 2 cuentas corriente y ahorro, 3 cliente, **6 Cámara de Comercio**, 17 teléfonos y direcciones. La homologación a `FUENTE` (SUS/CIU/CAM) sigue sin catálogo: el 6 → CAM es PROBABLE; el resto, decisión de negocio.
 
 **Llenado de las direcciones (~149k):**
 
@@ -428,30 +431,88 @@ El rango de edad viene como `18 - 21` … `66 años o más`, con espacios y text
 | 4, 5, 6, 7, 8, 9, 11 | vacío | vacío | 1.298 |
 
 - **El 95 % viene vacío.** El estado solo llega cuando hay validación contra la fuente oficial.
-- **`businessidstatus` no es "el estado de la empresa":** repite `idstatus` en todos los tipos, salvo 79 filas donde vale `0`. Se usa `idstatus`.
-- **HIPÓTESIS (codificación de la Registraduría):** en CC, `00` = vigente y `21` = cancelada por muerte; en NIT, `01` = activa. Se pide el significado de solo cuatro valores: `00`, `01`, `21` y `0`.
+- **`businessidstatus` no es "el estado de la empresa":** repite `idstatus` en todos los tipos, salvo 79 filas donde vale `0`.
+- **CORRECCIÓN (§18): se usa `businessidstatus`, no `idstatus`.** Lo decía al revés. Confluence: `idstatus` es el valor crudo de la fuente; `businessidstatus` es el homologado (catálogo `124_REGISTRADURIA_STATUS_OF_PERSON_HO` para CC, igual a `idstatus` en el resto) y es el que usan los productos. Se compara con `LPAD(…, 2, '0')`, así que `0` = `00`.
+- **CC: CONFIRMADO (§18)** `00` = vigente y `21` = cancelada por muerte del titular. **NIT `01`: sigue sin significado**; es lo único que queda por pedir de este campo.
 
 ### Sector económico (`counterparties.val.businesslines.val.economicsector`)
 
 | Código | Líneas | Ejemplos | Lectura |
 |---|---|---|---|
 | vacío | 93.858 | — | sin sector |
-| F | 1.775 | ACTUAR TOLIMA, UTRAHUILCA MICROCREDITO | **Financiero** · HIPÓTESIS |
-| R | 852 | ABL CAPITAL, YANBAL DE COLOMBIA S.A. | **Real** · HIPÓTESIS |
-| C | 50 | AVANCOP COOPERATIVA, FORJAR COOP | **Cooperativo** · HIPÓTESIS |
+| F | 1.775 | ACTUAR TOLIMA, UTRAHUILCA MICROCREDITO | **Financiero** · CONFIRMADO (§18) |
+| R | 852 | ABL CAPITAL, YANBAL DE COLOMBIA S.A. | **Real** · CONFIRMADO (§18) |
+| C | 50 | AVANCOP COOPERATIVA, FORJAR COOP | **Cooperativo** · PROBABLE: Confluence se contradice (Telecomunicaciones o Cooperativas) y los nombres apoyan Cooperativas (§18) |
 
 - **Puede reemplazar al `sector_financiero` de hoy**, que es una cubeta de hash (ver `CLAUDE.md`, "`sector_financiero` no es un catálogo provisional: hoy es ruido"): el reporte trae el NIT del suscriptor, la contraparte con ese NIT tiene sus líneas de negocio y cada línea su sector.
 - Dos ejemplos por código son poco. La **C29** saca los diez nombres más frecuentes de cada uno, y la **C30** mide cuántos reportes encontrarían sector por ese camino.
+
+## 18. Lo que dicen las fichas de Confluence (2026-10-20)
+
+Lectura de solo consulta en experian.atlassian.net: espacio SCEND ("EITS SLA CO EDF Nueva Data") y, donde no alcanzó, CCBR, EDCLMI, CCH y SCSEYG. No se copió ningún dato personal. Entre paréntesis va el id de la página.
+
+**No usar** "Explicación Básica XPM" (SCSEYG 346852507): contradice los catálogos oficiales en `typeOfData`, `gender` y `contactType`.
+
+### Lo que queda cerrado
+
+| Pedido | Qué dice Confluence | Página |
+|---|---|---|
+| `typeOfData` | catálogo `170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH`: 1 crédito, 2 cuentas corriente y ahorro, 3 cliente, 6 Cámara de Comercio, 17 teléfonos y direcciones. Otros: 4 GI, 7 Migración, 10 Registraduría, 20 RNT, 21 DIAN, 26 QP | XPM - dataSource Catalog (251218784); Events, TypeOfData… (344851370) |
+| Género | `93_GENDER_HO`: 0 desconocido, 1 hombre, 2 mujer, 9 no aplica (§17) | BEST PERSONAL INFORMATION (344853569) |
+| Estado del documento (CC) | `idStatus` es crudo; `businessIdStatus` es el homologado con `124_REGISTRADURIA_STATUS_OF_PERSON_HO` y **es el que usan los productos**. `00` = vigente, `21` = cancelada por muerte del titular | BEST IDENTIFICATIONS (344852460); Data Provisioning - Filters (251240769); HDC Ley Producto 64 (541341345) |
+| Sector económico F y R | de `subscribers.json`, catálogo `180_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH`, grano **suscriptor**. F = financiero, R = real | Reglas campos COBOL vs subscriber.json (349280274) |
+| Escala del score | `contactAsStandardizedScore` va de 0 a 1, como texto (`"0.96"`). Es confianza de la estandarización, no una probabilidad | Libreria Estandarizacion (EDCLMI 345374895) |
+| Cuentas (`bestAccounts`) | grano = tipo y número de documento + tipo y número de cuenta + `businessLineCode` + `typeOfData`. Naturaleza por tipo de cuenta: 01 y 51 pasivo; 02 y 03-50 activo. `typeOfDebtor` 00 deudor principal, 01 codeudor. **No hay bandera de vigencia**: se usa `accountClosedDate` | BEST ACCOUNTS (344850618); lambdas HDC (534094498, 533811951) |
+
+### El score: qué significa "mayor a 80 %"
+
+| Score | Nivel | Caso |
+|---|---|---|
+| 0.96 | alta | urbana con complemento y geografía resuelta |
+| 0.95 | alta | urbana sin complemento |
+| **0.80** | media-alta | urbana **sin geografía confiable** |
+| 0.65 | media | rural |
+| 0.50 | baja-media | descriptiva |
+| < 0.50 | baja | no estandarizable |
+
+- **"Mayor a 80 %" = `> 0.80`**, y con estos niveles **deja fuera la 0,80 y toda dirección rural**. `>= 0.80` mete la urbana sin geografía. Confluence no documenta ningún umbral: **hay que preguntar cuál de los dos es**.
+- La librería solo puntúa direcciones (Alpha: `contactType` 1, 2, 3 y 8). Un teléfono o correo sin score no debe caer por el umbral.
+- La consulta **C24 está corregida**: la versión anterior comparaba contra 80 y en escala 0-1 siempre habría dado cero.
+
+### Bloqueo
+
+| Tema | Qué dice | Página |
+|---|---|---|
+| Nivel | el `blockStatus` y el `blockReason` de `location` son **del suscriptor** (`subscriber.json`). Si el NIT corporativo está bloqueado, todos sus códigos heredan el bloqueo | LOCATION (344851579); 349280274 |
+| Qué valor es "bloqueado" | **dos versiones**: (a) `blockStatus` 0 activo y 1 bloqueado; (b) CCBR: *"blockStatus = 0 and blockReason in (2 or 5) … is considered inactive"*. **Los datos apoyan (b)**: en C7 el estado 1 solo sale con razón 0, y "FUENTES PÚBLICAS", que nunca se inactiva, tiene estado 1 | getXPM filter by subscriber status (251228163) |
+| Bloqueo de cuenta | no está en `location`: está en `bestAccounts.blockSeverity` (1 = no disponible para productos). Se aplica a `NAMES`, `LOCATION`, `BEST ACCOUNTS`… en la provisión de datos, uniendo por `businessLineCode`, `accountType`, `accountNumber`, `personIdType` y `personIdNumber`. **El datashare probablemente trae esas filas sin filtrar** (inferencia) | Data Provisioning - Filters (251240769) |
+
+- **Nuestra regla provisional queda.** Excluye las 436 filas con razón distinta de 0; la regla (b) excluiría 391 (razones 2 y 5). Las 45 de diferencia son razones 1, 3 y 4 (voluntario, fraude, proceso legal). Ante "lo bloqueado no se muestra", conviene excluirlas. Se pide a Experian **solo esa confirmación**.
+- **El bloqueo de cuenta se puede leer hoy**: `xpm_location` y `xpm_bestaccounts` traen las cinco columnas de la llave (C2). **C31** mide cuántos reportes caerían. No se toca código sin ese número y sin tu OK.
+
+### Lo que sigue abierto (pedir a Experian)
+
+| Pregunta | Por qué |
+|---|---|
+| Umbral del score: ¿`> 0.80` o `>= 0.80`? | decide si entran las urbanas sin geografía; las rurales quedan fuera en los dos casos |
+| ¿El bloqueo de suscriptor es "razón ≠ 0" o solo "razón 2 o 5"? | 45 filas de diferencia en DEV |
+| ¿El bloqueo de cuenta (`blockSeverity = 1`) debe ocultar la dirección en Reconocer? | lo filtra `getXPM` para productos; el datashare no |
+| Significado de `idStatus` `01` en NIT | el catálogo 124 no está en Confluence |
+| `economicSector` `C`: ¿Cooperativas o Telecomunicaciones? | dos páginas dicen cosas distintas; los datos apuntan a Cooperativas |
+| `contactType` 12 → ¿RES, LAB, CRR, CCL o JUD? | solo viene del RNT (`typeOfData` 20), sin `cityCode`. Mientras no se defina, no se lee |
+
+**Atajo:** según "19. BusinessIdStatus" (CCBR 251263885), los catálogos están en Redshift como `catalogs_collibra.catalogs_output`. Ese esquema **no aparece** en el volcado de `svv_all_tables` de DEV. **C32** comprueba si el clúster lo ve; si lo ve, el 124, el 180 y el 28 se leen sin preguntar a nadie.
 
 ## 13. Lo que sigue
 
 1. Correr **C17 a C20** (al final de `consultas_perfilado_edf_2026-10-20.sql`); con ellas se cierran las hipótesis de las brechas 2 a 5.
 2. **Pedir al productor:**
    - ~~el catálogo de `contacttype`~~ **recibido el 2026-10-20 (§16)**; queda el tipo de dirección del 12;
-   - el de `typeofdata` (fuente);
-   - género;
-   - `idstatus`;
-   - `economicsector`;
+   - ~~el de `typeofdata` (fuente)~~, ~~género~~: **cerrados con Confluence (§18)**;
+   - `idstatus`: solo el `01` de NIT (§18);
+   - `economicsector`: solo la `C` (§18);
+   - el umbral del score de estandarización y si es `>` o `>=` 0,80 (§18);
+   - el bloqueo: confirmar la regla de §3 y si el bloqueo de cuenta se filtra en `location` (§18, C31);
    - el tipo de identificación 11;
    - contactabilidad y gestión, movilidad y puntos de interés;
    - `V_ACTIVIDAD_ECONO_CIIU`.
