@@ -132,3 +132,78 @@ SELECT COUNT(*) AS filas,
        SUM(CASE WHEN TRIM("location.val.cutoffdate"::VARCHAR) ~ '^[0-9]+$'
                 THEN 1 ELSE 0 END)                                          AS fecha_epoch
   FROM edf_views.xpm_location;
+
+-- ============================================================
+-- C17 a C20: verificacion de las hipotesis de RESULTADOS_CONSULTAS_EDF.md
+-- (seccion 12). Agregadas: ninguna devuelve un valor de contacto.
+-- ============================================================
+
+-- C17. Direcciones por persona (brecha 2). Hoy todas las de una persona
+-- comparten cod_dw_ubic; esto mide cuantas personas se cruzan.
+SELECT n_direcciones, COUNT(*) AS personas
+  FROM (SELECT loc.id, COUNT(*) AS n_direcciones
+          FROM edf_views.xpm_location loc
+          JOIN edf_views.xpm_location_val_contactinformations ci
+            ON loc."location.val.contactinformations" = ci.id
+         WHERE loc."index" IS NOT NULL
+           AND ci."index" IS NOT NULL
+           AND ci."location.val.contactinformations.val.contacttype"::VARCHAR IN ('1','2','3','8')
+         GROUP BY loc.id) t
+ GROUP BY 1 ORDER BY 1;
+
+-- C18. Forma de cada tipo de contacto (brechas 1, 3 y 5): sin mostrar el
+-- valor, si parece correo, celular colombiano, fijo o texto; y que trae de
+-- ciudad.
+SELECT ci."location.val.contactinformations.val.contacttype"::VARCHAR AS contacttype,
+       COUNT(*) AS filas,
+       SUM(CASE WHEN ci."location.val.contactinformations.val.contactasreported"::VARCHAR LIKE '%@%'
+                THEN 1 ELSE 0 END) AS con_arroba,
+       SUM(CASE WHEN REGEXP_REPLACE(ci."location.val.contactinformations.val.contactasreported"::VARCHAR, '[^0-9]', '') ~ '^3[0-9]{9}$'
+                THEN 1 ELSE 0 END) AS forma_celular_co,
+       SUM(CASE WHEN LEN(REGEXP_REPLACE(ci."location.val.contactinformations.val.contactasreported"::VARCHAR, '[^0-9]', '')) BETWEEN 7 AND 8
+                THEN 1 ELSE 0 END) AS forma_fijo_7_8,
+       SUM(CASE WHEN ci."location.val.contactinformations.val.contactasreported"::VARCHAR ~ '[A-Za-z]'
+                THEN 1 ELSE 0 END) AS con_letras,
+       AVG(LEN(ci."location.val.contactinformations.val.contactasreported"::VARCHAR)) AS largo_medio,
+       COUNT(NULLIF(TRIM(ci."location.val.contactinformations.val.standardizeddanecode"::VARCHAR), '')) AS con_dane,
+       COUNT(NULLIF(TRIM(ci."location.val.contactinformations.val.citycode"::VARCHAR), ''))            AS con_citycode,
+       MIN(LEN(NULLIF(TRIM(ci."location.val.contactinformations.val.citycode"::VARCHAR), '')))       AS largo_min_citycode,
+       MAX(LEN(NULLIF(TRIM(ci."location.val.contactinformations.val.citycode"::VARCHAR), '')))       AS largo_max_citycode,
+       COUNT(NULLIF(TRIM(ci."location.val.contactinformations.val.cityname"::VARCHAR), ''))            AS con_cityname
+  FROM edf_views.xpm_location_val_contactinformations ci
+ WHERE ci."index" IS NOT NULL
+ GROUP BY 1 ORDER BY 2 DESC;
+
+-- C19. Que es la contraparte de la PERSONA (brecha 4): si son pocos valores
+-- distintos, es la fuente y no un suscriptor.
+SELECT "counterparties.val.counterpartyidtype"::VARCHAR AS tipo_id_contraparte,
+       COUNT(*) AS filas,
+       COUNT(NULLIF(TRIM("counterparties.val.counterpartyidnumber"::VARCHAR), '')) AS con_numero,
+       COUNT(DISTINCT "counterparties.val.counterpartyidnumber")                    AS numeros_distintos
+  FROM edf_views.xpm_counterparties
+ WHERE "index" IS NOT NULL
+ GROUP BY 1 ORDER BY 2 DESC;
+
+SELECT COUNT(DISTINCT "location.val.counterpartyidnumber") AS suscriptores_distintos_en_reportes
+  FROM edf_views.xpm_location
+ WHERE "index" IS NOT NULL;
+
+-- C20. Tipo de dato del reporte contra tipos de contacto y suscriptor
+-- (brechas 3 y 8: typeofdata como fuente).
+SELECT loc."location.val.typeofdata"::VARCHAR AS typeofdata,
+       ci."location.val.contactinformations.val.contacttype"::VARCHAR AS contacttype,
+       COUNT(*) AS contactos
+  FROM edf_views.xpm_location loc
+  JOIN edf_views.xpm_location_val_contactinformations ci
+    ON loc."location.val.contactinformations" = ci.id
+ WHERE loc."index" IS NOT NULL AND ci."index" IS NOT NULL
+ GROUP BY 1, 2 ORDER BY 1, 3 DESC;
+
+SELECT "location.val.typeofdata"::VARCHAR AS typeofdata,
+       COUNT(*) AS reportes,
+       COUNT(NULLIF(TRIM("location.val.counterpartyidnumber"::VARCHAR), '')) AS con_suscriptor,
+       COUNT(NULLIF(TRIM("location.val.accounttype"::VARCHAR), ''))          AS con_tipo_cuenta,
+       COUNT(NULLIF(TRIM("location.val.personidtype"::VARCHAR), ''))         AS con_tipo_id
+  FROM edf_views.xpm_location
+ WHERE "index" IS NOT NULL
+ GROUP BY 1 ORDER BY 2 DESC;

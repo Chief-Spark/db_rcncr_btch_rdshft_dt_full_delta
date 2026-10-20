@@ -9,7 +9,8 @@ Las consultas se corren en el consumidor DEV (`dba_batch_DEV`), solo en modo lec
 | C3 · búsqueda de contactabilidad | 2026-10-20 | se resolvió sobre C2 (ver §1) |
 | C5 · dominio de `personidtype` | 2026-10-20 | §2 |
 | C7 · bloqueo | 2026-10-20 | §3 |
-| C4, C6, C8 a C16 | pendientes | `consultas_perfilado_edf_2026-10-20.sql` |
+| C4, C6, C8 a C16 | 2026-10-20 | §4 a §11 |
+| C17 a C20 · verificación de las hipótesis de §4-§11 | pendientes | `consultas_perfilado_edf_2026-10-20.sql` |
 
 ## 1. Lo que dice el catálogo
 
@@ -93,8 +94,138 @@ El dominio observado (1 a 9) cabe en ID Type NH (0 a 10). El Batch trunca el tip
 - `subscriberblockstatus = 1` con razón 0 **se trata como activo** hasta que el productor explique qué significa.
 - Al implementarla se marca como provisional en el código y en el criterio que la mida.
 
-## 4. Lo que sigue
 
-1. Correr `consultas_perfilado_edf_2026-10-20.sql` (C4, C6, C8 a C16) y pegar las salidas aquí.
-2. Decidir la regla de bloqueo (§3).
-3. Pedir al productor: contactabilidad/gestión, movilidad, puntos de interés, el catálogo de `contacttype` y el de género, y `V_ACTIVIDAD_ECONO_CIIU` (para los CIIU secundarios).
+## 4. Cómo está armado el datashare (C4a-c, C10, C13, C15)
+
+```
+xpm                         125.703 personas (1 fila por pin)
+ ├─ 27.117 sin location, sin contrapartes y sin generation  -> personas vacías (21,6 %)
+ └─ 98.586 con location
+     xpm_location           146.724 filas = 142.067 reportes + 4.657 arreglos vacíos
+         └─ contactinformations  568.657 filas = 568.544 contactos + 113 arreglos vacíos
+```
+
+**CONFIRMADO:**
+
+| Hecho | Evidencia | Consecuencia |
+|---|---|---|
+| Un arreglo vacío deja **una fila con `index` NULL** | xpm_location 146.724 − 142.067 = 4.657 (= `typeofdata` NULL); contactos 568.657 − 568.544 = 113 (= `contacttype` NULL); bestidentifications 66; bestaccounts **98.440** | Toda lectura nueva filtra `"index" IS NOT NULL`. Las vistas actuales ya lo evitan por el `IN` de `contacttype` |
+| **`(id, index)` es la llave del contacto**: única en las 568.544 filas reales | C4a | D-UNI-02 cerrado en el dato: la llave sale de `(ci.id, ci."index")` |
+| **`ci.id` es un reporte, no un contacto**: 136.146 de 142.067 reportes traen **4 tipos de contacto distintos** | C4b | Hoy `cod_dw_persona_ubic = ci.id` (`02_vistas…:20`) junta los cuatro en una sola "RPU" |
+| **`loc.id` es el arreglo de la PERSONA**: 98.586 `id` = 98.586 personas con location | C4c | Hoy `cod_dw_ubic = loc.id` (`02_vistas…:19`): **todas las direcciones de una persona comparten `cod_dw_ubic`**. Ver §12, hallazgo 2 |
+
+## 5. Tipos de contacto (C6a-b) frente al mapeo del repo
+
+| `contacttype` | Filas | `standardizedtipo` | Repo hoy | Lectura del dato |
+|---|---|---|---|---|
+| **8** | 135.084 | VIA 90.488 · UNDETERMINED 40.935 · RURAL 2.258 · DESCRIPTIVE 1.312 · MANZANA 89 | DIR (tipo 3 = CRR) **y TEL** (`04_vistas…:125`, `sp_ordenamiento_ubicaciones_edf.sql:248`) | **es dirección** (CONFIRMADO por `standardizedtipo`). En TEL es un defecto |
+| **10** | 138.714 | — | EMAIL (`04_vistas…:180`) | HIPÓTESIS, verificar con C18 |
+| **6** | 135.084 | — | **no se lee** | HIPÓTESIS: el registro de ciudad (`citycode` viene en 135.082 filas). C18 |
+| **11** | 135.084 | — | **no se lee** | desconocido. C18 |
+| 1 · 2 · 3 | 5.426 · 3.665 · 4.922 | — | DIR (RES · LAB · CRR) | coherente con un reporte de suscriptor; falta el catálogo |
+| 4 · 5 | 4.349 · 3.032 | — | TEL | sin verificar |
+| 9 | 3.184 | — | CEL (`04_vistas…:157`) | sin verificar |
+| **7** | **0** | — | DIR (`02_vistas…:107`, catálogo `01_ddl…:126`) | no existe en el dato |
+
+**Los tipos 8, 6, 11 y 10 vienen juntos**: 135.084 filas cada uno, igual que los reportes con `typeofdata = 6` (§9). Es un paquete por reporte: una dirección, su ciudad y dos contactos más.
+
+**Consecuencia:** **el 72 % de los contactos (6, 10, 11) no tiene un canal verificado**, y 270.168 de ellos (6 y 11) no se leen. Si 11 es teléfono o celular, hoy se pierde el canal entero.
+
+## 6. Código DANE (C6c)
+
+- Solo **94.143 contactos (16,6 %)** traen DANE, y **todos con 8 dígitos** (centro poblado). No hay ninguno de 5.
+- El repo usa el mismo valor para ciudad y municipio (`02_vistas…:250-251`). El municipio son los **primeros 5 dígitos**. Como hoy es `INTEGER` y pierde el cero inicial, se saca con `cod_dw_ciudad / 1000` (05001000 → 5001 = 05001).
+- **Al ~37 % de las direcciones les falta el DANE** (estimado: 94k de ~149k). Para ellas el repo inventa una ciudad con el hash de `cityname`.
+- `citycode` está en 135.082 filas: puede ser la fuente de ciudad que falta. C18 dice en qué tipo viene y con qué largo.
+
+## 7. Marca de delta del productor (C8)
+
+- **Todo el datashare es `FULL_REFRESH`**, con un único `generation` = 1792243798000 = **2026-10-17 13:29:58 UTC**. Las 27.117 personas vacías lo traen en NULL.
+- **No hay delta del productor.** El DELTA por watermark sobre la fecha del dato sigue siendo el único incremental posible: lo que hace el repo es correcto.
+- **Propuesta (F3):** guardar `generation` en cada `*_control`. Sirve para la trazabilidad (qué foto procesó cada corrida) y para saltar una corrida si la foto no cambió.
+
+## 8. Persona (C9, C10)
+
+| Dato | Resultado | Lectura | Acción |
+|---|---|---|---|
+| Género | 1 = 27.059 · 2 = 25.118 · NULL = 73.526 (58 %) | HIPÓTESIS 1 = M, 2 = F | **PEDIR** el catálogo |
+| Rango de edad | **solo 2.462 personas (2 %)**. Formato `36 - 45`, `66 años o más` | la salida espera `36-45`, `66+` | homologar con `REPLACE(' - ', '-')` y `66 años o más` → `66+`. **Avisar al negocio: `DP_RAN_EDA` saldrá vacío el 98 % de las veces** |
+| RUT | true 43.319 · false 55.267 | 43.319 ≈ 43.313 NIT en bestidentifications ≈ 43.735 NIT en location | refuerza que **NIT = 2** (D-UNI-01) |
+| Identificación "mejor" | 98.664 reales para 98.586 personas | **78 personas con dos** | regla de desempate obligatoria (propuesta: la de `idstatus` vigente y, si empatan, `MIN("index")`) |
+| Tipo 11 | 1 fila | **no está en ID Type NH (0 a 10)** | PEDIR |
+| `idstatus` | `''`, `00`, `01`, `21`, `vo` | sin catálogo | PEDIR |
+
+## 9. Tipo de dato del reporte (C12) y llenado (C11)
+
+| `typeofdata` | Reportes | Lectura |
+|---|---|---|
+| **6** | 135.084 (95 %) | el paquete de §5. **No trae suscriptor** (§10) |
+| 1 · 2 | 4.417 · 2.433 | reportes con tipos 1-5 y 9 |
+| **3** | **113** | los únicos con `stratum` (113 filas): **el estrato llega como reporte propio, sin contactos** |
+| 17 | 20 | — |
+
+**HIPÓTESIS:** `typeofdata` es la **fuente** del dato y sería el insumo de `FUENTE` (SUS/CIU/CAM). `businesslines.listoftypeofdata` sugiere que existe un catálogo. **PEDIR.**
+
+**Llenado de las direcciones (~149k):**
+
+| Campo | Llenado | Acción |
+|---|---|---|
+| barrio | 90.481 (~61 %) | **CONECTAR**; ya no hace falta ArcGIS para esto |
+| localidad | 93.605 (~63 %) | **CONECTAR** |
+| código postal | 67.599 (~45 %) | **CONECTAR** |
+| estrato | 113 en todo el datashare | en la práctica **no está**: PEDIR, o esperar a GEO |
+| web | 540 | ignorar |
+
+## 10. Suscriptor, contrapartes y fecha (C15, C16, C14)
+
+- **El reporte casi nunca trae su suscriptor:** `location.counterpartyidnumber` está en **6.983 de 142.067 reportes (4,9 %)**.
+- **La contraparte es por PERSONA:** 98.491 personas tienen una sola y 95 tienen entre 2 y 57.
+  - Hoy `id_buro_suscriptor` toma primero la de la persona (`02_vistas…:319-330`) y, si falta, una cubeta de hash.
+  - O sea: **el 95 % de los "suscriptores" es el mismo valor para todos los reportes de la persona**. "Número de entidades que reportan" sale 1 o un número de cubetas, no entidades.
+- **Fan-out CONFIRMADO:** las 95 personas con varias contrapartes multiplican cada reporte hasta ×57 en `v_xpm_reporte_relacion_persona_ubica` y en `v_xpm_contacto_canal`. Es poco en la muestra, pero en producción (65-70 M) no se puede dejar.
+- **Fecha:** `cutoffdate` está en el **100 % de los reportes reales** (142.067, todos en epoch). La caída a `CURRENT_DATE` solo toca los arreglos vacíos, que no tienen contactos. **D-EDF-04 tiene impacto cero hoy**; se corrige por higiene.
+- **Sector (C14):** F 1.775 · R 852 · C 50 · vacío 93.858. HIPÓTESIS: F→FI, R→RE, C→CO, y el resto OT. PEDIR el catálogo. Ojo: el sector cuelga de la contraparte de la persona, no del reporte.
+
+**Propuesta para el suscriptor (vista real, pide tu OK):**
+1. el del propio reporte;
+2. si falta y la persona tiene **una sola** contraparte, esa;
+3. si no, NULL. **Nunca un hash y nunca multiplicar filas.**
+
+Antes hay que saber qué es la contraparte de la persona (C19). Si son unos pocos valores, es la fuente y no un suscriptor.
+
+## 11. Cuentas y bloqueo (C13, con C7)
+
+- **Solo 7.759 cuentas reales**; las otras 98.440 filas son arreglos vacíos. La Fase 2 real tendrá poco dato.
+- Los tipos vienen con cero a la izquierda (`'05'`, `'02'`): el cruce con `V_Tipo_Cuenta_Ord` necesita normalizarlos.
+- `'51'` (1.407, el más frecuente), `'34'` y `'17'` **no están en el catálogo** y caen a categoría 0 (trampa ya anotada). Son 1.506 cuentas, el 19 %.
+- **Bloqueo, mismo patrón en las dos tablas:** estado 1 ⇔ razón 0, y razón > 0 ⇔ estado 0. Nunca aparecen juntos.
+  - **Esto refuerza la regla provisional:** bloqueado ⇔ `blockreason` ∉ (`''`, `'0'`), y `subscriberblockstatus = 1` es "sin bloqueo".
+  - Pasa de HIPÓTESIS a **PROBABLE**.
+
+## 12. Brechas, en orden de impacto en la vía real
+
+| # | Brecha | Evidencia | Impacto | Propuesta | Necesita |
+|---|---|---|---|---|---|
+| 1 | **Direcciones en el canal TEL** | tipo 8 = dirección (§5); TEL = `IN ('4','5','8')` | 135.084 direcciones rankeadas como teléfonos; cubo TELEFONO contaminado | quitar el 8 de TEL (vista `04` y `sp_ordenamiento_ubicaciones_edf.sql:248`) | OK a la vista |
+| 2 | **`cod_dw_ubic` es la persona** | §4 | R1/R2/R3 unen RPU y ubicación por `cod_dw_ubic` (`sp_unificacion_r3_esc1_…:151,244,251`): **producto cruzado entre las direcciones de la persona** y textos o coordenadas cruzados. GEO deduplica por persona | `cod_dw_persona_ubic` = `(ci.id, ci."index")`; `cod_dw_ubic` = la dirección (propuesta: hash del texto normalizado + DANE, que reproduce el maestro de ubicaciones del AS-IS) | OK + C17 + re-certificar en real |
+| 3 | **72 % de los contactos sin canal verificado** (6, 10, 11) | §5 | posibles teléfonos o celulares perdidos; EMAIL sin verificar | C18 (forma de cada tipo) y catálogo `contacttype` | C18 + PEDIR |
+| 4 | Suscriptor y número de entidades | §10 | entidades por dirección sin sentido; fan-out | regla de tres niveles | C19 + OK a la vista |
+| 5 | DANE y municipio | §6 | 37 % de direcciones sin ciudad real; municipio = ciudad | municipio = `/1000`; `citycode` como respaldo; NULL en vez del hash | C18 + OK a la vista |
+| 6 | Bloqueo | §11 | 436 reportes bloqueados entran hoy | implementar la regla, ahora PROBABLE | OK a la vista |
+| 7 | Identificación del cubo PERSONA | §8 | 78 personas con dos documentos | desempate determinista | — (F5) |
+| 8 | Edad, género, sector, fuente | §8-§10 | campos del cubo vacíos o sin catálogo | homologaciones propuestas | catálogos |
+| 9 | `generation` sin registrar | §7 | sin trazabilidad de la foto procesada | columna en `*_control` | OK al DDL (F3) |
+
+## 13. Lo que sigue
+
+1. Correr **C17 a C20** (al final de `consultas_perfilado_edf_2026-10-20.sql`); con ellas se cierran las hipótesis de las brechas 2 a 5.
+2. **Pedir al productor:**
+   - el catálogo de `contacttype` (urgente: brechas 1 y 3);
+   - el de `typeofdata` (fuente);
+   - género;
+   - `idstatus`;
+   - `economicsector`;
+   - el tipo de identificación 11;
+   - contactabilidad y gestión, movilidad y puntos de interés;
+   - `V_ACTIVIDAD_ECONO_CIIU`.
+3. **OK a las vistas reales** para las brechas 1, 2, 4, 5 y 6. Ninguna toca el mock.

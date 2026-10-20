@@ -58,11 +58,11 @@ El RF describe algo distinto de lo que hace el código Teradata. El repo sigue a
 | ID | Tema | AS-IS | Redshift hoy | Tipo | Estado | Decisión / responsable / fecha |
 |---|---|---|---|---|---|---|
 | D-UNI-01 | NIT en la R2 | `Nombre_Tipo_Ident LIKE '%Nit%'` (`UNI:2210`, `:2393`) | cableado `'3'`; en EDF el NIT es **2** (43.735 filas contra 5; el 3 es Persona Jurídica del Extranjero en ID Type NH) | — | **corregido en código** (F2, local) | `'2'` en `sp_unificacion_r2_esc3_…` y `_motor_nit_…`. El espejo mock conserva el `'3'` porque sus semillas lo siembran así · confirmado con datos y catálogo · 2026-10-20 |
-| D-UNI-02 | Llave de la ubicación | RPU 1:1 con su contacto | `ci.id` = id del **arreglo** (~4 filas por id) | c | DECIDIDA | medir con C4; si se confirma, `(id, index)` y re-certificar · usuario (sesión) · 2026-10-20 |
+| D-UNI-02 | Llave de la ubicación | RPU 1:1 con su contacto | `ci.id` = un **reporte** con ~4 contactos de distinto tipo | c | DECIDIDA → **confirmada con datos** | C4: `(id, index)` única en los 568.544 contactos reales; 136.146 reportes traen 4 tipos. Pasar a `(id, index)` y re-certificar · usuario (sesión) · 2026-10-20 |
 | D-UNI-03 | `REPORTE_UNIFICACION_DIRECCION` | histórico diario (`P0019_130.TPT:147-185`) | no existe | c | ABIERTA | decidir si el Batch o En Línea lo necesitan |
 | D-UNI-04 | Severidad | 1 o 3, con `COD_RECHAZO` | siempre 1 | c | ABIERTA | |
 | D-UNI-05 | Insumo de la R1 por Documento Funcional | el docx iguala departamento, localidad, zona y estrato | el código no los usa | a | DECIDIDA | manda el código (regla 4) · equipo |
-| D-UNI-06 | `Cod_DW_Municipio` frente a ciudad | ciudad de 8 dígitos (centro poblado) ≠ municipio de 5 | el mismo valor | c | ABIERTA | depende del largo del DANE en EDF (C6c) |
+| D-UNI-06 | `Cod_DW_Municipio` frente a ciudad | ciudad de 8 dígitos (centro poblado) ≠ municipio de 5 | el mismo valor | — | ABIERTA → **defecto** | C6c: el DANE de EDF siempre trae 8 dígitos (94.143 contactos, 16,6 %). Municipio = `cod_dw_ciudad / 1000` · pide OK a la vista |
 
 ## Novedades
 
@@ -81,11 +81,14 @@ El RF describe algo distinto de lo que hace el código Teradata. El repo sigue a
 
 | ID | Tema | AS-IS | Redshift hoy | Tipo | Estado | Decisión / responsable / fecha |
 |---|---|---|---|---|---|---|
-| D-EDF-01 | Bloqueo | registro en `V_BLOQUEO`, cualquier razón | `bloqueado = 0` literal | b | DECIDIDA (provisional) | `blockreason` distinto de vacío y de `'0'`; `subscriberblockstatus = 1` se trata como activo hasta que el productor lo explique · usuario (sesión) · 2026-10-20 |
+| D-EDF-01 | Bloqueo | registro en `V_BLOQUEO`, cualquier razón | `bloqueado = 0` literal | b | DECIDIDA (provisional, **PROBABLE** tras C13: estado 1 ⇔ razón 0 en location y en cuentas) | `blockreason` distinto de vacío y de `'0'`; `subscriberblockstatus = 1` se trata como activo hasta que el productor lo explique · usuario (sesión) · 2026-10-20 |
 | D-EDF-02 | Código DANE | 8 dígitos, texto | `INTEGER` (pierde el cero) y hash de `cityname` cuando falta | — | DECIDIDA → **defecto** | texto con relleno de ceros; NULL si falta, nunca un hash (F2) |
-| D-EDF-03 | Número de entidades | `COUNT(DISTINCT suscriptor)` | `counterparties` a nivel persona y cubeta de hash | — | DECIDIDA → **defecto** | `xpm_location.counterpartyidnumber` del propio reporte, sin hash (F2) |
-| D-EDF-04 | `fecha_reporte` faltante | NULL | `CURRENT_DATE` | — | DECIDIDA → **defecto** | NULL (F2) |
+| D-EDF-03 | Número de entidades | `COUNT(DISTINCT suscriptor)` | `counterparties` a nivel persona y cubeta de hash | — | DECIDIDA → **defecto, confirmado** | C15/C16: solo el 4,9 % de los reportes trae su suscriptor; la contraparte es por persona y 95 personas multiplican sus reportes hasta ×57. Propuesta: reporte → contraparte única de la persona → NULL, sin hash ni fan-out. Pide C19 y OK a la vista |
+| D-EDF-04 | `fecha_reporte` faltante | NULL | `CURRENT_DATE` | — | DECIDIDA → **defecto sin impacto hoy** | C16: `cutoffdate` en el 100 % de los reportes reales; la caída solo toca arreglos vacíos. NULL por higiene |
 | D-EDF-05 | Contrato de respuesta GEO | layout P0006 (30 columnas: Status col28, latitud 12, longitud 13) | Status col03, latitud 05, longitud 06 | c | ABIERTA | confirmar el layout real de ArcGIS antes de tocar |
 | D-GEO-01 | Rutas de ArcGIS en el wrapper | — | el slot 5 se lee como Lote y como ruta de distancias (`sp_geo_ciclo_lote_wrapper.sql:68,79`); el Framework manda un solo valor (`step_function_definition_builder.py:93`) | c | ABIERTA | depende de dónde deja ArcGIS los dos archivos (D-EDF-05); no es una corrección sin dependencias |
 | D-GEO-02 | Lote de las parejas del reenganche | — | la R3 del reenganche sella con el Lote GEO (`MAX+1` propio, `sp_geo_exportar_insumo.sql:298`), que no es la numeración del Lote de Unificación | c | ABIERTA | pide `corrida_id` o el Lote de origen en `geo_lote_control` (DDL de F3) |
+| D-EDF-07 | `cod_dw_ubic` | la ubicación (maestro de direcciones) | `loc.id`, el arreglo de la **persona** (`02_vistas…:19`) | — | ABIERTA → **defecto** | C4c: un `id` por persona. R1/R2/R3 unen por él y cruzan las direcciones de la persona. Propuesta: hash del texto normalizado + DANE. Pide C17 y OK a la vista |
+| D-EDF-08 | Tipo 8 en el canal TEL | — | TEL = `IN ('4','5','8')` (`04_vistas…:125`, `sp_ordenamiento_ubicaciones_edf.sql:248`) | — | ABIERTA → **defecto** | C6b: el 8 es dirección (VIA, RURAL, MANZANA…). 135.084 direcciones entran como teléfonos. Quitarlo de TEL · pide OK a la vista |
+| D-EDF-09 | Tipos 6, 10 y 11 | — | 6 y 11 no se leen; 10 se lee como EMAIL sin verificar | c | ABIERTA | 72 % de los contactos sin canal verificado. C18 y catálogo `contacttype` |
 | D-EDF-06 | Mapeo `contacttype` | surrogates con abreviaturas RES/LAB/CRR/CCL/JUD | tabla inventada 1..7, con el `'8'` en dos canales | c | ABIERTA | pedir el catálogo de `contacttype` |
