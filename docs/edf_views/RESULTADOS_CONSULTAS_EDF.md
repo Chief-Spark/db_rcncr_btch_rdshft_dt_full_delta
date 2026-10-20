@@ -11,7 +11,8 @@ Las consultas se corren en el consumidor DEV (`dba_batch_DEV`), solo en modo lec
 | C7 · bloqueo | 2026-10-20 | §3 |
 | C4, C6, C8 a C16 | 2026-10-20 | §4 a §11 |
 | C17 a C20 · verificación de las hipótesis de §4-§11 | 2026-10-20 | §14 |
-| C21 · forma del valor estandarizado de teléfonos y celulares | pendiente | `consultas_perfilado_edf_2026-10-20.sql` |
+| C21 · forma del valor estandarizado de teléfonos y celulares | 2026-10-20 | §14 |
+| C22 · largo y prefijo de 2 dígitos de los teléfonos de suscriptor | pendiente | `consultas_perfilado_edf_2026-10-20.sql` |
 
 ## 1. Lo que dice el catálogo
 
@@ -241,12 +242,19 @@ Antes hay que saber qué es la contraparte de la persona (C19). Si son unos poco
 
 Que la fuente 6 no traiga suscriptor ni cuenta encaja con un registro público o comercial y no con un reporte de crédito. Es HIPÓTESIS: el catálogo de `typeofdata` lo confirma.
 
-### Riesgo en el canal CEL (HIPÓTESIS fuerte, C21 la cierra)
+### Teléfonos: no vienen estandarizados (C21) y el tipo 9 no se reconoce
 
-- El celular de suscriptor (tipo 9) mide 12 y no tiene forma 3 + 9 dígitos: casi seguro llega como `57` + 10 dígitos.
-- El operador se saca con `LEFT(LTRIM(valor, '0'), 3)` (`04_vistas_insumo_ordenamiento_edf_views.sql`, `insumo_celular:11`; `sp_ordenamiento_scoring_cel_edf.sql:121`). Con `573…` da `573`, que no está en `V_Operador_Ord_Cel`.
-- Entonces CEL018 = 0, y la compuerta `WHERE cel018 <> 0` (`sp_ordenamiento_scoring_cel_edf.sql:261`) **saca a todos los celulares del ranking**.
-- C18 midió el valor **reportado**; el repo usa primero el **estandarizado**. C21 mide ese.
+**Corrección:** la versión anterior de esta sección suponía que el celular del tipo 9 traía el prefijo 57. **C21 lo desmiente:** `reportado_cel_57 = 0`.
+
+| `contacttype` | Valor estandarizado vacío | Lectura |
+|---|---|---|
+| 4 · 5 · 6 · 9 · 11 | **100 %** | `contactasreportedstandardized` no se llena para teléfonos. El repo cae a `contactasreported`, **en crudo** (`03_vistas_contacto_canal_edf_views.sql`, `valor_contacto`) |
+
+**Consecuencias:**
+- **Hay que normalizar el teléfono nosotros**, a solo dígitos, antes de sacar el operador (`LEFT(..., 3)`) y de comparar números.
+- **El tipo 9 sigue sin forma reconocible:** 12 caracteres, sin letras, ni celular de 10 dígitos ni con 57. Lo mismo pasa con los tipos 4 y 5. Si el operador no sale de esos valores, CEL018 = 0 y la compuerta (`sp_ordenamiento_scoring_cel_edf.sql:261`) saca esos celulares del ranking.
+- **HIPÓTESIS a confirmar con el DBA:** en DEV los teléfonos de suscriptor podrían venir **enmascarados**. Los de la fuente 6 sí tienen forma real (104.851 celulares).
+- C22 mide el largo en dígitos y el prefijo de 2 dígitos, que no identifica a nadie.
 
 ### Ciudad: hay con qué llenarla (C18)
 
@@ -271,7 +279,7 @@ Que la fuente 6 no traiga suscriptor ni cuenta encaja con un registro público o
 | # | Cambio | Ganancia en DEV | Dónde |
 |---|---|---|---|
 | A | **Leer el tipo 6** y repartirlo por forma: 3 + 9 dígitos → CEL; si no → TEL | +104.851 celulares y +23.044 fijos | `v_xpm_contacto_canal` y los filtros de canal |
-| B | **Normalizar el celular**: quitar el `57` inicial si deja 3 + 9 dígitos | evita que la compuerta saque todo el canal CEL (si C21 lo confirma) | `v_xpm_contacto_canal` |
+| B | **Normalizar los teléfonos a solo dígitos** (`REGEXP_REPLACE(valor, '[^0-9]', '')`), porque el estandarizado viene vacío (C21). *Reemplaza a la propuesta anterior de quitar el 57, que C21 desmintió* | operador y comparación de números correctos en la fuente 6; el tipo 9 depende de C22 | `v_xpm_contacto_canal` |
 | C | **Ciudad de respaldo**: `citycode` para el tipo 8; Divipola por nombre para 1, 2 y 3 | ciudad en ~55k direcciones que hoy quedan en NULL | `v_xpm_contacto_direccion` + catálogo Divipola en strct |
 
 ## 13. Lo que sigue

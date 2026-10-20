@@ -224,3 +224,16 @@ SELECT ci."location.val.contactinformations.val.contacttype"::VARCHAR AS contact
  WHERE ci."index" IS NOT NULL
    AND ci."location.val.contactinformations.val.contacttype"::VARCHAR IN ('4', '5', '6', '9', '11')
  GROUP BY 1 ORDER BY 1;
+
+-- C22. Telefonos de suscriptor (4, 5, 9): largo en digitos y prefijo de 2
+-- digitos. El prefijo no identifica a nadie (es operador o indicativo).
+SELECT ci."location.val.contactinformations.val.contacttype"::VARCHAR AS contacttype,
+       LEN(REGEXP_REPLACE(ci."location.val.contactinformations.val.contactasreported"::VARCHAR, '[^0-9]', '')) AS digitos,
+       LEFT(REGEXP_REPLACE(ci."location.val.contactinformations.val.contactasreported"::VARCHAR, '[^0-9]', ''), 2) AS prefijo2,
+       SUM(CASE WHEN ci."location.val.contactinformations.val.contactasreported"::VARCHAR ~ '[^0-9]' THEN 1 ELSE 0 END) AS con_no_digitos,
+       COUNT(*) AS filas
+  FROM edf_views.xpm_location_val_contactinformations ci
+ WHERE ci."index" IS NOT NULL
+   AND ci."location.val.contactinformations.val.contacttype"::VARCHAR IN ('4', '5', '9')
+ GROUP BY 1, 2, 3
+ ORDER BY 1, 5 DESC;
