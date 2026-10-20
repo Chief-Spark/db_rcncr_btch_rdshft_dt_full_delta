@@ -10,12 +10,18 @@
 -- (RESULTADOS_CONSULTAS_EDF.md seccion 16): 7 Legal y 8 Business Address
 -- dan JUD y CCL; 12 no se lee; 13 Notification Phone y 14 Business Email si.
 --
+-- 2026-10-20 (D-EDF-01, D-EDF-12): P8 prueba el BLOQUEO DE CUENTA (una cuenta
+-- con blockSeverity 1, otra con 2 y un reporte sin cuenta) y los UPDATE del
+-- final ponen el SCORE de estandarizacion: 0.95 y 0.30 en el mismo lugar
+-- (CL 10 # 5 - 20), 0.30 solo en CL 50 # 50 - 50, y 96, fuera de escala.
+--
 -- Uso: ./banco.sh init nueva && fase strct && fase pgm, y luego
 --   ./banco.sh psql -f vistas_reales_sinteticas.sql
 -- Lo esperado esta junto a cada consulta.
 -- ============================================================
 TRUNCATE edf_views.xpm, edf_views.xpm_location,
-         edf_views.xpm_location_val_contactinformations, edf_views.xpm_counterparties;
+         edf_views.xpm_location_val_contactinformations, edf_views.xpm_counterparties,
+         edf_views.xpm_bestaccounts;
 
 INSERT INTO edf_views.xpm (pin, location, counterparties) VALUES
   ('1001', 501, 801),   -- P1: dos reportes de suscriptor, una contraparte
@@ -24,6 +30,8 @@ INSERT INTO edf_views.xpm (pin, location, counterparties) VALUES
   ('1005', 505, 805),   -- P5: dos contrapartes y suscriptor propio
   ('1006', 506, NULL),  -- P6: fuente 6 (direccion 8 con citycode, telefono 6)
   ('1007', 507, NULL);  -- P7: direcciones de suscriptor sin DANE (Divipola)
+INSERT INTO edf_views.xpm (pin, location, counterparties, bestaccounts) VALUES
+  ('1008', 508, NULL, 708);  -- P8: tres reportes de suscriptor y dos cuentas
 
 INSERT INTO edf_views.xpm_location
   (id, "location.val.contactinformations", "location.val.blockreason",
@@ -37,6 +45,28 @@ INSERT INTO edf_views.xpm_location
   (506, 9006, '',  '',          '1772323200000', '2', ''),
   (506, 9007, '',  '',          '1772323200000', '2', ''),
   (507, 9008, '',  '890000007', '1772323200000', '1', '');
+
+-- P8. La llave de la cuenta es la de Data Provisioning: linea de negocio, tipo
+-- y numero de cuenta, tipo y numero de documento.
+INSERT INTO edf_views.xpm_location
+  (id, "location.val.contactinformations", "location.val.blockreason",
+   "location.val.counterpartyidnumber", "location.val.cutoffdate",
+   "location.val.personidtype", "location.val.accounttype",
+   "location.val.businesslinecode", "location.val.accountnumber",
+   "location.val.personidnumber") VALUES
+  (508, 9009, '', '', '1772323200000', '1', '05', '000123', 'C-1', '1008'),  -- cuenta con severidad 1
+  (508, 9010, '', '', '1772323200000', '1', '05', '000123', 'C-2', '1008'),  -- cuenta con severidad 2
+  (508, 9011, '', '', '1772323200000', '1', '05', '000123', 'C-9', '1008');  -- sin cuenta en bestaccounts
+
+INSERT INTO edf_views.xpm_bestaccounts
+  (id, "index", "bestaccounts.val.businesslinecode", "bestaccounts.val.accounttype",
+   "bestaccounts.val.accountnumber", "bestaccounts.val.personidtype",
+   "bestaccounts.val.personidnumber", "bestaccounts.val.blockseverity") VALUES
+  (708, '0', '000123', '05', 'C-1', '1', '1008', '1'),
+  (708, '1', '000123', '05', 'C-2', '1', '1008', '2'),
+  -- La cuenta C-9 de P8, bloqueada pero en el arreglo de OTRA persona: no debe
+  -- bloquear el reporte 9011, porque la llave va dentro del arreglo de P8.
+  (799, '0', '000123', '05', 'C-9', '1', '1008', '1');
 
 -- Los telefonos de suscriptor llegan como en EDF: 12 digitos con ceros a la
 -- izquierda (C22). Los de la fuente 6, sin relleno (C18). El segundo 4 de P1
@@ -73,7 +103,18 @@ INSERT INTO edf_views.xpm_location_val_contactinformations
   (9008, '1', '3',  'CL 7 # 8 - 9',   'CL 7 8 9',       NULL,       NULL,   'MIRAFLORES', U&'Boyac\00E1', '1772323200000'),
   (9008, '2', '2',  'CL 9 # 9 - 9',   'CL 9 9 9',       NULL,       NULL,   'MIRAFLORES', NULL,   '1772323200000'),
   (9008, '3', '7',  'CL 5 # 5 - 5',   'CL 5 5 5',       '05001000', NULL,   NULL,       NULL,     '1772323200000'),
-  (9008, '4', '12', 'CL 12 # 12 - 12','CL 12 12 12',    '05001000', NULL,   NULL,       NULL,     '1772323200000');
+  (9008, '4', '12', 'CL 12 # 12 - 12','CL 12 12 12',    '05001000', NULL,   NULL,       NULL,     '1772323200000'),
+  (9009, '0', '1',  'CL 80 # 1 - 1',  'CL 80 1 1',      '05001000', NULL,   NULL,       NULL,     '1772323200000'),
+  (9010, '0', '1',  'CL 80 # 2 - 2',  'CL 80 2 2',      '05001000', NULL,   NULL,       NULL,     '1772323200000'),
+  (9011, '0', '1',  'CL 80 # 3 - 3',  'CL 80 3 3',      '05001000', NULL,   NULL,       NULL,     '1772323200000');
+
+UPDATE edf_views.xpm_location_val_contactinformations
+   SET "location.val.contactinformations.val.contactasstandardizedscore" =
+       CASE WHEN id = 9001 THEN '0.95'
+            WHEN id = 9003 THEN '0.30'
+            WHEN id = 9006 THEN '0.30'
+            WHEN id = 9007 THEN '96' END
+ WHERE "index" = '0' AND id IN (9001, 9003, 9006, 9007);
 
 INSERT INTO edf_views.xpm_counterparties (id, "index", "counterparties.val.counterpartyidnumber") VALUES
   (801, '0', '860000001'),
@@ -107,3 +148,18 @@ SELECT direccion_fisica, descripcion_gestion FROM bdm_datos.insumo_telefono ORDE
 -- 5. CEL: cinco celulares con su operador del catalogo real (300, 310, 311,
 --    315, 320).
 SELECT celular, operador FROM bdm_datos.insumo_celular ORDER BY 1;
+-- 6. Bloqueo de cuenta (P8): CL 80 # 1 - 1 bloqueado = 1 (severidad 1);
+--    CL 80 # 2 - 2 y CL 80 # 3 - 3 bloqueado = 0 (severidad 2 y sin cuenta).
+--    La cuenta del arreglo 799 no cuenta: no es de la persona.
+SELECT texto_ubicacion, bloqueado
+  FROM bdm_tempo.v_xpm_contacto_direccion
+ WHERE texto_ubicacion LIKE 'CL 80%' ORDER BY 1;
+-- 7. Gestion por contacto: CL 10 de P1 (0.95) VALIDA, CL 10 de P2 (0.30) y
+--    CL 50 (0.30) NO VALIDA; CL 60 (96, fuera de escala) score y gestion NULL;
+--    el resto NULL.
+SELECT texto_ubicacion, cod_dw_persona_ubic, score_estandarizacion, descripcion_gestion_registro
+  FROM bdm_tempo.v_xpm_contacto_direccion ORDER BY 1, 2;
+-- 8. Gestion por lugar: CL 10 # 5 - 20 VALIDA (el mejor score del lugar),
+--    CL 50 # 50 - 50 NO VALIDA, el resto NULL.
+SELECT texto_ubicacion, score_estandarizacion, descripcion_gestion_registro
+  FROM bdm_tempo.v_xpm_ubicacion_estandarizada ORDER BY 1;
