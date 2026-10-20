@@ -15,6 +15,7 @@ Las consultas se corren en el consumidor DEV (`dba_batch_DEV`), solo en modo lec
 | C22 · largo y prefijo de 2 dígitos de los teléfonos de suscriptor | 2026-10-20 | §14 |
 | C18, C19, C20 y C22 repetidas en **QA** | 2026-10-20 | §15 |
 | Catálogo oficial de `contactType` (Experian) y C23 pendiente | 2026-10-20 | §16 |
+| C25-C27 · género, estado del documento, sector económico | 2026-10-20 | §17 |
 
 ## 1. Lo que dice el catálogo
 
@@ -398,6 +399,47 @@ Celular = 10 dígitos que empiezan por 3. Fijo = de 7 a 10 dígitos que no empie
 - **El 6 cuadra con C18** en celulares. Los fijos suben porque C23 cuenta de 7 a 10 dígitos y no solo de 7 a 8.
 - **El 11 viene vacío** en el 99 % (DEV) y el 99,9 % (QA): no leerlo es correcto.
 - Una parte del 4 y del 5 no tiene ninguna de las dos formas: 8-18 %, más en QA. Se queda en TEL como hoy, y la regla de `descripcion_gestion` del SP marca `NO VALIDA` lo que tiene menos de 7 dígitos.
+
+## 17. Género, estado del documento y sector económico (C25-C27, DEV, 2026-10-20)
+
+### Género (`xpm."bestpersonalinformation.gender"`)
+
+| Código | Personas | Nombre termina en A | Nombre termina en O | Sin primer nombre | Lectura |
+|---|---|---|---|---|---|
+| 1 | 27.059 | 5 | 6.241 | 1 | **M** · PROBABLE fuerte |
+| 2 | 25.118 | 15.774 | 130 | 0 | **F** · PROBABLE fuerte |
+| NULL | 73.526 | 331 | 106 | 70.470 | el 96 % no tiene primer nombre: **personas jurídicas**. Unas 3.000 personas naturales sin género |
+
+El rango de edad viene como `18 - 21` … `66 años o más`, con espacios y texto. La salida del Batch lo pide como `36-45`: hay que homologarlo (quitar espacios y fijar la etiqueta del tramo abierto).
+
+### Estado del documento (`xpm_bestidentifications`)
+
+| Tipo de identificación | `idstatus` | `businessidstatus` | Filas |
+|---|---|---|---|
+| 1 (CC) | vacío | vacío | 51.576 |
+| 1 | 00 | 00 / 0 | 2.263 / 77 |
+| 1 | 21 | 21 / 0 | 119 / 2 |
+| 2 (NIT) | vacío | vacío | 41.035 |
+| 2 | 01 · 00 | igual | 2.251 · 27 |
+| 3 | 01 · 00 | igual | 12 · 4 |
+| 4 | `vo` | vacío | 1 (basura) |
+| 4, 5, 6, 7, 8, 9, 11 | vacío | vacío | 1.298 |
+
+- **El 95 % viene vacío.** El estado solo llega cuando hay validación contra la fuente oficial.
+- **`businessidstatus` no es "el estado de la empresa":** repite `idstatus` en todos los tipos, salvo 79 filas donde vale `0`. Se usa `idstatus`.
+- **HIPÓTESIS (codificación de la Registraduría):** en CC, `00` = vigente y `21` = cancelada por muerte; en NIT, `01` = activa. Se pide el significado de solo cuatro valores: `00`, `01`, `21` y `0`.
+
+### Sector económico (`counterparties.val.businesslines.val.economicsector`)
+
+| Código | Líneas | Ejemplos | Lectura |
+|---|---|---|---|
+| vacío | 93.858 | — | sin sector |
+| F | 1.775 | ACTUAR TOLIMA, UTRAHUILCA MICROCREDITO | **Financiero** · HIPÓTESIS |
+| R | 852 | ABL CAPITAL, YANBAL DE COLOMBIA S.A. | **Real** · HIPÓTESIS |
+| C | 50 | AVANCOP COOPERATIVA, FORJAR COOP | **Cooperativo** · HIPÓTESIS |
+
+- **Puede reemplazar al `sector_financiero` de hoy**, que es una cubeta de hash (ver `CLAUDE.md`, "`sector_financiero` no es un catálogo provisional: hoy es ruido"): el reporte trae el NIT del suscriptor, la contraparte con ese NIT tiene sus líneas de negocio y cada línea su sector.
+- Dos ejemplos por código son poco. La **C29** saca los diez nombres más frecuentes de cada uno, y la **C30** mide cuántos reportes encontrarían sector por ese camino.
 
 ## 13. Lo que sigue
 

@@ -336,3 +336,48 @@ JOIN ds_dba_rncr_batch.edf_views.xpm_counterparties_val_businesslines bl
 WHERE l."index" IS NOT NULL
 GROUP BY 1
 ORDER BY 1;
+
+-- ============================================================
+-- C29 (2026-10-20): los diez nombres de linea de negocio mas frecuentes por
+-- sector economico, para confirmar F / R / C. Son nombres de entidades.
+-- ============================================================
+SELECT economicsector, nombre_linea, lineas
+FROM (
+  SELECT es AS economicsector, nombre AS nombre_linea, n AS lineas,
+         ROW_NUMBER() OVER (PARTITION BY es ORDER BY n DESC) AS rn
+  FROM (
+    SELECT NULLIF(TRIM(bl."counterparties.val.businesslines.val.economicsector"), '') AS es,
+           TRIM(bl."counterparties.val.businesslines.val.businesslinename")           AS nombre,
+           COUNT(*) AS n
+    FROM ds_dba_rncr_batch.edf_views.xpm_counterparties_val_businesslines bl
+    WHERE bl."index" IS NOT NULL
+    GROUP BY 1, 2
+  ) a
+  WHERE es IS NOT NULL
+) b
+WHERE rn <= 10
+ORDER BY economicsector, lineas DESC;
+
+-- ============================================================
+-- C30 (2026-10-20): cuantos reportes de location encontrarian sector por el
+-- NIT del suscriptor (location.counterpartyidnumber = contraparte -> lineas
+-- de negocio -> sector). Solo conteos.
+-- ============================================================
+SELECT COALESCE(s.sector, '(sin sector)') AS sector,
+       COUNT(*)                            AS reportes
+FROM ds_dba_rncr_batch.edf_views.xpm_location loc
+LEFT JOIN (
+  SELECT NULLIF(TRIM(c."counterparties.val.counterpartyidnumber"), '') AS nit,
+         MAX(NULLIF(TRIM(bl."counterparties.val.businesslines.val.economicsector"), '')) AS sector
+  FROM ds_dba_rncr_batch.edf_views.xpm_counterparties c
+  JOIN ds_dba_rncr_batch.edf_views.xpm_counterparties_val_businesslines bl
+    ON bl.id = c."counterparties.val.businesslines"
+  WHERE c."index" IS NOT NULL AND bl."index" IS NOT NULL
+  GROUP BY 1
+) s
+  ON s.nit = NULLIF(TRIM(loc."location.val.counterpartyidnumber"), '')
+WHERE loc."index" IS NOT NULL
+  AND NULLIF(TRIM(loc."location.val.counterpartyidnumber"), '') IS NOT NULL
+GROUP BY 1
+ORDER BY 2 DESC;
+
