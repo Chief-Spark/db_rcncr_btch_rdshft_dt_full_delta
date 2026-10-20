@@ -50,6 +50,11 @@ TRUNCATE TABLE bdm_datos.unif_escenario_censo_mock;
 -- Ciclo GEO mock
 TRUNCATE TABLE bdm_datos.geo_atributos_mock;
 TRUNCATE TABLE bdm_datos.geo_lote_control_mock;
+-- 2026-10-20: el archivo de vuelta del simulador de ArcGIS. Lo escribe
+-- sp_geo_simular_arcgis_mock y sobrevivia al segundo DPLY: la busqueda de
+-- resultados del ciclo (sp_rcn_geo_02_buscar_resultados_mock) lo encontraria
+-- en el e2e de la segunda pasada y moveria el Lote a 'cargado' (CA-01).
+TRUNCATE TABLE bdm_stage.mock_geo_respuesta;
 
 -- Evidencia de gates
 TRUNCATE TABLE bdm_stage.mock_unif_ca_result;

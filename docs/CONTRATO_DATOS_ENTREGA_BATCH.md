@@ -57,7 +57,7 @@ Lo decide la columna `canal` de `v_xpm_contacto_canal`. El catálogo oficial de 
 
 | Cubo | `contacttype` (catálogo) | Tipo de dirección | Forma del dato | Grado |
 |---|---|---|---|---|
-| DIRECCION | 1 Residence · 2 Labor · 3 Mailing · 7 Legal-c · 8 Business-c | RES · LAB · CRR · **JUD** · **CCL** | texto de dirección | CONFIRMADO. El 8 iba a CRR y el 7 a un `'DIR'` inventado (D-EDF-06) |
+| DIRECCION | 1 Residence · 2 Labor · 3 Mailing · 7 Legal-c · 8 Business-c | RES · LAB · CRR · **JUD** · **CCL** | texto de dirección | CONFIRMADO (7 = JUD y 8 = CCL, confirmados por el usuario). El 8 iba a CRR y el 7 a un `'DIR'` inventado (D-EDF-06) |
 | TELEFONO | 4 Residence · 5 Labor · 6 Business · 13 Notification, si no tienen forma de celular | — | 12 dígitos rellenados con ceros (4, 5) o limpio (6). **Se entrega sin el relleno** | CONFIRMADO que es teléfono; fijo o celular, PROBABLE por la forma (C23) |
 | CELULAR | 9 Mobile; y el 4, 5, 6 y 13 con forma de celular (10 dígitos que empiezan por 3) | — | igual: **sin el relleno** | CONFIRMADO el 9; los demás, PROBABLE por la forma (C23: ~1 de cada 10 fijos 4 y 5 es celular) |
 | CORREO | 10 Email · 14 Business Email | — | el 100 % con `@` | CONFIRMADO |

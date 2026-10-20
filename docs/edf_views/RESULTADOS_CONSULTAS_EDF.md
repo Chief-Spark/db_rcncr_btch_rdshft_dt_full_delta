@@ -358,8 +358,8 @@ Entregado por el productor ("Official catalog of contactType"; los campos se lle
 | 4 | Residence Telephone | TEL o CEL por la forma | — | sí; el 10-12 % es celular (C23) |
 | 5 | Labor Telephone | TEL o CEL por la forma | — | sí; el 7-11 % es celular (C23) |
 | 6 | Business Telephone | TEL o CEL por la forma | — | sí: 78 % con forma de celular (C18). "Business" es el uso, no la tecnología |
-| 7 | Legal Address-c | DIR | **JUD** (antes `'DIR'`, inventado) | sin filas en DEV |
-| 8 | Business Address-c | DIR | **CCL** (antes CRR) | sí: `standardizedtipo` VIA, RURAL… |
+| 7 | Legal Address-c | DIR | **JUD** (antes `'DIR'`, inventado). CONFIRMADO por el usuario | sin filas en DEV |
+| 8 | Business Address-c | DIR | **CCL** (antes CRR). CONFIRMADO por el usuario | sí: `standardizedtipo` VIA, RURAL… |
 | 9 | Mobile | CEL | — | sí (C22) |
 | 10 | Email Address | EMA | — | sí (100 % con `@`) |
 | 11 | Fax Number | no se lee | — | sí (casi vacío) |
@@ -369,7 +369,7 @@ Entregado por el productor ("Official catalog of contactType"; los campos se lle
 
 **Lo que corrige:**
 - **El 8 no es correspondencia.** Es la dirección comercial: `CCL` en `Information Recognizer (NH).csv:5`. Es el 91 % de las direcciones de DEV (135.084 de 149.097, §5). Contado como CRR, inflaba la elección del padre en la Regla 1, la característica CRR del scoring DIR y `ES_TIPO_CRR` de Novedades. El legado solo pregunta por RES, LAB y CRR (`P0019_UNIFICACION_111.TPT:94,101`, `NOV` 8375-8382), así que CCL y JUD no dan puntos ni banderas, igual que allí.
-- **El 7 es la dirección legal:** `JUD`, que es HIPÓTESIS por el nombre. Antes caía en el `'DIR'` inventado del catálogo local.
+- **El 7 es la dirección legal:** `JUD`. Era HIPÓTESIS por el nombre y el usuario lo confirmó el 2026-10-20, igual que el 8 = `CCL`. Antes el 7 caía en el `'DIR'` inventado del catálogo local.
 - **Se leen el 13 y el 14** para que no se pierdan en silencio cuando lleguen.
 - Sin DDL: se usan los códigos que ya tiene `tipo_ubicacion_dir` (4 JUD, 5 CCL; `01_ddl_unificacion_direccion.sql:119-128`).
 

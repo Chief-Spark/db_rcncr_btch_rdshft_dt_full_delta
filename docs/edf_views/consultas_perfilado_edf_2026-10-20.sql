@@ -259,3 +259,80 @@ FROM (
 WHERE ct IN ('4', '5', '6', '9', '11', '13')
 GROUP BY 1
 ORDER BY 1;
+
+-- ============================================================
+-- C24 (2026-10-20): score de la direccion estandarizada. Negocio: debe ser
+-- mayor a 80. Hipotesis: es el VALIDA / NO VALIDA del legado. Solo conteos.
+-- ============================================================
+SELECT ct AS contacttype, COUNT(*) AS filas,
+       SUM(CASE WHEN s IS NULL THEN 1 ELSE 0 END) AS sin_score,
+       MIN(s) AS min_txt, MAX(s) AS max_txt,
+       SUM(CASE WHEN s ~ '^[0-9]+([.][0-9]+)?$' AND CAST(s AS DECIMAL(12,4)) > 80 THEN 1 ELSE 0 END) AS mayor_80,
+       SUM(CASE WHEN s ~ '^[0-9]+([.][0-9]+)?$' AND CAST(s AS DECIMAL(12,4)) <= 1 THEN 1 ELSE 0 END) AS escala_0_1
+FROM (SELECT NULLIF(TRIM(ci."location.val.contactinformations.val.contacttype"::VARCHAR),'') AS ct,
+             NULLIF(TRIM(ci."location.val.contactinformations.val.contactasstandardizedscore"::VARCHAR),'') AS s
+      FROM ds_dba_rncr_batch.edf_views.xpm_location_val_contactinformations ci) x
+GROUP BY 1 ORDER BY 1;
+
+-- ============================================================
+-- C25 (2026-10-20): GENERO. Dominio del codigo y una pista para deducir cual
+-- es M y cual F sin sacar nombres: cuantos primeros nombres terminan en A y
+-- cuantos en O por codigo (en castellano, A suele ser femenino y O
+-- masculino). Una persona juridica no tiene primer nombre. Solo conteos.
+-- ============================================================
+SELECT x."bestpersonalinformation.gender" AS gender,
+       COUNT(*) AS personas,
+       SUM(CASE WHEN UPPER(RIGHT(TRIM(x."bestname.firstname"), 1)) = 'A' THEN 1 ELSE 0 END) AS nombre_termina_en_a,
+       SUM(CASE WHEN UPPER(RIGHT(TRIM(x."bestname.firstname"), 1)) = 'O' THEN 1 ELSE 0 END) AS nombre_termina_en_o,
+       SUM(CASE WHEN NULLIF(TRIM(x."bestname.firstname"), '') IS NULL THEN 1 ELSE 0 END) AS sin_primer_nombre,
+       MIN(x."bestpersonalinformation.agerange") AS rango_edad_min,
+       MAX(x."bestpersonalinformation.agerange") AS rango_edad_max
+FROM ds_dba_rncr_batch.edf_views.xpm x
+GROUP BY 1
+ORDER BY 2 DESC;
+
+-- ============================================================
+-- C26 (2026-10-20): ESTADO DEL DOCUMENTO. idstatus y businessidstatus por
+-- tipo de identificacion (1 CC, 2 NIT, 3 PJE, 4 CE... segun ID Type NH):
+-- si businessidstatus solo aparece con NIT, es el estado de la empresa.
+-- ============================================================
+SELECT b."bestidentifications.val.personidtype"    AS personidtype,
+       b."bestidentifications.val.idstatus"         AS idstatus,
+       b."bestidentifications.val.businessidstatus" AS businessidstatus,
+       COUNT(*) AS filas
+FROM ds_dba_rncr_batch.edf_views.xpm_bestidentifications b
+WHERE b."index" IS NOT NULL
+GROUP BY 1, 2, 3
+ORDER BY 1, 4 DESC;
+
+-- ============================================================
+-- C27 (2026-10-20): SECTOR ECONOMICO de la linea de negocio de cada
+-- contraparte (son entidades, no personas). El nombre de la linea de negocio
+-- ayuda a deducir el codigo del sector.
+-- ============================================================
+SELECT bl."counterparties.val.businesslines.val.economicsector"   AS economicsector,
+       COUNT(*)                                                    AS lineas,
+       COUNT(DISTINCT bl."counterparties.val.businesslines.val.businesslinename") AS nombres_distintos,
+       MIN(bl."counterparties.val.businesslines.val.businesslinename") AS ejemplo_nombre_1,
+       MAX(bl."counterparties.val.businesslines.val.businesslinename") AS ejemplo_nombre_2
+FROM ds_dba_rncr_batch.edf_views.xpm_counterparties_val_businesslines bl
+WHERE bl."index" IS NOT NULL
+GROUP BY 1
+ORDER BY 2 DESC;
+
+-- ============================================================
+-- C28 (2026-10-20, de paso para el pedido 3): que typeofdata declara cada
+-- linea de negocio. Junta el codigo con el nombre de la linea y sirve para
+-- deducir que fuente es cada typeofdata (por ejemplo, si el 6 sale con
+-- lineas de Camara de Comercio).
+-- ============================================================
+SELECT l."counterparties.val.businesslines.val.listoftypeofdata.val" AS typeofdata,
+       COUNT(*) AS lineas,
+       MIN(bl."counterparties.val.businesslines.val.businesslinename") AS ejemplo_linea_1,
+       MAX(bl."counterparties.val.businesslines.val.businesslinename") AS ejemplo_linea_2
+FROM ds_dba_rncr_batch.edf_views.xpm_counterparties_val_businesslines_val_listoftypeofdata l
+JOIN ds_dba_rncr_batch.edf_views.xpm_counterparties_val_businesslines bl
+  ON bl."counterparties.val.businesslines.val.listoftypeofdata" = l.id
+WHERE l."index" IS NOT NULL
+GROUP BY 1
+ORDER BY 1;

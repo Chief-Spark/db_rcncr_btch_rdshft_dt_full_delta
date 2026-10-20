@@ -74,9 +74,10 @@ Además:
 | Hoy (`bdm_datos.`) | Nuevo | Mock |
 |---|---|---|
 | `sp_geo_exportar_insumo` | `sp_rcn_geo_01_exportar` | `sp_geo_exportar_insumo_mock` |
-| `sp_geo_cargar_georreferenciacion` | `sp_rcn_geo_02_cargar_georef` | `sp_geo_cargar_georreferenciacion_mock` |
-| `sp_geo_cargar_distancias` | `sp_rcn_geo_03_cargar_distancias` | — |
-| `sp_geo_reenganchar_r3` | `sp_rcn_geo_04_reenganchar_r3` | `sp_geo_reenganchar_r3_mock` |
+| — (nuevo, 2026-10-20) | `sp_rcn_geo_02_buscar_resultados` | `sp_rcn_geo_02_buscar_resultados_mock` · **ya nace con el patrón**: revisa si ArcGIS dejó resultados y los carga (D-GEO-06). Por eso los cargadores pasan del 02-04 al 03-05 |
+| `sp_geo_cargar_georreferenciacion` | `sp_rcn_geo_03_cargar_georef` | `sp_geo_cargar_georreferenciacion_mock` |
+| `sp_geo_cargar_distancias` | `sp_rcn_geo_04_cargar_distancias` | — |
+| `sp_geo_reenganchar_r3` | `sp_rcn_geo_05_reenganchar_r3` | `sp_geo_reenganchar_r3_mock` |
 | `sp_geo_ciclo_lote` | `sp_rcn_geo_ciclo_lote` (lo llama `sp_rcn_geo_ciclo`) | — |
 
 ### Ordenamiento
