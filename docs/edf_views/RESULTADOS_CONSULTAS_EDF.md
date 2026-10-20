@@ -264,6 +264,18 @@ Que la fuente 6 no traiga suscriptor ni cuenta encaja con un registro público o
 | 4 (fijo) | 4.349 | 12 dígitos; 4.226 con `00` y el resto con otros prefijos |
 | 5 (fijo) | 3.032 | 12 dígitos; 3.001 con `00` |
 
+**Repetida en QA (2026-10-20), con más volumen y la misma forma:**
+
+| Tipo | Filas en QA | Con `00` | Otros prefijos |
+|---|---|---|---|
+| 9 (celular) | 39.453 | **100 %** | — |
+| 4 (fijo) | 69.817 | 66.801 (95,7 %) | 3.016 en 68 prefijos distintos (`31` 794, `01` 468, `57` 32…) |
+| 5 (fijo) | 53.000 | 52.538 (99,1 %) | 462 |
+
+Todos tienen exactamente 12 dígitos y ninguno trae caracteres que no sean dígitos.
+
+**El relleno es el formato del productor, no un enmascarado de DEV:** sale idéntico en dos ambientes. Los ~3.500 fijos que no empiezan por `00` son formatos sucios del origen (prefijo `57`, `01` de larga distancia…). La normalización les quita solo los ceros y no los pierde: siguen siendo 12 dígitos válidos.
+
 **Eso cierra el "tipo 9 sin forma":** no está enmascarado, está **rellenado**. Sin los ceros es un celular de 10 dígitos.
 
 **Y CONFIRMA QUE EL CANAL CEL REAL HOY QUEDA VACÍO:**
