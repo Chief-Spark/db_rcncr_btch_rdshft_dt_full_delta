@@ -406,9 +406,11 @@ Celular = 10 dígitos que empiezan por 3. Fijo = de 7 a 10 dígitos que no empie
 
 | Código | Personas | Nombre termina en A | Nombre termina en O | Sin primer nombre | Lectura |
 |---|---|---|---|---|---|
-| 1 | 27.059 | 5 | 6.241 | 1 | **M** · PROBABLE fuerte |
-| 2 | 25.118 | 15.774 | 130 | 0 | **F** · PROBABLE fuerte |
+| 1 | 27.059 | 5 | 6.241 | 1 | **M** · CONFIRMADO |
+| 2 | 25.118 | 15.774 | 130 | 0 | **F** · CONFIRMADO |
 | NULL | 73.526 | 331 | 106 | 70.470 | el 96 % no tiene primer nombre: **personas jurídicas**. Unas 3.000 personas naturales sin género |
+
+**CONFIRMADO con la ficha de Confluence "1. Gender" (APPROVED, jul 24, 2026)**: lookup `93_GENDER_HO` con 0 Not known, 1 Male, 2 Female y 9 Not applicable. En DEV no aparecen ni 0 ni 9; las empresas llegan en NULL. Homologación para el Batch: 1 → M, 2 → F y 0, 9 o NULL → vacío. La misma ficha dice que el valor sale de Registraduría (BDIREGIS, eventos Registraduría HF + Migrated REGI), del evento más reciente que traiga el campo.
 
 El rango de edad viene como `18 - 21` … `66 años o más`, con espacios y texto. La salida del Batch lo pide como `36-45`: hay que homologarlo (quitar espacios y fijar la etiqueta del tramo abierto).
 
