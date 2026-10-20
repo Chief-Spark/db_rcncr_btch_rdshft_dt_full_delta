@@ -99,7 +99,7 @@ Perfil completo en `legado_teradata/salida_real_esencial/`. El original tiene da
 | 2 | Lugar mezclado entre canales y asignado a una sola RPU | consolidación y scoring | §4 |
 | 3 | **`INFO_BASICA` castea a `INTEGER` un `FNV_HASH` de 64 bits: con datos reales probablemente aborta** (el mock no lo ve porque sus ids son pequeños) | `pgm/sp_novedades_ubicacion_edf.sql:391` | `RPU.Id_Buro_Persona` (`NOV:8373`) |
 | 4 | El contrato de respuesta GEO no coincide con el layout del legado. Se rechazaría el 100 % de las filas | `pgm/sp_geo_cargar_georreferenciacion.sql:138-169` | `P0006_STAGEGEOREFERENCIA_100.TPT:29-58`: Status col28, latitud 12, longitud 13; **barrio 7, localidad 8, estrato 9, código postal 22** |
-| 5 | NIT cableado como `'3'`. En ID Type NH el **2 es NIT** y el 3 es Persona Jurídica del Extranjero | `pgm/sp_unificacion_r2_esc3_…:27`, `…motor_nit…:194` | `UNI:2208-2210` usa `V_Tipo_Identificacion LIKE '%Nit%'` |
+| 5 | NIT cableado como `'3'`. En ID Type NH el **2 es NIT** y el 3 es Persona Jurídica del Extranjero. **CONFIRMADO con datos: código 2 = 43.735 filas, código 3 = 5** (`edf_views/RESULTADOS_CONSULTAS_EDF.md` §2) | `pgm/sp_unificacion_r2_esc3_…:27`, `…motor_nit…:194` | `UNI:2208-2210` usa `V_Tipo_Identificacion LIKE '%Nit%'` |
 | 6 | `standardizeddanecode` pasa a `INTEGER` (pierde el cero inicial) y cae a `MOD(FNV_HASH(cityname))` cuando falta: aparecen "DANE" falsos | `02_vistas…:52-58` | DANE de 8 dígitos de `V_GEOGRAFIA` (`NOV:7665`) |
 | 7 | `fecha_reporte` cae a `CURRENT_DATE`; `id_buro_suscriptor` cae a una cubeta de hash; el join a `counterparties` es a nivel persona | `02_vistas…:319-353` | `COUNT(DISTINCT Id_Buro_Suscriptor)` (`NOV:8505`) |
 | 8 | `bloqueado` es el literal `0`: el anti-join de bloqueo no hace nada en la vía real | `02_vistas…:195,209` | `V_BLOQUEO` (`NOV:7590-7594`) |
@@ -164,17 +164,17 @@ Perfil completo en `legado_teradata/salida_real_esencial/`. El original tiene da
 | 3 | Movilidad y punto de interés: `V_PERSONA_INDICADOR_MOVILIDAD`, `V_INDICADOR_MOVILIDAD`, `V_Hom_Ind_Mov_Linea`, `V_PUNTO_DE_INTERES_GEO`, `V_TIPO_PUNTO_INTERES`, `V_Hom_Tipo_Pto_Int_Linea` | d6, d7 |
 | 3 | Batch: `BATCH2_HOMOLOGACION`, `V_CATEGORIA_INGRESO` / `EGRESO`, `V_TIPO_IDENTIFICACION`, definición de `Vstg_BUROPERS_TMP` | contrato del Batch |
 
-## 9. Lo que NO está verificado en EDF
+## 9. Verificado en EDF (2026-10-20)
 
-**Que la contactabilidad "no existe en EDF" es una afirmación sin verificar.** Viene de documentos que solo revisaron las 4 tablas que leemos. El volcado de `svv_all_columns` del 15-oct se usó en una sesión anterior y **no se guardó**.
+El catálogo completo de `edf_views` y los primeros perfiles están en `docs/edf_views/`. Resumen en `docs/edf_views/RESULTADOS_CONSULTAS_EDF.md`:
 
-Antes de decidir hay que correr, solo lectura:
-1. `svv_all_tables` y `svv_all_columns` sobre `ds_dba_rncr_batch.edf_views`.
-2. Una búsqueda por nombre de columna: `%contact%`, `%gestion%`, `%effect%`, `%result%`, `%call%`, `%attempt%`.
-3. Cardinalidad de `(id, index)` en `xpm_location_val_contactinformations`.
-4. Dominios de `personidtype`, `contacttype`, largo del DANE, `blockreason` y `subscriberblockstatus`.
+- **Contactabilidad y gestión: no existen en `edf_views` (verificado).** Hay que pedirlas, o salen NULL explícito.
+- **El NIT es el código 2 (43.735 filas); el 3 tiene 5.** Esto confirma el hallazgo #5.
+- **Barrio, localidad, código postal, estrato y página web sí existen en EDF.** También identificación, expedición, nombres, género, rango de edad, CIIU principal con descripción, todos los CIIU y matrícula. Varios catálogos de la §8 dejan de hacer falta.
+- **Las cuentas existen** (`xpm_bestaccounts`). Las vistas stub de F2 se pueden conectar.
+- **Bloqueo:** existe por reporte, pero la regla hay que decidirla.
 
-Su resultado (metadatos y conteos) se guarda en este repo.
+Pendiente: cardinalidad de `(id, index)`, dominios de `contacttype` y largo del DANE, marca de delta, género y estado del documento (`consultas_perfilado_edf_2026-10-20.sql`).
 
 ## 10. Afirmaciones del repo que el legado desmiente
 
