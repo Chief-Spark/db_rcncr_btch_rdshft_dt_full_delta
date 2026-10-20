@@ -10,7 +10,8 @@ Las consultas se corren en el consumidor DEV (`dba_batch_DEV`), solo en modo lec
 | C5 · dominio de `personidtype` | 2026-10-20 | §2 |
 | C7 · bloqueo | 2026-10-20 | §3 |
 | C4, C6, C8 a C16 | 2026-10-20 | §4 a §11 |
-| C17 a C20 · verificación de las hipótesis de §4-§11 | pendientes | `consultas_perfilado_edf_2026-10-20.sql` |
+| C17 a C20 · verificación de las hipótesis de §4-§11 | 2026-10-20 | §14 |
+| C21 · forma del valor estandarizado de teléfonos y celulares | pendiente | `consultas_perfilado_edf_2026-10-20.sql` |
 
 ## 1. Lo que dice el catálogo
 
@@ -215,6 +216,63 @@ Antes hay que saber qué es la contraparte de la persona (C19). Si son unos poco
 | 7 | Identificación del cubo PERSONA | §8 | 78 personas con dos documentos | desempate determinista | — (F5) |
 | 8 | Edad, género, sector, fuente | §8-§10 | campos del cubo vacíos o sin catálogo | homologaciones propuestas | catálogos |
 | 9 | `generation` sin registrar | §7 | sin trazabilidad de la foto procesada | columna en `*_control` | OK al DDL (F3) |
+
+## 14. C17 a C20: lo que confirman
+
+**Antes de leer:** DEV es una muestra (125.703 personas frente a 65-70 M en producción). Las **formas** valen; los **porcentajes** no se extrapolan.
+
+### Tipos de contacto: el mapeo queda casi cerrado (C18, C20)
+
+| `contacttype` | Forma del valor (C18) | Viene en | Lectura | Repo hoy |
+|---|---|---|---|---|
+| **10** | 138.714 con `@` (100 %) | todas las fuentes | **EMAIL** · CONFIRMADO | EMAIL ✓ |
+| **6** | sin letras; **104.851 con forma de celular** (3 + 9 dígitos) y 23.044 fijos de 7-8 | solo `typeofdata 6` | **TELÉFONO de la fuente 6**: 78 % celulares | **no se lee: se pierden ~128k teléfonos** |
+| **11** | vacío en casi todo (largo medio 0); 1.097 con dígitos | solo `typeofdata 6` | segundo teléfono o fax, casi vacío | no se lee (bien, mientras no haya catálogo) |
+| **8** | texto con letras; DANE 94.143; **`citycode` 135.082, de 4-5 dígitos** | solo `typeofdata 6` | **DIRECCIÓN**; `citycode` = **municipio DANE** sin el cero | DIR ✓ (ya no está en TEL) |
+| 1 · 3 | texto con letras; `cityname` en todas; sin DANE | suscriptores (`typeofdata` 1, 2, 17) | **DIRECCIÓN** (RES y CRR, según el repo) | DIR ✓ |
+| 2 | 64 % con letras | suscriptores | dirección (LAB, según el repo) | DIR ✓ |
+| 4 · 5 | sin letras, largo 12, `cityname` en todas | suscriptores | **TELÉFONO FIJO**, probablemente con indicativo (60X + 7 dígitos) | TEL ✓ |
+| **9** | sin letras, largo 12, **ninguno con forma 3 + 9 dígitos** | suscriptores | **CELULAR, probablemente con prefijo 57** | CEL, **en riesgo** (ver abajo) |
+
+**Dos fuentes con paquetes distintos (C20):**
+- **Suscriptores** (`typeofdata` 1, 2, 17; 6.870 reportes): traen suscriptor, tipo de cuenta y tipo de identificación en el 100 %. Contactos 1-5, 9 y 10.
+- **`typeofdata 6`** (135.084 reportes, el 95 %): **ningún** suscriptor ni tipo de cuenta. Siempre el mismo paquete: dirección 8 + teléfono 6 + correo 10 + vacío 11.
+- `typeofdata 3` (113): solo el estrato.
+
+Que la fuente 6 no traiga suscriptor ni cuenta encaja con un registro público o comercial y no con un reporte de crédito. Es HIPÓTESIS: el catálogo de `typeofdata` lo confirma.
+
+### Riesgo en el canal CEL (HIPÓTESIS fuerte, C21 la cierra)
+
+- El celular de suscriptor (tipo 9) mide 12 y no tiene forma 3 + 9 dígitos: casi seguro llega como `57` + 10 dígitos.
+- El operador se saca con `LEFT(LTRIM(valor, '0'), 3)` (`04_vistas_insumo_ordenamiento_edf_views.sql`, `insumo_celular:11`; `sp_ordenamiento_scoring_cel_edf.sql:121`). Con `573…` da `573`, que no está en `V_Operador_Ord_Cel`.
+- Entonces CEL018 = 0, y la compuerta `WHERE cel018 <> 0` (`sp_ordenamiento_scoring_cel_edf.sql:261`) **saca a todos los celulares del ranking**.
+- C18 midió el valor **reportado**; el repo usa primero el **estandarizado**. C21 mide ese.
+
+### Ciudad: hay con qué llenarla (C18)
+
+- Dirección de la fuente 6 (8): `citycode` en el 100 %, con 4-5 dígitos = municipio DANE. Donde falta el DANE de 8 dígitos (41k), `citycode` da el municipio y `citycode * 1000` la cabecera municipal.
+- Direcciones de suscriptor (1, 2, 3): solo `cityname`. Se homologa contra **Divipola** (`legado_teradata/reconocer/catalogos/Dane Divipola Villages Codes (NH).csv`) por nombre normalizado y departamento.
+
+### Personas con muchas direcciones (C17)
+
+- 52.553 personas con 1 dirección y 41.267 con 2. La cola llega hasta **1.245 direcciones en una sola persona**: hay 90 personas con más de 10.
+- **Con la llave vieja eso era un producto cruzado de 1.245² = 1,5 M filas para esa persona.** La corrección de llaves ya aplicada lo elimina.
+- **Riesgo de rendimiento que queda:** la R2 se auto-une por persona. Una empresa con miles de direcciones sigue siendo cara. En producción hay que medir el máximo y decidir si se acota. Es AS-IS: el legado tiene el mismo patrón.
+
+### Suscriptor (C19)
+
+- La contraparte de la persona es siempre de tipo 2 (NIT), pero **solo 1.889 de 95.701 traen número** (347 distintos).
+- Los reportes traen 296 suscriptores distintos, todos de las fuentes de suscriptor.
+- El nivel 2 de la regla (la contraparte única de la persona) aporta poco y no daña: se deja.
+- **"Número de entidades = 0" para la fuente 6 es lo correcto**: no la reporta una entidad.
+
+### Lo que se propone ahora (pide OK)
+
+| # | Cambio | Ganancia en DEV | Dónde |
+|---|---|---|---|
+| A | **Leer el tipo 6** y repartirlo por forma: 3 + 9 dígitos → CEL; si no → TEL | +104.851 celulares y +23.044 fijos | `v_xpm_contacto_canal` y los filtros de canal |
+| B | **Normalizar el celular**: quitar el `57` inicial si deja 3 + 9 dígitos | evita que la compuerta saque todo el canal CEL (si C21 lo confirma) | `v_xpm_contacto_canal` |
+| C | **Ciudad de respaldo**: `citycode` para el tipo 8; Divipola por nombre para 1, 2 y 3 | ciudad en ~55k direcciones que hoy quedan en NULL | `v_xpm_contacto_direccion` + catálogo Divipola en strct |
 
 ## 13. Lo que sigue
 

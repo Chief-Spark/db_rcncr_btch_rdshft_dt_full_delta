@@ -207,3 +207,20 @@ SELECT "location.val.typeofdata"::VARCHAR AS typeofdata,
   FROM edf_views.xpm_location
  WHERE "index" IS NOT NULL
  GROUP BY 1 ORDER BY 2 DESC;
+
+-- C21. Forma del valor ESTANDARIZADO de telefonos y celulares (el repo usa
+-- primero contactasreportedstandardized). Sin mostrar valores.
+SELECT ci."location.val.contactinformations.val.contacttype"::VARCHAR AS contacttype,
+       COUNT(*) AS filas,
+       SUM(CASE WHEN NULLIF(TRIM(ci."location.val.contactinformations.val.contactasreportedstandardized"::VARCHAR), '') IS NULL THEN 1 ELSE 0 END) AS estandar_vacio,
+       SUM(CASE WHEN REGEXP_REPLACE(ci."location.val.contactinformations.val.contactasreportedstandardized"::VARCHAR, '[^0-9]', '') ~ '^3[0-9]{9}$' THEN 1 ELSE 0 END) AS estandar_cel_10,
+       SUM(CASE WHEN REGEXP_REPLACE(ci."location.val.contactinformations.val.contactasreportedstandardized"::VARCHAR, '[^0-9]', '') ~ '^573[0-9]{9}$' THEN 1 ELSE 0 END) AS estandar_cel_57,
+       SUM(CASE WHEN REGEXP_REPLACE(ci."location.val.contactinformations.val.contactasreported"::VARCHAR, '[^0-9]', '') ~ '^573[0-9]{9}$' THEN 1 ELSE 0 END) AS reportado_cel_57,
+       SUM(CASE WHEN REGEXP_REPLACE(ci."location.val.contactinformations.val.contactasreportedstandardized"::VARCHAR, '[^0-9]', '') ~ '^60[1-8][0-9]{7}$' THEN 1 ELSE 0 END) AS estandar_fijo_10,
+       SUM(CASE WHEN ci."location.val.contactinformations.val.contactasreportedstandardized"::VARCHAR ~ '[^0-9]' THEN 1 ELSE 0 END) AS estandar_con_no_digitos,
+       MIN(LEN(NULLIF(TRIM(ci."location.val.contactinformations.val.contactasreportedstandardized"::VARCHAR), ''))) AS largo_min,
+       MAX(LEN(NULLIF(TRIM(ci."location.val.contactinformations.val.contactasreportedstandardized"::VARCHAR), ''))) AS largo_max
+  FROM edf_views.xpm_location_val_contactinformations ci
+ WHERE ci."index" IS NOT NULL
+   AND ci."location.val.contactinformations.val.contacttype"::VARCHAR IN ('4', '5', '6', '9', '11')
+ GROUP BY 1 ORDER BY 1;
