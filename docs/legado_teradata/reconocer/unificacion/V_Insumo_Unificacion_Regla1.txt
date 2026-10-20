@@ -1,0 +1,45 @@
+ REPLACE VIEW REC_VISTA.V_Insumo_Unificacion_Regla1 (Cod_DW_Persona_Ubic,
+                                      Id_Buro_Persona,
+                                      Texto_Ubicacion,
+                                      Complemento,
+									  Cod_DW_Ciudad,
+                                      Cod_DW_Tipo_Ubicacion_Dir,
+                                      Cod_Act_Econo_CIIU_Fte,
+                                      Numero_Entidades_Reportan
+) AS 
+LOCKING ROW FOR ACCESS
+SELECT RELPU.Cod_DW_Persona_Ubic,
+            RELPU.Id_Buro_Persona,
+            UBIST.Texto_Ubicacion,
+            DIRF.Complemento,
+			UBIST.Cod_DW_Ciudad,
+            RELPU.Cod_DW_Tipo_Ubicacion_Dir,
+            CCIU.Cod_Act_Econo_CIIU_Fte,
+            COUNT(DISTINCT REPPU.Id_Buro_Suscriptor) AS Numero_entidades_que_Reportan
+     FROM REC_DATOS.RELACION_PERSONA_UBICACION AS RELPU
+                  LEFT JOIN (SELECT PACT.id_buro_persona, -- Se cambia de INNER a Left para extraer registros que no tengan CIIU. 20/09/2017
+                                                       ACT.Cod_Act_Econo_CIIU_Fte
+                                    FROM bdm_vista.v_persona_act_economica_ciiu AS PACT
+                                     INNER JOIN bdm_vista.V_ACTIVIDAD_ECONOMICA_CIIU AS ACT ON PACT.Cod_DW_Act_Econo_CIIU = ACT.Cod_DW_Act_Econo_CIIU
+                                    QUALIFY (ROW_NUMBER() OVER (PARTITION BY PACT.id_buro_persona ORDER BY PACT.Fecha_Inicio_Act_Econo_CIIU DESC))=1) AS CCIU ON RELPU.Id_Buro_Persona =CCIU.id_buro_persona
+          INNER JOIN REC_DATOS.UBICACION_ESTANDARIZADA AS UBIST ON RELPU.Cod_DW_Ubic = UBIST.Cod_DW_Ubic
+		  
+          LEFT JOIN   REC_DATOS.DIRECCION_FISICA AS DIRF ON RELPU.Cod_DW_Direccion_Fisica = DIRF.Cod_DW_Direccion_Fisica         
+          INNER JOIN REC_DATOS.REPORTE_RELACION_PERSONA_UBICA AS REPPU ON RELPU.Cod_DW_Persona_Ubic=REPPU.Cod_DW_Persona_Ubic
+          
+		  INNER JOIN REC_VISTA.V_TIPO_UBICACION AS TU  -- Se incluiye esta regla para solo enviar a unificación registros de tipo ubicación Geográfica
+		  ON UBIST.Cod_DW_Tipo_Ubicacion=TU.Cod_DW_Tipo_Ubicacion
+		  AND TU.Descripcion_Tipo_Ubicacion = 'Geografica'
+		  
+		  LEFT JOIN REC_VISTA.V_BLOQUEO BL
+		  ON RELPU.Cod_DW_Persona_Ubic=BL.Cod_DW_Persona_Ubic
+		  
+		  WHERE RELPU.Ind_Unificacion IS NULL -- Se incluye filtro para solo traer direcciones sin unificar. 20/09/2018. Andy Garcia. 
+		  AND BL.Cod_DW_Persona_Ubic IS NULL -- Se incluye filtro para solo tomar direcciones sin bloqueo. 20/09/2018. Andy Garcia
+     GROUP BY RELPU.Cod_DW_Persona_Ubic,
+              RELPU.Id_Buro_Persona,
+              UBIST.Texto_Ubicacion,
+			  DIRF.Complemento,
+			  UBIST.Cod_DW_Ciudad,
+              RELPU.Cod_DW_Tipo_Ubicacion_Dir,
+              CCIU.Cod_Act_Econo_CIIU_Fte;

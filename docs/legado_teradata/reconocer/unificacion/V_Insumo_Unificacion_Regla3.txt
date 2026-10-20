@@ -1,0 +1,4 @@
+ REPLACE VIEW REC_STAGE.V_Insumo_Unificacion_Regla3
+ AS 
+ LOCK ROW FOR ACCESS 
+ SELECT * FROM REC_STAGE.Unificacion_3432;

@@ -1,0 +1,20 @@
+CORREGIMIENTO SAN PA KDX 952 716 BARRRIO VENECIA,1203475102,Acepciones_Estandariza_Dir
+CORREGIMIENTO MULALO CL 3 3 2,1233906977,Acepciones_Estandariza_Dir
+URB,UrbanizaciÃ³n,Tipo_Manzana
+URB,Urbanización,Tipo_Manzana
+MAIL,Email,Tipo_Ubicacion
+CELULAR,Telefono Movil,Tipo_Ubicacion
+GEOGRAFICA,Geografica,Tipo_Ubicacion
+TELEFONO,Telefono Fijo,Tipo_Ubicacion
+CCL,Comercial,Tipo_Ubicacion_Direccion
+RES,Residencial,Tipo_Ubicacion_Direccion
+LAB,Laboral,Tipo_Ubicacion_Direccion
+JUD,Judicial,Tipo_Ubicacion_Direccion
+CRR,Correspondencia,Tipo_Ubicacion_Direccion
+MZ,Manzana,Tipo_Via
+Via,Via,Tipo_Via
+Descriptiva,Descriptiva,Tipo_Via
+Rural,Rural,Tipo_Via
+Zona industrial,Zona industrial,Tipo_Zona
+Zona residencial,Zona residencial,Tipo_Zona
+Zona comercial,Zona comercial,Tipo_Zona

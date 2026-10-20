@@ -1,0 +1,77 @@
+# ################################################################################
+# 
+# Objetivo:			Extrae Datos de Cubos
+# Fecha:			2017-12-20
+# Realizado por:	Holmer Alfonso H
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:		    P0033_BATCH2_EXPORTPLANO_140.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha				Objetivo						Realizado por
+#
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+set -x
+
+
+LOGFILE=${vLog}
+export LOGFILE
+touch ${LOGFILE}
+exec </dev/null
+exec >${LOGFILE} 2>&1
+
+
+varARCHIVOS_PN_PJ=`grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varNOM_ARCHIVO=`grep NOM_ARCHIVO ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varEXTENCION=`grep EXTENCION ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varSALIDAS1=`grep SALIDAS1 ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+varOrienta=`grep ORIENTACION ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+FCH_ARCHIVO=`grep FCH_ARCHIVO ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+
+varPNPJ='_PNPJ'
+varPN='_PN'
+varPJ='_PJ'
+
+FileName_PNPJ=$varNOM_ARCHIVO$varPNPJ$FCH_ARCHIVO$varEXTENCION
+FileName_PN=$varNOM_ARCHIVO$varPN$FCH_ARCHIVO$varEXTENCION
+FileName_PJ=$varNOM_ARCHIVO$varPJ$FCH_ARCHIVO$varEXTENCION
+
+
+
+
+if [ $varOrienta == "OE_VERTICA" ]
+
+then 
+	if [ $varARCHIVOS_PN_PJ -eq 1 ]
+	then 	
+	mv -f $varSALIDAS1/$FileName_PN"VERT" $varSALIDAS1/$FileName_PN 
+	mv -f $varSALIDAS1/$FileName_PJ"VERT" $varSALIDAS1/$FileName_PJ 
+	rm -f $varSALIDAS1/$FileName_PNPJ"VERT"
+	else 
+	mv -f $varSALIDAS1/$FileName_PNPJ"VERT" $varSALIDAS1/$FileName_PNPJ
+	rm -f $varSALIDAS1/$FileName_PN"VERT"
+    rm -f $varSALIDAS1/$FileName_PJ"VERT"	
+	fi
+else
+	rm -f $varSALIDAS1/$FileName_PNPJ"VERT" 
+    rm -f $varSALIDAS1/$FileName_PN"VERT"
+    rm -f $varSALIDAS1/$FileName_PJ"VERT"	
+fi
+	
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion Nombres Archivos'
+	exit 3
+fi
+exit 0
+

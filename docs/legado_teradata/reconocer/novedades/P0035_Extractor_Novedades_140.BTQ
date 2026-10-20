@@ -1,0 +1,859 @@
+#!/bin/sh
+# ################################################################################
+# 
+# Objetivo:		Ejecutar Actualizacion de table REC_MTDAT.LOG_TD.
+# Fecha:		2017/12/07
+# Realizado por: Fernando Garrido
+# Parametros:		N/A
+# Proyecto:		Reconocer Master
+# Script:		P0035_Extractor_Novedades_140.BTQ
+# 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha			Objetivo				    Realizado por
+# 2018-04-10	#Version Inicial	      Fernando Garrido
+# 2021-06-21    #Replace de vistas para disponer informacion con novedades actualizadas de correcciones a calidad de datos.
+# 2021-08-23    #Se agrega el campo INFO_BASICA a la vista Vu_Agrupa_Ubica
+# 2022-11-08    #Se agrega proceso para generar archivo de infocontactabilidad para omnia (Contiene la misma info del info contactabilidad)
+# 2023-10-20 	#Se compresión de archivos de salida			Omar Delgado
+# 2023-12-29 	#Se agregan los TPTS para TOPONIMOS y Acepciones				John Bueno
+# ---------------------------------------------------------------------------
+# 
+# ################################################################################
+BDMTDAT1=`cat $HOMER/parametros/Snapshot/Snapshot.par|grep BDMTDAT|awk -F"=" '{print $2}'`
+BDDATOS1=`cat $HOMER/parametros/Snapshot/Snapshot.par|grep BDDATOS|awk -F"=" '{print $2}'`
+BDSTAGE=`cat $HOMER/parametros/Snapshot/Snapshot.par|grep BDSTAGE|awk -F"=" '{print $2}'`
+BDTEMPO=`cat $HOMER/parametros/Snapshot/Snapshot.par|grep BDTEMPO|awk -F"=" '{print $2}'`
+BDVISTA=`cat $HOMER/parametros/Snapshot/Snapshot.par|grep BDVISTA|awk -F"=" '{print $2}'`
+BDDATOS=`cat $HOMER/parametros/Snapshot/Snapshot.par|grep BDDATOS|awk -F"=" '{print $2}'`
+BDMTDAT=`cat $HOMER/parametros/Snapshot/Snapshot.par|grep BDMTDAT|awk -F"=" '{print $2}'`
+BDMVISTA=`cat $HOMER/parametros/Snapshot/Snapshot.par|grep BTTPRUVI|awk -F"=" '{print $2}'`
+UserName=`cat $HOMER/parametros/Snapshot/Snapshot.par|grep UserName|awk -F"=" '{print $2}'`
+UserPassword=`cat $HOMER/parametros/Snapshot/Snapshot.par|grep UserPassword|awk -F"=" '{print $2}'`
+TdpId=`cat $HOMER/parametros/Snapshot/Snapshot.par|grep TdpId|awk -F"=" '{print $2}'`
+LOGON="$TdpId/$UserName,$UserPassword"
+TablaDestino1=`cat $HOMER/parametros/P0035_Extractor_Novedades.par|grep TablaDestino1|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+TablaDestino2=`cat $HOMER/parametros/P0035_Extractor_Novedades.par|grep TablaDestino2|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+TablaDestino3=`cat $HOMER/parametros/P0035_Extractor_Novedades.par|grep TablaDestino3|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+TablaDestino4=`cat $HOMER/parametros/P0035_Extractor_Novedades.par|grep TablaDestino4|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+TablaDestino5=`cat $HOMER/parametros/P0035_Extractor_Novedades.par|grep TablaDestino5|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+TablaDestino6=`cat $HOMER/parametros/P0035_Extractor_Novedades.par|grep TablaDestino6|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+TablaDestino7=`cat $HOMER/parametros/P0035_Extractor_Novedades.par|grep TablaDestino7|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+LOTE=`cat $HOMER/parametros/P0035_Extractor_Novedades.par|grep LOTE|awk -F"=" '{print $2}'|head -1|awk -F"'" '{print $2}'`
+RutaExport=`cat $HOMER/parametros/P0035_Extractor_Novedades.par|grep "RutaExport ="|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+RutaExpMicroSer=`cat $HOMER/parametros/P0035_Extractor_Novedades.par|grep "RutaExpMicroSer ="|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+
+FncUpdate_LogTD(){
+bteq << EOF
+.logon ${LOGON};
+.SET WIDTH 500
+${CMDSQL}
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+.QUIT 0;
+.Label ERRORFOUND
+/*Se presento un fallo al actualizar LOG_TD  para el LOTE*/
+.Label ERRORFOUND1
+/*Fallo al consultar el LOTE*/
+.LOGOFF
+.EXIT 13
+EOF
+}
+
+FncCollectSTAT(){
+bteq << EOF
+.logon ${LOGON};
+.SET WIDTH 1000
+COLLECT STAT  INDEX(ID), COLUMN(INFO_BASICA_ID, CIIU, FECHA_REPORTE) ON ${BDDATOS1}.MAT_INFO_ACTIVIDAD_ECONOMICA;
+COLLECT STAT INDEX(ID),INDEX ( COD_TIPO_IDENT_FTE ,TIPO_IDENTIFICACION ) ON ${BDDATOS1}.MAT_INFO_BASICA;
+COLLECT STAT ${BDDATOS1}.MAT_INFO_CONTACTABILIDAD INDEX(ID ,SECTOR ,UBICACION_ID);
+COLLECT STAT ${BDDATOS1}.MAT_INFO_MOVILIDAD INDEX(ID);
+COLLECT STAT ${BDDATOS1}.MAT_INFO_PUNTO_INTERES INDEX( ID ,UBICACION_ID);
+COLLECT STAT INDEX ( ID ),INDEX ( TIPO_IDENTIFICACION ,NUMERO_IDENTIFICACION ) ON ${BDDATOS1}.MAT_INFO_UBICACION;
+COLLECT STAT INDEX (TIPO_IDENTIFICACION ,NUMERO_IDENTIFICACION ,INFO_BASICA ,UBICACION_DATO,UBICACION_CODIGODANE, UBICACION_CIUDAD,   UBICACION_DEPARTAMENTO) ,INDEX ( TIPO_IDENTIFICACION ,NUMERO_IDENTIFICACION ) ON ${BDDATOS1}.MAT_UBICACION_AGREGADA;
+
+CREATE VOLATILE TABLE id_ajustar AS
+(
+	SELECT id 
+	FROM ${BDDATOS1}.MAT_INFO_BASICA
+	WHERE (TIPO_IDENTIFICACION, NUMERO_IDENTIFICACION)
+	IN
+	(
+		SELECT TIPO_IDENTIFICACION, NUMERO_IDENTIFICACION
+		FROM ${BDDATOS1}.MAT_INFO_BASICA
+		GROUP BY 1,2
+		HAVING Count(*)>1
+	)
+) WITH DATA
+PRIMARY INDEX (id)
+ON COMMIT PRESERVE ROWS;
+
+CREATE VOLATILE TABLE borrar_id AS
+(
+	SELECT * FROM id_ajustar
+	WHERE id NOT IN 
+	(
+		SELECT id_buro_persona
+		FROM ${BDDATOS1}.RELACION_PERSONA_UBICACION
+	)
+) WITH DATA
+PRIMARY INDEX (id)
+ON COMMIT PRESERVE ROWS;
+
+DELETE FROM  ${BDDATOS1}.MAT_INFO_BASICA
+WHERE id IN (SELECT id FROM borrar_id);
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+
+REPLACE VIEW ${BDVISTA}.VU_InBas
+(  
+	ID
+	,PRIMER_NOMBRE
+	,SEGUNDO_NOMBRE
+	,PRIMER_APELLIDO
+	,SEGUNDO_APELLIDO
+	,NOMBRE_COMPLETO
+	,COD_TIPO_IDENT_FTE
+	, TIPO_IDENTIFICACION
+	,NUMERO_IDENTIFICACION
+	, ESTADO_DOCUMENTO
+	,RANGO_EDAD
+	,LUGAR_EXPEDICION
+	,FECHA_EXPEDICION
+	,GENERO
+	,CIIU
+	,ACTIVIDAD_ECONOMICA
+	,RAZON_SOCIAL
+	,PAGINA_WEB
+	,MOSAIC_ID
+	,DEPARTAMENTO_EXPEDICION 
+	,COD_PIN_PERSONA
+	,RUT
+) AS LOCK ROW FOR ACCESS
+SELECT  ID
+	,PRIMER_NOMBRE
+	,SEGUNDO_NOMBRE
+	,PRIMER_APELLIDO
+	,SEGUNDO_APELLIDO
+	,NOMBRE_COMPLETO
+	,COD_TIPO_IDENT_FTE
+	,TIPO_IDENTIFICACION
+	,NUMERO_IDENTIFICACION
+	,ESTADO_DOCUMENTO
+	,RANGO_EDAD
+	,LUGAR_EXPEDICION
+	,FECHA_EXPEDICION
+	,GENERO
+	,CIIU
+	,ACTIVIDAD_ECONOMICA
+	,RAZON_SOCIAL
+	,PAGINA_WEB
+	,MOSAIC_ID
+	,DEPARTAMENTO_EXPEDICION
+	,COD_PIN_PERSONA
+	,RUT
+FROM ${BDDATOS1}.MAT_INFO_BASICA;
+
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+REPLACE VIEW ${BDVISTA}.VU_Contact
+(
+	ID
+	,CONTACTABILIDAD
+	,FECHA_ULTIMO_CONTACTO
+	,Fecha_Gestion                 
+	,MEJOR_DIA_GESTION
+	,MEJOR_HORA_GESTION
+	,MEJOR_RESULTADO_3MESES
+	,MEJOR_RESULTADO_6MESES
+	,REPORTADO_POR
+	,SECTOR
+	,UBICACION_ID
+	,PESO          
+) AS  LOCK ROW FOR ACCESS
+SEL ID                            
+	,CONTACTABILIDAD               
+	,FECHA_ULTIMO_CONTACTO         
+	,Fecha_Gestion                 
+	,MEJOR_DIA_GESTION             
+	,MEJOR_HORA_GESTION                                     
+	,MEJOR_RESULTADO_3MESES        
+	,MEJOR_RESULTADO_6MESES
+	,REPORTADO_POR                 
+	,SECTOR                        
+	,UBICACION_ID                  
+	,PESO          
+FROM ${BDDATOS1}.MAT_INFO_CONTACTABILIDAD;
+
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+REPLACE VIEW ${BDVISTA}.VU_Historial 
+(
+	ID
+	,TIPO_IDENTIFICACION
+	,NUMERO_IDENTIFICACION
+	,CIIU
+	,ACTIVIDAD_ECONOMICA
+	,VERSION
+	,FECHA_REPORTE
+	,INFO_BASICA_ID
+) AS LOCK ROW FOR ACCESS
+SELECT ID                         
+	,TIPO_IDENTIFICACION
+	,NUMERO_IDENTIFICACION   
+	,CIIU                          
+	,ACTIVIDAD_ECONOMICA           
+	,VERSION                       
+	,FECHA_REPORTE                 
+	,INFO_BASICA_ID                
+FROM ${BDDATOS1}.MAT_INFO_ACTIVIDAD_ECONOMICA;
+
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+REPLACE VIEW ${BDVISTA}.VU_Ind_Movil 
+(
+	ID
+	,TIPO_IDENTIFICACION
+	,NUMERO_IDENTIFICACION
+	,FECHA
+	,DESCRIPCION
+	,NOVEDAD
+	,INFO_BASICA_ID
+	,NOVEDAD_2        
+) AS LOCK ROW FOR ACCESS
+SELECT ID            
+	,TIPO_IDENTIFICACION
+	,NUMERO_IDENTIFICACION                   
+	,FECHA                         
+	,DESCRIPCION                   
+	,NOVEDAD                       
+	,INFO_BASICA_ID                
+	,NOVEDAD_2                     
+FROM ${BDDATOS1}.MAT_INFO_MOVILIDAD;
+
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+REPLACE VIEW ${BDVISTA}.VU_Punto_Inter 
+(
+	ID
+	,NOMBRE
+	,DISTANCIA
+	,Descripcion_Tipo_Punto_Interes
+	,UBICACION_ID
+	,NOMBRE_ENTIDAD
+	,NIT_ENTIDAD
+	,LATITUD
+	,LONGITUD
+	,TIPO  
+) AS LOCK ROW FOR ACCESS
+SELECT  ID                            
+	,NOMBRE                        
+	,DISTANCIA                     
+	,Descripcion_Tipo_Punto_Interes
+	,UBICACION_ID                  
+	,NOMBRE_ENTIDAD                
+	,NIT_ENTIDAD                   
+	,LATITUD                       
+	,LONGITUD                      
+	,TIPO                          
+FROM ${BDDATOS1}.MAT_INFO_PUNTO_INTERES;
+
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+REPLACE VIEW ${BDVISTA}.VU_Ubica 
+(
+	ID                            
+	,Cod_Tipo_Ident_Fte            
+	,TIPO_IDENTIFICACION           
+	,NUMERO_IDENTIFICACION         
+	,ORDEN                         
+	,INDICATIVO                    
+	,DATO                          
+	,ESTRATO                       
+	,TIPO                          
+	,ZONA                          
+	,CIUDAD                        
+	,DEPARTAMENTO                  
+	,LONGITUD                      
+	,LATITUD                       
+	,REPORTADO_DESDE               
+	,ULTIMO_REPORTE                
+	,FUENTE                        
+	,NUMERO_REPORTES               
+	,NUMERO_ENTIDADES              
+	,BARRIO                        
+	,LOCALIDAD                     
+	,CODIGO_POSTAL                 
+	,CLASE                         
+	,INFO_BASICA                   
+	,CODIGO_DANE                   
+	,ES_TIPO_CRR                   
+	,ES_TIPO_RES                   
+	,ES_TIPO_PPL                   
+	,ES_TIPO_AGN                   
+	,ES_TIPO_SUC                   
+	,ES_TIPO_EST                   
+	,ES_TIPO_CDI                   
+	,ES_TIPO_LAB                   
+	,TIPO_CUENTA                   
+	,FLAG_OP                       
+	,Cod_DW_Ubic                   
+	,Cod_DW_Direccion_Fisica       
+	,Cod_DW_Telefono               
+	,Cod_DW_Direccion_Electronica  
+	,Ind_Unificacion               
+	,Cod_DW_Tipo_Ubicacion_Dir     
+	,Cod_Pin_Persona
+) AS LOCK ROW FOR ACCESS
+SELECT ID                            
+	,Cod_Tipo_Ident_Fte            
+	,TIPO_IDENTIFICACION           
+	,NUMERO_IDENTIFICACION         
+	,ORDEN                         
+	,INDICATIVO                    
+	,DATO                          
+	,ESTRATO                       
+	,TIPO                          
+	,ZONA                          
+	,CIUDAD                        
+	,DEPARTAMENTO                  
+	,LONGITUD                      
+	,LATITUD                       
+	,REPORTADO_DESDE               
+	,ULTIMO_REPORTE                
+	,FUENTE                        
+	,NUMERO_REPORTES               
+	,NUMERO_ENTIDADES              
+	,BARRIO                        
+	,LOCALIDAD                     
+	,CODIGO_POSTAL                 
+	,CLASE                         
+	,INFO_BASICA                   
+	,CODIGO_DANE                   
+	,ES_TIPO_CRR                   
+	,ES_TIPO_RES                   
+	,ES_TIPO_PPL                   
+	,ES_TIPO_AGN                   
+	,ES_TIPO_SUC                   
+	,ES_TIPO_EST                   
+	,ES_TIPO_CDI                   
+	,ES_TIPO_LAB                   
+	,TIPO_CUENTA                   
+	,FLAG_OP                       
+	,Cod_DW_Ubic                   
+	,Cod_DW_Direccion_Fisica       
+	,Cod_DW_Telefono               
+	,Cod_DW_Direccion_Electronica  
+	,Ind_Unificacion               
+	,Cod_DW_Tipo_Ubicacion_Dir     
+	,Cod_Pin_Persona
+FROM ${BDDATOS1}.MAT_INFO_UBICACION;
+
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+REPLACE VIEW ${BDVISTA}.Vu_Agrupa_Ubica
+(
+	TIPO_IDENTIFICACION,
+	NUMERO_IDENTIFICACION,
+	UBICACION_DATO,
+	UBICACION_CLASE,
+	UBICACION_TIPOCUENTA,
+	UBICACION_ORDEN,
+	UBICACCION_INDICATIVO,
+	UBICACION_ESTRATO,
+	UBICACION_ZONA,
+	UBICACION_CIUDAD,
+	UBICACION_DEPARTAMENTO,
+	UBICACION_CODIGODANE,
+	UBICACION_BARRIO,
+	UBICACION_LOCALIDAD,
+	UBICACION_CODIGOPOSTAL,
+	UBICACION_LONGITUD,
+	UBICACION_LATITUD,
+	UBICACION_REPORTDESDE,
+	UBICACION_ULTREPORTE,
+	UBICACION_NUMENTIDADES,
+	UBICACION_NUMREPORTES,
+	UBICACION_FUENTE,
+	UBICACION_TIPO,
+	IDS_UBICACIONES_ORIGEN,
+	COD_PAIS,
+	INFO_BASICA
+) AS LOCK ROW FOR ACCESS
+SELECT  TIPO_IDENTIFICACION,
+	NUMERO_IDENTIFICACION,
+	UBI.UBICACION_DATO,
+	UBI.UBICACION_CLASE,
+	UBI.UBICACION_TIPOCUENTA,
+	UBI.UBICACION_ORDEN,
+	UBI.UBICACCION_INDICATIVO,
+	UBI.UBICACION_ESTRATO,
+	UBI.UBICACION_ZONA,
+	UBI.UBICACION_CIUDAD,
+	UBI.UBICACION_DEPARTAMENTO,
+	UBI.UBICACION_CODIGODANE,
+	UBI.UBICACION_BARRIO,
+	UBI.UBICACION_LOCALIDAD,
+	UBI.UBICACION_CODIGOPOSTAL,
+	UBI.UBICACION_LONGITUD,
+	UBI.UBICACION_LATITUD,
+	UBI.UBICACION_REPORTDESDE,
+	UBI.UBICACION_ULTREPORTE,
+	UBI.UBICACION_NUMENTIDADES,
+	UBI.UBICACION_NUMREPORTES,
+	UBI.FUENTE AS UBICACION_FUENTE,
+	UBI.TIPO AS UBICACION_TIPO,
+	UBI.ID,
+	UBI.COD_PAIS,
+	UBI.INFO_BASICA
+FROM ${BDDATOS1}.MAT_UBICACION_AGREGADA UBI;
+
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+.QUIT 0;
+.Label ERRORFOUND
+/*Se presento un fallo al actualizar Estadisticas*/
+.Label ERRORFOUND1
+/*Fallo al consultar el LOTE*/
+.LOGOFF
+.EXIT 14
+EOF
+}
+
+FncCallPICTL(){
+bteq << EOF
+.logon ${LOGON};
+.SET WIDTH 500
+ DATABASE ${BDDATOS};
+
+.EXPORT DATA FILE=${HOMER}/logs/PRO_Novedad_BTBONE.txt;
+
+.SET DEFAULTS
+.SET TITLEDASHES OFF
+.SET WIDTH 254
+.SET SEPARATOR '|'
+
+CALL PRO_Novedad_BTBONE
+(
+	${LOTE}
+	,CAST( current_timestamp  AS TIMESTAMP(6) FORMAT 'yyyy-mm-ddhh:mi:ss' )
+	,'PRO_Novedad_BTBONE'
+	,'${BDDATOS}'
+	,'${BDVISTA}'
+	,'${BDSTAGE}'
+	,'BDM_VISTA'
+	,'${BDMTDAT}'
+	,'BDM_MTDAT'
+	,P_ERROR
+);
+		
+.EXPORT reset;
+.logoff;
+.quit;    
+EOF
+
+Salida_VALID_KEY0=$(tail -1 ${HOMER}/logs/PRO_Novedad_BTBONE.txt|awk '{print length($0)}')
+
+if [ $Salida_VALID_KEY0 -gt 0 ]
+then
+   echo 'Error en ejecucion del procedimiento PRO_Novedad_Linea_PICalculados_Ctls'
+   echo "VALID_KEY=$Salida_VALID_KEY0"
+   rm -f ${HOMER}/logs/PRO_Novedad_BTBONE.txt;
+   exit 15
+else
+   echo "Procedure PRO_Novedad_BTBONE Ejecutado Satisfactoriamente"
+fi
+
+bteq << EOF
+.logon ${LOGON};
+.SET WIDTH 500
+ DATABASE ${BDDATOS};
+
+.EXPORT DATA FILE=${HOMER}/logs/PRO_Novedad_Linea_PICalculados_Ctls.txt;
+
+.SET DEFAULTS
+.SET TITLEDASHES OFF
+.SET WIDTH 254
+.SET SEPARATOR '|'
+
+CALL PRO_Novedad_Linea_PICalculados_Ctls
+(
+	${LOTE}
+	,CAST( current_timestamp  AS TIMESTAMP(6) FORMAT 'yyyy-mm-ddhh:mi:ss' )
+	,'PRO_Novedad_Linea_PICalculados_Ctls'
+	,'${BDDATOS}'
+	,'${BDVISTA}'
+	,'${BDSTAGE}'
+	,'BDM_VISTA'
+	,'${BDMTDAT}'
+	,'BDM_MTDAT'
+	,P_ERROR
+);
+		
+.EXPORT reset;
+.logoff;
+.quit;    
+EOF
+
+Salida_VALID_KEY=$(tail -1 ${HOMER}/logs/PRO_Novedad_Linea_PICalculados_Ctls.txt|awk '{print length($0)}')
+
+if [ $Salida_VALID_KEY -gt 0 ]
+then
+   echo 'Error en ejecucion del procedimiento PRO_Novedad_Linea_PICalculados_Ctls'
+   echo "VALID_KEY=$Salida_VALID_KEY"
+   rm -f ${HOMER}/logs/PRO_Novedad_Linea_PICalculados_Ctls.txt;
+   exit 15
+else
+   echo "Procedure PRO_Novedad_Linea_PICalculados_Ctls Ejecutado Satisfactoriamente"
+fi
+
+rm -f  $HOMER/salidas/Novedades/*.*
+
+twbrmcp P00351_Extractor_Novedades_Ctls
+twbrmcp P00351_Extractor_Novedades_Mosaic
+tbuild -f $HOMER/fuentes/scripts/EXPORT_NOVEDAD_CTLS.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Novedades_Ctls
+tbuild -f $HOMER/fuentes/scripts/EXPORT_INFO_MOSAIC.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Novedades_Mosaic 
+ 
+ctlInt=$(grep MOSAIC $RutaExport/NOVEDAD_CTLS.txt|awk -F"=" '{print $2}')
+ctlExp=$(wc -l $RutaExport/MOSAIC.txt|awk '{print $1}')
+
+if [ $ctlInt -eq $ctlExp ]
+then
+ twbrmcp P00351_Extractor_Novedades_ActEcono
+ tbuild -f $HOMER/fuentes/scripts/EXPORT_MAT_INFO_ACTIVIDAD_ECONOMICA.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Novedades_ActEcono 
+else  
+ echo "Error Novedad"
+ exit 3
+fi
+ctlInt=$(grep MAT_INFO_ACTIVIDAD_ECONOMICA $RutaExport/NOVEDAD_CTLS.txt|awk -F"=" '{print $2}')
+ctlExp=$(wc -l $RutaExport/MAT_INFO_ACTIVIDAD_ECONOMICA.txt|awk '{print $1}')
+
+if [ $ctlInt -eq $ctlExp ]
+then
+ gzip -c $RutaExport/MAT_INFO_ACTIVIDAD_ECONOMICA.txt > $RutaExport/MAT_INFO_ACTIVIDAD_ECONOMICA.txt.gz
+ rm $RutaExport/MAT_INFO_ACTIVIDAD_ECONOMICA.txt
+ 
+ twbrmcp P00351_Extractor_Novedades_Movilidad
+ tbuild -f $HOMER/fuentes/scripts/EXPORT_MAT_INFO_MOVILIDAD.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Novedades_Movilidad
+ twbrmcp P00351_Extractor_Novedades_Movi_Omnia
+ tbuild -f $HOMER/fuentes/scripts/EXPORT_MAT_INFO_MOVI_OMNIA.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Novedades_Movi_Omnia
+else  
+ echo "Error Actividad Economica"
+ exit 3
+fi
+ctlInt=$(grep MAT_INFO_MOVILIDAD $RutaExport/NOVEDAD_CTLS.txt|awk -F"=" '{print $2}')
+ctlExp=$(wc -l $RutaExport/MAT_INFO_MOVILIDAD.txt|awk '{print $1}')
+
+if [ $ctlInt -eq $ctlExp ]
+then
+ gzip -c $RutaExport/MAT_INFO_MOVILIDAD.txt > $RutaExport/MAT_INFO_MOVILIDAD.txt.gz
+ rm $RutaExport/MAT_INFO_MOVILIDAD.txt
+ 
+ twbrmcp P00351_Extractor_Novedades_PICalculados
+ tbuild -f $HOMER/fuentes/scripts/EXPORT_PUNTO_INTERES_CALCULADOS.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Novedades_PICalculados  
+else  
+ echo "Error Info Movilidad"
+ exit 3
+fi
+ctlInt=$(grep MAT_PUNTO_INTERES_CALCULADOS $RutaExport/NOVEDAD_CTLS.txt|awk -F"=" '{print $2}')
+ctlExp=$(wc -l $RutaExport/MAT_PUNTO_INTERES_CALCULADOS.txt|awk '{print $1}')
+
+if [ $ctlInt -eq $ctlExp ]
+then
+ gzip -c $RutaExport/MAT_PUNTO_INTERES_CALCULADOS.txt > $RutaExport/MAT_PUNTO_INTERES_CALCULADOS.txt.gz
+ rm $RutaExport/MAT_PUNTO_INTERES_CALCULADOS.txt
+ 
+ twbrmcp P00351_Extractor_Novedades_AgrUbicPJ
+ tbuild -f $HOMER/fuentes/scripts/EXPORT_MAT_UBICACION_AGREGADA_PJ.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Novedades_AgrUbicPJ
+else  
+ echo "Error Puntos de Interes"
+ exit 3
+fi
+ctlInt=$(grep MAT_UBICACION_AGREGADA_PJ $RutaExport/NOVEDAD_CTLS.txt|awk -F"=" '{print $2}')
+ctlExp=$(wc -l $RutaExport/MAT_UBICACION_AGREGADA_PJ.txt|awk '{print $1}')
+
+if [ $ctlInt -eq $ctlExp ]
+then
+ gzip -c $RutaExport/MAT_UBICACION_AGREGADA_PJ.txt > $RutaExport/MAT_UBICACION_AGREGADA_PJ.txt.gz
+ rm $RutaExport/MAT_UBICACION_AGREGADA_PJ.txt
+ 
+ twbrmcp P00351_Extractor_Novedades_AgrUbicPN
+ tbuild -f $HOMER/fuentes/scripts/EXPORT_MAT_UBICACION_AGREGADA_PN.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Novedades_AgrUbicPN
+else  
+ echo "Error Ubicacion Agregada PJ"
+ exit 3
+fi
+ctlInt=$(grep MAT_UBICACION_AGREGADA_PN $RutaExport/NOVEDAD_CTLS.txt|awk -F"=" '{print $2}')
+ctlExp=$(wc -l $RutaExport/MAT_UBICACION_AGREGADA_PN.txt|awk '{print $1}')
+
+if [ $ctlInt -eq $ctlExp ]
+then
+ gzip -c $RutaExport/MAT_UBICACION_AGREGADA_PN.txt > $RutaExport/MAT_UBICACION_AGREGADA_PN.txt.gz
+ rm $RutaExport/MAT_UBICACION_AGREGADA_PN.txt
+ 
+ twbrmcp P00351_Extractor_Novedades_Ubicacion
+ tbuild -f $HOMER/fuentes/scripts/EXPORT_MAT_INFO_UBICACION.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Novedades_Ubicacion
+else  
+ echo "Error Ubicacion Agregada PN"
+ exit 3
+fi
+ctlInt=$(grep MAT_INFO_UBICACION $RutaExport/NOVEDAD_CTLS.txt|awk -F"=" '{print $2}')
+ctlExp=$(wc -l $RutaExport/MAT_INFO_UBICACION.txt|awk '{print $1}')
+
+if [ $ctlInt -eq $ctlExp ]
+then
+ gzip -c $RutaExport/MAT_INFO_UBICACION.txt > $RutaExport/MAT_INFO_UBICACION.txt.gz
+ rm $RutaExport/MAT_INFO_UBICACION.txt
+ 
+ twbrmcp P00351_Extractor_Novedades_InBas
+ tbuild -f $HOMER/fuentes/scripts/EXPORT_MAT_INFO_BASICA.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Novedades_InBas
+else  
+ echo "Error Info Ubicacion"
+ exit 3
+fi
+ctlInt=$(grep MAT_INFO_BASICA $RutaExport/NOVEDAD_CTLS.txt|awk -F"=" '{print $2}')
+ctlExp=$(wc -l $RutaExport/MAT_INFO_BASICA.txt|awk '{print $1}')
+
+if [ $ctlInt -eq $ctlExp ]
+then
+ gzip -c $RutaExport/MAT_INFO_BASICA.txt > $RutaExport/MAT_INFO_BASICA.txt.gz
+ rm $RutaExport/MAT_INFO_BASICA.txt
+ 
+ twbrmcp P00351_Extractor_Novedades_Contact
+ tbuild -f $HOMER/fuentes/scripts/EXPORT_MAT_INFO_CONTACTABILIDAD.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Novedades_Contact
+else
+ echo "Error Info Basica"
+ exit 3  
+fi
+ctlInt=$(grep MAT_INFO_CONTACTABILIDAD $RutaExport/NOVEDAD_CTLS.txt|awk -F"=" '{print $2}')
+ctlExp=$(wc -l $RutaExport/MAT_INFO_CONTACTABILIDAD.txt|awk '{print $1}')
+
+if [ $ctlInt -eq $ctlExp ]
+then
+ gzip -c $RutaExport/MAT_INFO_CONTACTABILIDAD.txt > $RutaExport/MAT_INFO_CONTACTABILIDAD.txt.gz
+ rm $RutaExport/MAT_INFO_CONTACTABILIDAD.txt
+ 
+ twbrmcp P00351_Extractor_Novedades_BTB
+ tbuild -f $HOMER/fuentes/scripts/EXPORT_MAT_RML_B2BTONE.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Novedades_BTB
+else  
+ echo "Error Contactabilidad"
+ exit 3
+fi
+ctlInt=$(grep MAT_RML_B2BTONE $RutaExport/NOVEDAD_CTLS.txt|awk -F"=" '{print $2}')
+ctlExp=$(wc -l $RutaExport/MAT_RML_B2BTONE.txt|awk '{print $1}')
+
+if [ $ctlInt -eq $ctlExp ]
+then
+  gzip -c $RutaExport/MAT_RML_B2BTONE.txt > $RutaExport/MAT_RML_B2BTONE.txt.gz
+  rm $RutaExport/MAT_RML_B2BTONE.txt
+  
+	twbrmcp P00351_Extractor_Novedades_InBas_Delta
+	tbuild -f $HOMER/fuentes/scripts/EXPORT_MAT_INFO_BASICA_DELTA.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Novedades_InBas_Delta
+  
+	twbrmcp P00351_Extractor_Ubicacion_Agregada_Delta
+	tbuild -f $HOMER/fuentes/scripts/EXPORT_MAT_UBICACION_AGREGADA_DELTA.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_Extractor_Ubicacion_Agregada_Delta
+	twbrmcp P00351_EXPORT_CAT_TOPO_ACEP_DELTA
+	tbuild -f $HOMER/fuentes/scripts/EXPORT_CAT_TOPO_ACEP_DELTA.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_EXPORT_CAT_TOPO_ACEP_DELTA
+	twbrmcp P00351_ACT_CAT_TOPO_ACEP_DELTA
+	tbuild -f $HOMER/fuentes/scripts/ACT_CAT_TOPO_ACEP_DELTA.TPT -v $HOMER/parametros/P0035_Extractor_Novedades.par -j P00351_ACT_CAT_TOPO_ACEP_DELTA
+	
+	echo "Finaliza Export Modelo Novedades Exitosamente!"
+else
+ echo "Error B2BONE"
+ exit 3
+fi
+
+}
+
+FncLimpiarTablas(){
+bteq << EOF
+.logon ${LOGON};
+.SET WIDTH 500
+
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'Novedades_CTLS';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.Novedades_CTLS ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_Puntos';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_Puntos ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_Puntos_Suscriptor2';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_Puntos_Suscriptor2 ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_Puntos_Suscriptor2';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_Puntos_Suscriptor2 ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_Puntos_Suscriptor';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_Puntos_Suscriptor ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_DIRECCIONES_AGR';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_DIRECCIONES_AGR ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'MAT_RML_B2BTONE';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.MAT_RML_B2BTONE ALL;
+
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_AGR_ETAPA_FINAL_1';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_AGR_ETAPA_FINAL_1 ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_MOVIL_ETAPA_2';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_MOVIL_ETAPA_2 ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_LUL';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_LUL ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_PERS_ACTIVIDAD_ECONOMIC';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_PERS_ACTIVIDAD_ECONOMIC ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_PINTER_ETAPA_2';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_PINTER_ETAPA_2 ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_HIST_ETAPA_7';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_HIST_ETAPA_7 ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_NCONTACT_AGR_SECTOR';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_NCONTACT_AGR_SECTOR ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_UBICA_ETAPA_2';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_UBICA_ETAPA_2 ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_UBICA_AGR_NRO_REPORTES';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_UBICA_AGR_NRO_REPORTES ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_UBICA_AGR_NRO_ENTIDADES';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_UBICA_AGR_NRO_ENTIDADES ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_UBICA_ETAPA_9';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_UBICA_ETAPA_9 ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_UBICA_ETAPA_7';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_UBICA_ETAPA_7 ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_UBICA_ETAPA_41';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_UBICA_ETAPA_41 ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_INBAS_ETAPA_10';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_INBAS_ETAPA_10 ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_INBAS_ETAPA_9_2';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_INBAS_ETAPA_9_2 ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'Persona_Sin_Ubic';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.Persona_Sin_Ubic ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDSTAGE}' AND TableName = 'TMP_INBAS_ETAPA_9_1';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDSTAGE}.TMP_INBAS_ETAPA_9_1 ALL;
+
+
+.LABEL OK
+.QUIT 0;
+.Label ERRORFOUND
+/*Se presento un fallo al limpiar las tablas*/
+.Label ERRORFOUND1
+/*Fallo al ejecutar drop de las tablas stage*/
+.LOGOFF
+.EXIT 13
+EOF
+}
+FncLimpiarTablasBK(){
+bteq << EOF
+.logon ${LOGON};
+.SET WIDTH 500
+
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_INFO_BASICA';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDDATOS}.BK_MAT_INFO_BASICA ALL;
+
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_INFO_CONTACTABILIDAD';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDDATOS}.BK_MAT_INFO_CONTACTABILIDAD ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_INFO_ACTIV_ECONOMICA';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDDATOS}.BK_MAT_INFO_ACTIV_ECONOMICA ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_INFO_MOVILIDAD';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDDATOS}.BK_MAT_INFO_MOVILIDAD ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_INFO_PUNTO_INTERES';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDDATOS}.BK_MAT_INFO_PUNTO_INTERES ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_INFO_UBICACION';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDDATOS}.BK_MAT_INFO_UBICACION ALL;
+
+.LABEL OK
+SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_UBICACION_AGREGADA';
+.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+DELETE ${BDDATOS}.BK_MAT_UBICACION_AGREGADA ALL;
+
+.LABEL OK
+.QUIT 0;
+.Label ERRORFOUND
+/*Se presento un fallo al limpiar las tablas Backup*/
+.Label ERRORFOUND1
+/*Fallo al ejecutar drop de las tablas stage*/
+.LOGOFF
+.EXIT 13
+EOF
+}
+
+FncCollectSTAT
+
+FncCallPICTL
+
+# Eliminar datos de tablas stage que se usan en el proceos de novedades
+#FncLimpiarTablas
+FncLimpiarTablasBK

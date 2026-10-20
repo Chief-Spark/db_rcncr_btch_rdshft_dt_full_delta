@@ -1,0 +1,431 @@
+# ################################################################################
+# 
+# Objetivo:		Creacion de vista Vstg_Unificación_regla_3
+# Fecha:		2017-03-27
+# Realizado por:	Carlos Castillo
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Recnocer
+# Script:		P0021_UNIFICACION_111.BTQ 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		Objetivo			Realizado por
+# Fecha: 12/09/2018 Objetivo: #1 Cambiar filtro IND_UNIFICACION igual a 0 por NULL 	Realizado por: Carlos Castillo
+# Fecha: 14/09/2018 Objetivo: #2 Ajuste Unificacion un hijo con varios padres	 	Realizado por: Carlos Castillo
+# Fecha: 20/09/2018 Objetivo: #3 Ajuste Bloqueo									 	Realizado por: Carlos Castillo
+# Fecha: 26/10/2018 Objetivo: #4 Ajuste performance mantis 7036 				 	Realizado por: Carlos Castillo
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+	
+/* Crea Vista V_insumo_unificacion_Regla3 */ 
+
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}' 
+	AND tablename = 'Unificacion_3431';
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA0
+	 
+	 DROP TABLE ${BDSTAGE}.Unificacion_3431; 
+	 .IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+	.LABEL CREA0
+
+
+
+	CREATE MULTISET TABLE  ${BDSTAGE}.Unificacion_3431 AS 
+	(
+	SELECT
+		RPU.Cod_DW_Persona_Ubic
+		,RPU.Id_Buro_Persona
+		,UES.Texto_Ubicacion
+		,DIRF.Tipo_Via_Principal
+		,DIRF.Via_Principal
+		,DIRF.Via_Generadora
+		,DIRF.Numero_Puerta
+		,GEO.Cod_DW_Municipio
+		,RUEG.Latitud 
+		,RUEG.Longitud
+		,COUNT(DISTINCT REPPU.Id_Buro_Suscriptor) AS Numero_entidades_que_Reportan
+		,MAX(REPPU.Fecha_Reporte) AS Fecha_ultima_actualizacion
+	FROM ${BDDATOS}.RELACION_PERSONA_UBICACION AS RPU
+		
+		INNER JOIN ${BDDATOS}.UBICACION_ESTANDARIZADA AS UES 
+		ON RPU.Cod_DW_Ubic = UES.Cod_DW_Ubic
+		
+		INNER JOIN ${BDDATOS}.ATRIBUTO AS A 
+		ON UES.COD_DW_TIPO_VIA=A.Cod_Dw_Atributo
+		
+		INNER JOIN ${BDDATOS}.TIPO_ATRIBUTO AS TA 
+		ON TA.Cod_DW_Tipo_Atributo=A.Cod_DW_Tipo_Atributo
+		
+		LEFT JOIN  ${BDDATOS}.RELACION_UBICAC_ESTANDAR_GEO AS RUEG
+		ON UES.Cod_DW_Ubic = RUEG.Cod_DW_Ubic 
+		
+		LEFT JOIN   ${BDDATOS}.DIRECCION_FISICA AS DIRF 
+		ON RPU.Cod_DW_Direccion_Fisica = DIRF.Cod_DW_Direccion_Fisica          
+		
+		INNER JOIN ${BDVISTA}.VM_REPORTE_RELACION_PERS_UBI AS REPPU 
+		ON RPU.Cod_DW_Persona_Ubic=REPPU.Cod_DW_Persona_Ubic
+		
+		LEFT JOIN ${BDDATOS}.GEOGRAFIA AS GEO
+		ON GEO.COD_DW_CIUDAD /*Geo.Cod_DW_Geografia */ =UES.COD_DW_CIUDAD   
+		
+		WHERE RPU.IND_UNIFICACION IS NULL /*#1*/
+		AND TA.Descripcion_Tipo_Atributo='Tipo_Via'
+		
+		/*Las direcciones que presenten modificadores de vía (B, C, F, BIS, BBISS, ETC) a la vía 
+		principal o vía generadora, quedan excluidas de la tercera regla de unificación.
+		Cuando las direcciones incluyen indicadores de cuadrante (norte, sur, este,oeste)*/
+		
+		
+		AND ${BDVISTA}.VALIDATE_EXPRESSION_R(Texto_Ubicacion,'[0-9]{1,3}[A-Z]{1,5}| OE$| E$| NE$| SE$| O$| S$| N$| SOE$')=0
+		AND NOT EXISTS (SELECT 1 FROM ${BDVISTA}.V_BLOQUEO VBQ WHERE VBQ.COD_DW_PERSONA_UBIC = RPU.COD_DW_PERSONA_UBIC) /*#3*/
+		
+		GROUP BY 1,2,3,4,5,6,7,8,9,10
+	)WITH DATA 
+	PRIMARY INDEX (Cod_DW_Persona_Ubic ,Id_Buro_Persona)
+	;
+	
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+/*#4*/
+COLLECT STATISTICS COLUMN (COD_DW_PERSONA_UBIC  ,ID_BURO_PERSONA ,TEXTO_UBICACION ,TIPO_VIA_PRINCIPAL   ,VIA_PRINCIPAL ,VIA_GENERADORA ,NUMERO_PUERTA ,COD_DW_MUNICIPIO ,LATITUD ,LONGITUD ,NUMERO_ENTIDADES_QUE_REPORTAN,FECHA_ULTIMA_ACTUALIZACION) ON REC_STAGE.Unificacion_3431;
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+COLLECT STATISTICS COLUMN (ID_BURO_PERSONA ,TIPO_VIA_PRINCIPAL,VIA_PRINCIPAL ,NUMERO_PUERTA ,COD_DW_MUNICIPIO) ON  REC_STAGE.Unificacion_3431;
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+COLLECT STATISTICS COLUMN (VIA_GENERADORA) ON REC_STAGE.Unificacion_3431;
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+/*#4*/	 	
+	
+	
+	
+/* Borra la tabla Unificacion_3432 si existe */
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}' 
+	AND tablename = 'Unificacion_3432';
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA1
+	 
+	 
+	DROP TABLE ${BDSTAGE}.Unificacion_3432 ;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+		
+	.LABEL CREA1
+
+/* 1. se Extraen los datos con diferente via Generadora */
+	CREATE TABLE  ${BDSTAGE}.Unificacion_3432 AS
+	(SELECT T1.*,1 AS ID_U
+		FROM  ${BDSTAGE}.Unificacion_3431 AS T1
+		INNER JOIN ${BDSTAGE}.Unificacion_3431 AS T2
+		ON  T1.Id_Buro_Persona	 		= 	T2.Id_Buro_Persona	
+			AND T1.Cod_DW_Municipio 	= 	T2.Cod_DW_Municipio 
+			AND T1.Tipo_Via_Principal	= 	T2.Tipo_Via_Principal	
+			AND T1.Via_Principal	    = 	T2.Via_Principal	     	
+			AND T1.Numero_Puerta		= 	T2.Numero_Puerta	
+				AND T1.Via_Generadora 	<> 	T2.Via_Generadora 
+		GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12
+	)WITH DATA 
+	 PRIMARY INDEX (Cod_DW_Persona_Ubic ,Id_Buro_Persona)
+	 INDEX(Texto_Ubicacion,ID_U) --#4
+	 ;
+	
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+/*  Se insertan los datos de DIRECCION_FISICA.Numero_Puerta Siempre y cuanto tengan una diferencia de ± 2 unidades
+*/
+	INSERT INTO ${BDSTAGE}.Unificacion_3432 
+	SELECT T1.*,2 AS ID_U
+	FROM  ${BDSTAGE}.Unificacion_3431 AS T1
+	INNER JOIN ${BDSTAGE}.Unificacion_3431 AS T2
+	ON  T1.Id_Buro_Persona	 	= T2.Id_Buro_Persona	
+		AND T1.Cod_DW_Municipio 	= T2.Cod_DW_Municipio 
+		AND T1.Tipo_Via_Principal	= T2.Tipo_Via_Principal	
+		AND T1.Via_Principal	     	= T2.Via_Principal	     	
+		AND T1.Via_Generadora 	=T2.Via_Generadora
+		AND ABS(T1.Numero_Puerta - T2.Numero_Puerta)=2 /*#2*/
+		AND T1.Numero_Puerta<>T2.Numero_Puerta
+	GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12;	
+	
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	
+	
+	
+	REPLACE VIEW ${BDSTAGE}.V_Insumo_Unificacion_Regla3
+	AS 
+	LOCK ROW FOR ACCESS 
+	SELECT * FROM ${BDSTAGE}.Unificacion_3432;
+	
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+COLLECT STATISTICS COLUMN (TEXTO_UBICACION) ON REC_STAGE.Unificacion_3432;
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+COLLECT STATISTICS COLUMN (TEXTO_UBICACION ,ID_U) ON REC_STAGE.Unificacion_3432;
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+COLLECT STATISTICS COLUMN (ID_U) ON REC_STAGE.Unificacion_3432;
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+/* Crea la tabla */
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}' 
+	AND tablename = 'DICCIONARIO_VIA';
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA
+	 
+	 DROP TABLE ${BDSTAGE}.DICCIONARIO_VIA; 
+	 .IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+	.LABEL CREA
+	
+		CREATE TABLE ${BDSTAGE}.DICCIONARIO_VIA
+		AS (
+		SELECT 
+		'Via_Generadora' AS TIPO
+		,DF.Tipo_Via_Principal ||' '|| DF.Via_Principal ||' '||DF.Numero_Puerta AS LLAVE 
+		,DF.Via_Generadora 
+		,VIU3.Cod_DW_Municipio 	
+		,COUNT(Cod_DW_Reporte_Persona_Ubic) AS CONTEO
+		FROM ${BDDATOS}.DIRECCION_FISICA AS DF
+		INNER JOIN ${BDDATOS}.UBICACION_ESTANDARIZADA UE
+			ON DF.Cod_DW_Ubic=UE.Cod_DW_Ubic
+		INNER JOIN ${BDSTAGE}.V_INSUMO_UNIFICACION_REGLA3 VIU3
+		ON VIU3.Texto_Ubicacion=UE.Texto_Ubicacion
+		AND VIU3.ID_U=1
+		INNER JOIN ${BDDATOS}.RELACION_PERSONA_UBICACION AS RPU
+		ON DF.Cod_DW_Ubic=RPU.Cod_DW_Ubic
+		AND DF.Cod_DW_Direccion_Fisica=RPU.Cod_DW_Direccion_Fisica
+		INNER JOIN ${BDVISTA}.VM_REPORTE_RELACION_PERS_UBI AS RRPU
+		ON RPU.Cod_DW_Persona_Ubic=RRPU.Cod_DW_Persona_Ubic
+		GROUP BY 1,2,3,4
+		) WITH DATA
+		PRIMARY INDEX(TIPO,LLAVE,VIA_GENERADORA);
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		INSERT INTO ${BDSTAGE}.DICCIONARIO_VIA
+		SELECT 
+		'Numero_Puerta' AS TIPO
+		,DF.Tipo_Via_Principal ||' '|| DF.Via_Principal ||' '||DF.Via_Generadora AS LLAVE 
+		,DF.Numero_Puerta 
+		,VIU3.Cod_DW_Municipio 	
+		,COUNT(Cod_DW_Reporte_Persona_Ubic) AS CONTEO
+		FROM ${BDDATOS}.DIRECCION_FISICA AS DF
+		INNER JOIN ${BDDATOS}.UBICACION_ESTANDARIZADA UE
+			ON DF.Cod_DW_Ubic=UE.Cod_DW_Ubic
+		INNER JOIN ${BDSTAGE}.V_INSUMO_UNIFICACION_REGLA3 VIU3
+		ON VIU3.Texto_Ubicacion=UE.Texto_Ubicacion
+		AND VIU3.ID_U=2
+		INNER JOIN ${BDDATOS}.RELACION_PERSONA_UBICACION AS RPU
+		ON DF.Cod_DW_Ubic=RPU.Cod_DW_Ubic
+		AND DF.Cod_DW_Direccion_Fisica=RPU.Cod_DW_Direccion_Fisica
+		INNER JOIN ${BDVISTA}.VM_REPORTE_RELACION_PERS_UBI AS RRPU
+		ON RPU.Cod_DW_Persona_Ubic=RRPU.Cod_DW_Persona_Ubic
+		GROUP BY 1,2,3,4;
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND	
+	
+	
+	
+/* ---------------------------------------------------------------------------------------------------
+---------------------Aplicación de reglas de Negocio para el algoritmo de Unificación-----------------
+-----------------------------------------------------------------------------------------------------*/
+
+	
+
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}' 
+	AND tablename = 'Unificacion_3433';
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA2
+	 
+	 
+	DROP TABLE ${BDSTAGE}.Unificacion_3433 ;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+		
+	.LABEL CREA2
+
+		CREATE TABLE ${BDSTAGE}.Unificacion_3433 AS 
+		(
+		SELECT 	VIU3.*,
+		CASE 
+			/* Escenario 1*/
+			WHEN ID_U=1 
+			THEN  ( /*........Subcaso1.......and .....Subcaso3.....DVV.CONTEO */
+					CASE WHEN NULLIF(VIU3.Latitud,0) IS NOT NULL AND NULLIF(VIU3.Longitud,0) IS NOT NULL THEN 100000000+COALESCE(DVV.CONTEO,0) ELSE 0 END     
+					/*....Subcaso2........*/
+					+    CASE WHEN (NULLIF(VIU3.Latitud,0) IS NULL OR NULLIF(VIU3.Longitud,0) IS NULL ) THEN (CAST(VIU3.fecha_ultima_actualizacion AS INTEGER)) ELSE 0 END
+					+ COALESCE(VIU3.Numero_entidades_que_Reportan,0)
+					)
+			/* Escenario 2*/
+			WHEN ID_U=2
+			THEN ( /*........Subcaso1........ y Subcaso3 DVP.CONTEO */
+						CASE WHEN NULLIF(VIU3.Latitud,0) IS NOT NULL AND NULLIF(VIU3.Longitud,0) IS NOT NULL THEN 100000000+COALESCE(DVP.CONTEO,0) ELSE 0 END
+					/*....Subcaso2........*/
+					+ CASE WHEN NULLIF(VIU3.Latitud,0) IS NULL AND NULLIF(VIU3.Longitud,0) IS NULL THEN (CAST(VIU3.fecha_ultima_actualizacion AS INTEGER)) ELSE 0 END
+					+ COALESCE(VIU3.Numero_entidades_que_Reportan,0)  
+					/*.....Subcaso3.....*/
+					
+					)
+			ELSE 0 
+		END AS ID_UNIFICACION
+		
+		,ROW_NUMBER() OVER(PARTITION BY VIU3.Tipo_Via_Principal,VIU3.Via_Principal,VIU3.Via_Generadora,Id_Buro_Persona,VIU3.Cod_DW_Municipio ORDER BY ID_UNIFICACION DESC ) AS ID1
+		,ROW_NUMBER() OVER(PARTITION BY VIU3.Tipo_Via_Principal,VIU3.Via_Principal,VIU3.Numero_Puerta,Id_Buro_Persona,VIU3.Cod_DW_Municipio ORDER BY ID_UNIFICACION DESC ) AS ID2
+		,COUNT(*) OVER (PARTITION BY VIU3.Tipo_Via_Principal,VIU3.Via_Principal,VIU3.Via_Generadora,Id_Buro_Persona,VIU3.Cod_DW_Municipio,ID_UNIFICACION ) AS CANTIDAD1
+		,COUNT(*) OVER (PARTITION BY VIU3.Tipo_Via_Principal,VIU3.Via_Principal,VIU3.Numero_Puerta,Id_Buro_Persona,VIU3.Cod_DW_Municipio ,ID_UNIFICACION) AS CANTIDAD2
+		,CASE WHEN  CANTIDAD1>1 THEN 0 ELSE 1 END AS CANT1
+		,CASE WHEN  CANTIDAD2>1 THEN 0 ELSE 1 END AS CANT2
+		FROM ${BDSTAGE}.Unificacion_3432 AS VIU3
+		LEFT JOIN ${BDSTAGE}.DICCIONARIO_VIA AS DVP
+		ON VIU3.Tipo_Via_Principal ||' '|| VIU3.Via_Principal ||' '||VIU3.Via_Generadora=DVP.LLAVE
+		AND VIU3.Numero_Puerta=DVP.Via_Generadora
+		AND DVP.TIPO='Numero_Puerta'
+		
+		LEFT JOIN ${BDSTAGE}.DICCIONARIO_VIA AS DVV
+		ON VIU3.Tipo_Via_Principal ||' '|| VIU3.Via_Principal ||' '||VIU3.Numero_Puerta =DVV.LLAVE 
+		AND VIU3.Via_Generadora=DVV.Via_Generadora
+		AND VIU3.Cod_DW_Municipio = DVV.Cod_DW_Municipio 	 	
+		AND DVV.TIPO='Via_Generadora'
+		
+		) WITH DATA 
+		PRIMARY INDEX (COD_DW_PERSONA_UBIC,Id_Buro_Persona,Cod_DW_Municipio,ID_UNIFICACION)
+		;  
+ 
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+ 
+/* */
+ 	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}' 
+	AND tablename = 'Unificacion_3434';
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA3
+	 
+	 
+	DROP TABLE ${BDSTAGE}.Unificacion_3434 ;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	.LABEL CREA3
+
+	CREATE TABLE ${BDSTAGE}.Unificacion_3434
+	AS 
+	( 	SELECT T1.COD_DW_PERSONA_UBIC
+	,T2.COD_DW_PERSONA_UBIC AS Cod_DW_Direccion_Unificada
+		FROM ${BDSTAGE}.Unificacion_3433 AS T1
+		LEFT JOIN (SELECT COD_DW_PERSONA_UBIC,Id_Buro_Persona,Cod_DW_Municipio,Tipo_Via_Principal,Via_Principal,Numero_Puerta,ID_UNIFICACION AS ID_UNIFICACION,T2.Via_Generadora
+					FROM  ${BDSTAGE}.Unificacion_3433 AS T2
+					WHERE T2.CANT2=1
+					QUALIFY(ROW_NUMBER() OVER(PARTITION BY Id_Buro_Persona,Cod_DW_Municipio,Tipo_Via_Principal,Via_Principal,Numero_Puerta ORDER BY ID_UNIFICACION DESC))=1
+		
+					) AS T2
+			ON T1.Id_Buro_Persona	= T2.Id_Buro_Persona	  
+			AND T1.Cod_DW_Municipio = T2.Cod_DW_Municipio 
+			AND T1.Tipo_Via_Principal   = T2.Tipo_Via_Principal   
+			AND T1.Via_Principal		= T2.Via_Principal		
+			AND T1.Numero_Puerta	= T2.Numero_Puerta	
+		AND T1.ID_UNIFICACION      <=  T2.ID_UNIFICACION
+		AND T1.COD_DW_PERSONA_UBIC<>T2.COD_DW_PERSONA_UBIC
+		AND T1.Via_Generadora 	<> 	T2.Via_Generadora /*#2*/
+	WHERE T1.ID_U=1 /* VIA GENERADORA*/
+	AND T2.COD_DW_PERSONA_UBIC IS NOT NULL
+	QUALIFY (ROW_NUMBER() OVER ( PARTITION BY T1.COD_DW_PERSONA_UBIC ORDER BY T2.ID_UNIFICACION DESC))=1 /*#2*/
+	
+	UNION ALL 
+	
+	SELECT T1.COD_DW_PERSONA_UBIC
+	,T2.COD_DW_PERSONA_UBIC AS Cod_DW_Direccion_Unificada
+		FROM ${BDSTAGE}.Unificacion_3433 AS T1
+		LEFT JOIN (SELECT COD_DW_PERSONA_UBIC,Id_Buro_Persona,Cod_DW_Municipio,Tipo_Via_Principal,Via_Principal,Via_Generadora,ID_UNIFICACION AS ID_UNIFICACION,T2.Numero_Puerta
+					FROM  ${BDSTAGE}.Unificacion_3433 AS T2
+					WHERE T2.CANT1=1
+					QUALIFY(ROW_NUMBER() OVER(PARTITION BY Id_Buro_Persona,Cod_DW_Municipio,Tipo_Via_Principal,Via_Principal,Via_Generadora ORDER BY ID_UNIFICACION DESC))=1
+		
+					) AS T2
+			ON T1.Id_Buro_Persona	= T2.Id_Buro_Persona	  
+			AND T1.Cod_DW_Municipio = T2.Cod_DW_Municipio 
+			AND T1.Tipo_Via_Principal   = T2.Tipo_Via_Principal   
+			AND T1.Via_Principal		= T2.Via_Principal		
+			AND T1.Via_Generadora	= T2.Via_Generadora	
+		AND T1.ID_UNIFICACION      <=  T2.ID_UNIFICACION
+		AND T1.COD_DW_PERSONA_UBIC<>T2.COD_DW_PERSONA_UBIC
+		AND T1.Numero_Puerta<>T2.Numero_Puerta /*#2*/
+	WHERE T1.ID_U=2 /* VIA Numero Puerta*/
+	AND T2.COD_DW_PERSONA_UBIC IS NOT NULL
+	QUALIFY (ROW_NUMBER() OVER ( PARTITION BY T1.COD_DW_PERSONA_UBIC ORDER BY T2.ID_UNIFICACION DESC))=1 /*#2*/
+	) WITH DATA 
+	PRIMARY INDEX (COD_DW_PERSONA_UBIC)
+	;
+ 
+ 
+ 
+	REPLACE VIEW ${BDSTAGE}.Vstg_Unificacion_tres	
+	AS 
+	LOCK ROW FOR ACCESS
+	
+	SELECT 
+				STG.COD_DW_PERSONA_UBIC
+				,STG.Cod_DW_Direccion_Unificada
+				,1 AS UNIFICA_ATRIBUTOS
+				,CURRENT_DATE AS FECHA_UNIFICACION
+				,CAST(${lote} AS INTEGER) as LOTE
+				,CASE WHEN (STG.Cod_Dw_Persona_Ubic IS NULL 
+							OR STG.COD_Dw_Direccion_Unificada IS NULL
+							)
+							THEN 3 
+					ELSE 1 END
+				  AS SEVERIDAD
+				,CASE WHEN (STG.Cod_Dw_Persona_Ubic IS NULL) THEN 'P002101' ELSE ' ' END
+					||CASE WHEN (STG.COD_Dw_Direccion_Unificada IS NULL) THEN 'P002102' ELSE ' ' END
+					AS COD_RECHAZO
+				,CURRENT_DATE AS Fecha_Inicio_Dato	
+	FROM ${BDSTAGE}.Unificacion_3434 as stg
+	QUALIFY (ROW_NUMBER() OVER ( PARTITION BY STG.COD_DW_PERSONA_UBIC ORDER BY STG.COD_DW_PERSONA_UBIC DESC))=1 /*#2*/
+	;
+	
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	drop table ${BDSTAGE}.Unificacion_3433;
+	drop table ${BDSTAGE}.Unificacion_3432;
+	drop table ${BDSTAGE}.Unificacion_3431;
+	
+	
+	.LABEL SALIR
+	.exit 0
+	
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la creacion de la vista Vstg_Unificacion_tres'
+	.EXIT ERRORCODE
+
+	.LOGOFF;
+	.QUIT;
+BTEQ
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+
+exit 0
+

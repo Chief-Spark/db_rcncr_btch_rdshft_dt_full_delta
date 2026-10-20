@@ -1,0 +1,195 @@
+/*♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠
+♠  
+♠  Objetivo: Carga sobre tabla final 
+♠  Fecha:	2017-01-18
+♠  Realizado por:	Carlos Castillo
+♠  PARAMETROS:	
+♠  Proyecto: Experian Reconocer	
+♠  Script:		P0019_Unificacion_130
+♠  
+♠  BITACORA
+♠  ---------------------------------------------------------------------------
+♠  Fecha		Objetivo						Realizado por
+♠  ---------------------------------------------------------------------------
+♠  2018-08-13	#1 AJUSTE TIPO DATO BIGINT					CARLOS CASTILLO
+♠  2018-09-14	#2 AJUSTE REPORTE_UNIFICACION_DIRECCION		CARLOS CASTILLO
+♠  Copyright 2016 Equipo Teradata - Capgemini ♠
+♠  
+♠   Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+♠  		se encuentra protegido por las leyes de derechos de autor
+♠  
+♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠*/
+
+
+DEFINE JOB Carga_UNIFICACION_R3
+DESCRIPTION 'Cargar datos a tablas UNIFICACION_DIRECCION, REPORTE_UNIFICACION_DIRECCION,RELACION_PERSONA_UBICACION'
+(  
+DEFINE SCHEMA UBIORIGINAL
+    DESCRIPTION 'Schema Estructura de la Vista'
+    ( IN_Cod_DW_Persona_Ubic BIGINT, /*#1*/
+      IN_Cod_DW_Direccion_Unificada BIGINT, /*#1*/
+      IN_UNIFICA_ATRIBUTOS BYTEINT,
+      IN_FECHA_UNIFICACION ANSIDATE,
+      IN_LOTE INTEGER,
+      IN_SEVERIDAD BYTEINT,
+      IN_COD_RECHAZO VARCHAR(14),
+      IN_Fecha_Inicio_Dato ANSIDATE
+    );    
+
+
+    /* ================================================================
+       Definición del Operador "Fexp" (Vista)
+       ================================================================ */
+    
+    DEFINE OPERATOR FEXP_OPERATOR 
+    TYPE EXPORT                   
+    SCHEMA UBIORIGINAL            
+    ATTRIBUTES                    
+    (                          
+      VARCHAR UserName     = @UserName      
+     ,VARCHAR UserPassword = @UserPassword  
+     ,VARCHAR TdpId        = @TdpId         
+     ,VARCHAR ErrorTable   = @BDTEMPO||'.'||@LogTable
+     ,INTEGER TenacityHours = @TenacityHours 
+     ,INTEGER TenacitySleep = @TenacitySleep 
+     ,VARCHAR SelectStmt    = 'SELECT * FROM  '||@BDSTAGE||'.Vstg_Unificacion_tres;'
+    );
+  
+    /* ================================================================
+       Definición de (Tabla(s) Destino)
+       ================================================================  */
+    
+    DEFINE OPERATOR OPERATOR_130
+    DESCRIPTION 'TERADATA WAREHOUSE BUILDER UPDATE OPERATOR'
+    TYPE UPDATE 
+   SCHEMA UBIORIGINAL   
+    ATTRIBUTES  
+    (                             /* Si son varias: VARCHAR ARRAY TargetTable = ['Trans','Accounts','Customer'] */ 
+      VARCHAR UserName          = @UserName     
+     ,VARCHAR UserPassword      = @UserPassword 
+     ,VARCHAR TdpId             = @TdpId        
+     ,VARCHAR ARRAY TargetTable  = [@BDDATOS ||'.'||@TablaDestino1 ,@BDDATOS||'.'||@TablaDestino2,@BDDATOS||'.'||@TablaDestino3] 
+     ,VARCHAR ARRAY WorkTable    = [@BDTEMPO ||'.'||@Wktb          ,@BDTEMPO||'.'||@Wktb||'_4'   ,@BDTEMPO||'.'||@Wktb||'_7'   ]  
+     ,VARCHAR ARRAY ErrorTable1  = [@BDTEMPO ||'.'||@Err1          ,@BDTEMPO||'.'||@Err1||'_5'   ,@BDTEMPO||'.'||@Err1||'_8'   ]   
+     ,VARCHAR ARRAY ErrorTable2  = [@BDTEMPO ||'.'||@Err2          ,@BDTEMPO||'.'||@Err2||'_6'   ,@BDTEMPO||'.'||@Err2||'_9'   ]       
+     ,VARCHAR LogTable      = @BDTEMPO||'.'||@LogTable
+     ,INTEGER TenacityHours = @TenacityHours
+     ,INTEGER TenacitySleep = @TenacitySleep
+    );
+    
+    DEFINE OPERATOR DDL_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR'
+    TYPE DDL
+    ATTRIBUTES
+       (
+        VARCHAR UserName = @UserName,
+        VARCHAR UserPassword = @UserPassword,
+        VARCHAR TdpId = @TdpId,
+        VARCHAR ARRAY ErrorList = ['3803','3807','5978']
+       );
+
+  
+    /* ====================================================================
+        Apply Upsert Usando Mload Desde lo que entregó el Fexp
+       ====================================================================  */
+    
+    STEP Load_TIPO_UBIORIGINAL
+    (             
+     APPLY 
+      CASE  WHEN ( IN_Severidad < 3 )                          /*  Upsert UBICACION_ORIGINAL  */
+        THEN (  'UPDATE '||@BDDATOS ||'.'||@TablaDestino1||'
+
+            	 SET LOTE_ACTUALIZACION    = '|| @LOTE ||'
+            	    ,Usuario_BD 		   = USER
+            	    ,Fecha_Modificacion    = CURRENT_DATE
+            	    WHERE Cod_DW_Persona_Ubic = :IN_Cod_DW_Persona_Ubic 
+					 AND Cod_DW_Direccion_Unificada      = :IN_Cod_DW_Direccion_Unificada
+					;'
+
+				  ,'INSERT INTO ' || @BDDATOS || '.'||@TablaDestino1||' 
+                   (   
+                     Cod_DW_Persona_Ubic       
+					,Cod_DW_Direccion_Unificada
+					,Unifica_Atributos         
+					,Fecha_Unificacion         
+					,Lote                      
+					,Severidad                 
+					,Usuario_BD                
+				    ) VALUES
+                   
+                   ( :IN_Cod_DW_Persona_Ubic       
+					,:IN_Cod_DW_Direccion_Unificada
+					,:IN_Unifica_Atributos         
+					,:IN_Fecha_Unificacion         
+					,'||@LOTE||'                     
+					,:IN_Severidad                 
+					,USER                
+                   );'
+                                             
+                
+            )
+        INSERT FOR MISSING UPDATE ROWS /* INSERTA LOS REGISTROS QUE NO SE IDENTIFICARON EN EL UPDATE */
+            END
+	
+ , CASE WHEN IN_Severidad < 3 THEN 
+ 
+		('UPDATE '||@BDDATOS||'.'||@TablaDestino3||'  
+        	SET IND_UNIFICACION = 1
+			,LOTE_ACTUALIZACION = '||@LOTE||'
+			,Fecha_Modificacion = CURRENT_DATE
+        	WHERE Cod_DW_Persona_Ubic=:IN_Cod_DW_Persona_Ubic;')
+	
+	IGNORE MISSING UPDATE ROWS   /* IGNORA ERRORES EN LA ACTUALIZACIÓN */
+	END 	
+      
+          
+  ,        
+       CASE   
+                WHEN ( IN_Severidad < 3  )                          /*  Upsert   */
+                THEN (
+                           'UPDATE '||@BDDATOS ||'.'||@TablaDestino2||'
+                            SET     
+                                   Lote_Actualizacion      =  '||@LOTE||'
+                                   ,Fecha_Unificacion 	   = :IN_FECHA_UNIFICACION
+                                   ,Usuario_BD 			   = USER
+                                   ,Fecha_Modificacion 	   = CURRENT_DATE
+                            WHERE Cod_DW_Persona_Ubic 				= :IN_Cod_DW_Persona_Ubic /*#2*/
+								AND Cod_DW_Direccion_Unificada      = :IN_Cod_DW_Direccion_Unificada
+								AND Fecha_Inicio_Dato				= :IN_Fecha_Inicio_Dato
+                           '  
+                          ,'INSERT INTO ' || @BDDATOS || '.'||@TablaDestino2||' 
+                               
+                                (Cod_DW_Direccion_Unificada    
+								,Unifica_Atributos             
+								,Fecha_Unificacion             
+								,Lote                                  
+								,Severidad                     
+								,Usuario_BD                    
+								,Cod_DW_Persona_Ubic           
+								,Fecha_Inicio_Dato             
+								)
+
+							VALUES
+                				(:IN_Cod_DW_Direccion_Unificada    
+								 ,:IN_Unifica_Atributos             
+								 ,:IN_Fecha_Unificacion             
+								 ,:IN_Lote                          
+								 ,:IN_Severidad                     
+								 ,USER                    
+								 ,:IN_Cod_DW_Persona_Ubic           
+								 ,:IN_Fecha_Inicio_Dato             
+								                 
+                				);'
+          )
+        INSERT FOR MISSING UPDATE ROWS
+            END 
+      
+      
+           
+     TO OPERATOR (OPERATOR_130 [1])
+     SELECT * FROM OPERATOR (FEXP_OPERATOR);      
+    );
+  
+  
+  
+);     

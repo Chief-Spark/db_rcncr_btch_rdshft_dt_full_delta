@@ -1,0 +1,105 @@
+/*♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠
+♠  
+♠  Objetivo: Recoleción de estadisticas y Borrado tablas temporales.
+♠  Fecha:	2016-09-12
+♠  Realizado por:	Capgemini Colombia
+♠  PARAMETROS:	
+♠  Proyecto: Experian Reconocer	
+♠  Script:		P0027_UBI_ORDENAMIENTO_140
+♠  
+♠  BITACORA
+♠  ---------------------------------------------------------------------------
+♠  Fecha		Objetivo		             	Realizado por
+♠  2019-04-15   Crear Tablas para ejecución     Fernando Garrido
+♠               Simultanea con BATCH
+♠  2019-07-30   Incluir estadisticas 			Jeimmy Chavez
+♠  ---------------------------------------------------------------------------
+♠  
+♠  Copyright 2016 Equipo Teradata - Capgemini ♠
+♠  
+♠   Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+♠  		se encuentra protegido por las leyes de derechos de autor
+♠  
+♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠*/
+
+DEFINE JOB P0027_UBI_ORDENAMIENTO_140                                                         
+DESCRIPTION 'Proceso P0027_UBI_ORDENAMIENTO_140 - Recoleción de estadisticas y borrado tablas temporales' 
+(   
+    /* ================================================================     
+       Definición del Operador "Bteq"                                       
+       ================================================================  */ 
+    
+    DEFINE OPERATOR BTEQ_OPERATOR                            
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR' 
+
+    TYPE DDL                                                 
+    ATTRIBUTES                                               
+    ( 
+      VARCHAR UserName     = @UserName,      
+      VARCHAR UserPassword = @UserPassword,  
+      VARCHAR TdpId        = @TdpId,         
+      VARCHAR AccountID,                     
+      VARCHAR ARRAY ErrorList =  ['9556','3807'] /* Ignore Error: Object ҥVSTRҠdoes not exist */
+    ); 
+          
+    /* ====================================================================     
+       Estadisticas de las Tablas Destino, estas se definen en el documento de requerimientos                                      
+       ====================================================================  */ 
+    
+    STEP Bteq_Stats 
+    (
+      APPLY   
+          ('COLLECT STATISTICS INDEX(Cod_DW_Persona_Ubic)ON '|| @BDDATOS ||'.'||@TablaDestino1||';')			  
+				,('DROP TABLE '||@BDTEMPO||'.'||@Wktb||';')
+				,('DROP TABLE '||@BDTEMPO||'.'||@Err1||';')
+				,('DROP TABLE '||@BDTEMPO||'.'||@Err2||';')
+				,('DROP TABLE '||@BDTEMPO||'.'||@LogTable||';')
+				,('DROP TABLE '||@BDTEMPO||'.RCION_PESONA_UBICCION_'||@LOTE||';')
+				,('DROP TABLE '||@BDTEMPO||'.MAT_RETE_REL_PERS_UBI_'||@LOTE||';')
+						   			   
+      TO OPERATOR (BTEQ_OPERATOR );
+    ); 
+	
+	/*
+  STEP CREATE_TBLS_X_VISTAS_BATCH
+    (
+      APPLY   
+          ('CREATE TABLE '||@BDTEMPO||'.MAT_RETE_REL_PERS_UBI_'||@LOTE||' AS '||@BDDATOS||'.MAT_REPORTE_REL_PERS_UBI WITH DATA;')			  
+		 ,('CREATE TABLE '||@BDTEMPO||'.RCION_PESONA_UBICCION_'||@LOTE||' AS '||@BDDATOS||'.RELACION_PERSONA_UBICACION WITH DATA;')								   			   
+         ,('COLLECT STAT INDEX ( Cod_DW_Reporte_Persona_Ubic), COLUMN(Cod_DW_Persona_Ubic,Id_Buro_Suscriptor,Cod_DW_Cta) ,COLUMN(Cod_DW_Cta) ON '||@BDTEMPO||'.MAT_RETE_REL_PERS_UBI_'||@LOTE||';')
+         ,('COLLECT STAT INDEX ( Cod_DW_Persona_Ubic ), COLUMN(Id_Buro_Persona,Cod_Pin_Persona), COLUMN(Id_Buro_Persona,Cod_Pin_Persona) ON '||@BDTEMPO||'.RCION_PESONA_UBICCION_'||@LOTE||';')		 
+      TO OPERATOR (BTEQ_OPERATOR );
+    );        
+
+
+
+	
+	STEP DROP_TBLS_X_VISTA_BATCH
+    (
+      APPLY   
+          ('DROP TABLE '||@BDTEMPO||'.BK_MAT_REPORTE_REL_PERS_UBI;')			  
+		 ,('DROP TABLE '||@BDTEMPO||'.BK_RELACION_PERSONA_UBICACION;')								   			   
+		 
+      TO OPERATOR (BTEQ_OPERATOR );
+    );
+	
+	STEP RENAME_TBLS_X_VISTAS_BATCH
+    (
+      APPLY   
+          ('RENAME TABLE '||@BDTEMPO||'.MAT_RETE_REL_PERS_UBI_'||@LOTE||' AS '||@BDTEMPO||'.BK_MAT_REPORTE_REL_PERS_UBI;')			  
+		 ,('RENAME TABLE '||@BDTEMPO||'.RCION_PESONA_UBICCION_'||@LOTE||' AS '||@BDTEMPO||'.BK_RELACION_PERSONA_UBICACION;')
+		 ,('COLLECT STATISTICS COLUMN (ID_BURO_PERSONA) ON '||@BDTEMPO||'.BK_RELACION_PERSONA_UBICACION;')		 
+		 ,('COLLECT STATISTICS COLUMN (IND_UNIFICACION) ON '||@BDTEMPO||'.BK_RELACION_PERSONA_UBICACION;')	
+		 ,('COLLECT STATISTICS COLUMN (COD_DW_DIRECCION_FISICA) ON '||@BDTEMPO||'.BK_RELACION_PERSONA_UBICACION;')	
+		 ,('COLLECT STATISTICS COLUMN (COD_DW_UBIC) ON '||@BDTEMPO||'.BK_RELACION_PERSONA_UBICACION;')
+		 ,('COLLECT STATISTICS COLUMN (COD_DW_TIPO_UBICACION_DIR) ON '||@BDTEMPO||'.BK_RELACION_PERSONA_UBICACION;')
+		 ,('COLLECT STATISTICS COLUMN (COD_DW_PERSONA_UBIC) ON '||@BDTEMPO||'.BK_MAT_REPORTE_REL_PERS_UBI;')
+						   			   
+      TO OPERATOR (BTEQ_OPERATOR );
+    );
+  */
+);
+
+
+
+  

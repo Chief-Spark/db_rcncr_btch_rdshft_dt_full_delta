@@ -1,0 +1,63 @@
+ REPLACE VIEW REC_STAGE.V_Insumo_Unificacion_Regla2 ( 
+
+/*
+ * ################################################################################
+ * 
+ * Objetivo:		Crear la vista V_Insumo_Unificacion_Regla2 que vista contendr?
+ *			la informaci?n de direcciones asociadas a los clientes y que presentan
+ *			igualdad en Address_Geo, Departamento, C?digo Localidad, Ciudad, 
+ *			Zona, Estrato, Barrio, Tipo de Direcci?n y difieren en la variable complemento
+ *
+ * Fecha:		2016/11/09
+ * Realizado por:	Luis E Ramirez
+ * Proyecto:		Nuevo reconocer
+ * Script:		create_V_Insumo_Unificacion_Regla2_view.sql
+ * 
+ * 
+ * 
+ * BITACORA
+ * ---------------------------------------------------------------------------
+ * Fecha		Objetivo			Realizado por
+ * 
+ * ---------------------------------------------------------------------------
+ * 
+ * Copyright 2016 Equipo Teradata - Capgemini
+ * 
+ *  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+ * 		se encuentra protegido por las leyes de derechos de autor
+ * 
+ * 
+ * ################################################################################
+ */
+	Cod_Pin_Persona,
+	Cod_DW_Persona_Ubic,
+	Id_Buro_Persona,
+	Cod_DW_Tipo_Ubicacion_Dir,
+	Cod_DW_Ubic,
+	Texto_Ubicacion,
+	Cod_DW_Direccion_Fisica,
+	Complemento,
+	Cod_DW_Doc_Ident,
+	Cod_Tipo_Ident_Fte,
+	Cod_DW_Municipio,
+	Numero_entidades_que_Reportan,
+	Fecha_Relacion_Persona_Ubicaci,
+	ROW_U
+	) AS
+LOCK ROW FOR ACCESS
+SELECT	
+	Cod_Pin_Persona,
+	Cod_DW_Persona_Ubic,
+	Id_Buro_Persona,
+	Cod_DW_Tipo_Ubicacion_Dir,
+	Cod_DW_Ubic,
+	Texto_Ubicacion,
+	Cod_DW_Direccion_Fisica,
+	Complemento,
+	Cod_DW_Doc_Ident,
+	Cod_Tipo_Ident_Fte,
+	Cod_DW_Municipio,
+	Numero_entidades_que_Reportan,
+	Fecha_Relacion_Persona_Ubicaci,
+	ROW_U
+FROM	REC_STAGE.tmpINSUMO_UNI_REG2;

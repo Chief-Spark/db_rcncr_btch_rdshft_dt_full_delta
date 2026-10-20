@@ -1,0 +1,1592 @@
+# ################################################################################
+# 
+# Objetivo:			Crea Vistas de Extractor CUBOS
+# Fecha:			2017-11-30
+# Realizado por:	Holmer Alfonso H
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:		    P0033_BATCH2_CUBOEXPORT_111.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha:2018-12-18	Objetivo: #1 Ajuste orden de salida de ubicaciones 					Realizado por: Carlos Castillo
+							  ORDEN_PRIORIDAD,FECHA_ULTIMA_ACTUALIZACION DESC, CIUDAD 
+# Fecha:2019-03-12  Objetivo: CQ81671 corregir los Issue reportados en QA donde los     Realizado Por: Fernando Garrido.
+#                   Nombres de titulos no corresponden con lo seleccionado por el 
+#                   cliente
+# 
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+varSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varNOMBRE_SECCION=`grep NOMBRE_SECCION ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varDELIMITADOR=`grep DELIMITADOR ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+
+/*Crear la vista VstgCargaIndicadorMovilidad*/
+
+--  Paso 1
+-- Genera la Version Inicial de los Campos a Reportar
+REPLACE VIEW ${BDSTAGE}.vstg_BA2_CAMPOS AS
+	LOCK ROW FOR ACCESS
+	SELECT
+		 BSC.ID_SOLICITUD
+		,BSC.ID_PLANTILLA
+		,BSC.NOMBRE_SECCION
+		,BSC.CODIGO_SECCION
+		,BSC.NOMBRE_SUBSECCION
+		,BSC.CODIGO_SUBSECCION
+		
+		,BSC.ORDEN_SUBSECCION
+		,BSC.ORDEN_CAMPO
+		,BSC.NOMBRE_CAMPO
+		,BSC.GRUPO_CAMPO
+		,BSC.CODIGO_CAMPO
+		,BSC.CANTIDAD_MAX_CAMPO
+
+		,CASE
+			WHEN (BSC.AF_ANCHO_CAMPO IS NULL) OR (BSC.AF_ANCHO_CAMPO < 1) then BH.DEFAULTCAMPO
+		Else
+			BSC.AF_ANCHO_CAMPO
+		END as AF_ANCHO_CAMPO
+
+		,BSC.AF_RELLENO_CAMPO
+		,BSC.AF_ORIENTACION_CAMPO
+		
+		,BSC.REQUERIDO_CAMPO
+		,BSC.MINIMO_REQUERIDO_CAMPO
+		
+		,BH.HOMOLOGADO
+		,BH.CUBO
+		,BH.XALIAS
+		,BH.PRINCIPAL
+		,BH.TIPOCAMPO
+		,BH.DEFAULTCAMPO
+
+		,CASE
+			WHEN Ordenamiento = 1 then ' ' 
+		ELSE
+			','
+		END COMA
+
+		--,BDG.ANCHO_FIJO
+		,ROW_NUMBER() OVER(ORDER BY BSC.ORDEN_SUBSECCION, BSC.ORDEN_CAMPO ) Ordenamiento
+	FROM	${BDSTAGE}.BATCH_SALIDAS_CAMPOS BSC
+		INNER JOIN	${BDSTAGE}.BATCH2_HOMOLOGACION BH ON TRIM(BSC.CODIGO_CAMPO) = TRIM(BH.CODIGO_CAMPO)  and TRIM(BSC.GRUPO_CAMPO) = TRIM(BH.GRUPO_CAMPO)
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From REC_STAGE.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON BSC.id_solicitud = W1.ID_SOLICITUD AND BSC.id_plantilla = W1.ID_PLANTILLA AND BSC.NOMBRE_SECCION = W1.NOMBRE_SECCION
+	;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	--  Paso 2
+-- Genera la Version Inicial de los Campos Principales a Reportar (Uno x Cubo)
+REPLACE VIEW ${BDSTAGE}.vstg_BA2_CAMPOS_Principal AS
+	LOCK ROW FOR ACCESS
+	SELECT
+	 CAST(W1.ID_SOLICITUD as INTEGER)	AS ID_SOLICITUD
+	,CAST(W1.ID_PLANTILLA as INTEGER)	AS ID_PLANTILLA
+	,CAST(A.NOMBRE_SECCION as VARCHAR(100))	AS NOMBRE_SECCION
+	,CAST(A.CODIGO_SECCION as VARCHAR(10))	AS CODIGO_SECCION
+	,CAST(A.NOMBRE_SUBSECCION as VARCHAR(100))	AS NOMBRE_SUBSECCION
+	,CAST(A.CODIGO_SUBSECCION as VARCHAR(10))	AS CODIGO_SUBSECCION
+	
+	,CAST(0 as INTEGER)	AS ORDEN_SUBSECCION
+	,CAST(0 as INTEGER)	AS ORDEN_CAMPO
+	,CAST(A.NOMBRE_CAMPO as VARCHAR(100))	AS NOMBRE_CAMPO
+	,CAST(A.GRUPO_CAMPO as VARCHAR(100))	AS GRUPO_CAMPO
+	,CAST(A.CODIGO_CAMPO as VARCHAR(10)) AS CODIGO_CAMPO
+	,CAST(0 as BIGINT) AS CANTIDAD_MAX_CAMPO
+	
+	,CAST(200 as BIGINT)	AS AF_ANCHO_CAMPO
+	,CAST(' ' as VARCHAR(10))	AS AF_RELLENO_CAMPO
+	,CAST(' ' as VARCHAR(10))	AS AF_ORIENTACION_CAMPO
+	
+	,CAST(' ' as VARCHAR(2))	AS REQUERIDO_CAMPO
+	,CAST(' ' as VARCHAR(10))	AS MINIMO_REQUERIDO_CAMPO
+	,BH.HOMOLOGADO
+	,BH.CUBO
+	,BH.XALIAS
+	,BH.PRINCIPAL
+	,BH.TIPOCAMPO
+	,BH.DEFAULTCAMPO
+	,CAST(' ' as VARCHAR(10))	AS COMA
+	,CAST(99 as INTEGER)	AS ORDENAMIENTO
+FROM ${BDSTAGE}.BATCH2_HOMOLOGACION BH
+	INNER JOIN REC_STAGE.BATCH_SALIDAS_CAMPOS A ON A.codigo_campo=BH.CODIGO_CAMPO AND A.grupo_campo=BH.GRUPO_CAMPO
+	,
+	(Select
+	 ID_SOLICITUD
+	,ID_PLANTILLA
+	,NOMBRE_SECCION
+	From ${BDSTAGE}.BATCH2_shells_planejecucion
+	Where Coalesce(estado_ejecutado,'0')='0' and id_plantilla is not null and TRIM(nombre_seccion)<>'X' and nombre_shell='P0033_BATCH2_EXPORT'
+	qualify row_number() over(order by orden_id)=1
+	) as W1
+Where BH.Principal=1 and UPPER(BH.Cubo) in ('DIRECCION','TELEFONO','CELULAR','CORREO','CIIU')
+	and A.NOMBRE_SECCION=W1.NOMBRE_SECCION
+	and A.CODIGO_SECCION is not null
+	and A.id_solicitud=W1.id_solicitud and A.id_plantilla=W1.id_plantilla
+Group By 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24
+	;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	.LABEL SALIR
+	.exit 0
+	
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en creacion de la vista P-1/2 vstg_BA2_CAMPOS/vstg_BA2_CAMPOS_Principal/v_BA2_CamposBase'
+	.EXIT ERRORCODE
+
+	.LOGOFF;
+	.QUIT;
+BTEQ
+
+
+
+
+### Paso 3 
+
+if [ "${varNOMBRE_SECCION}" == "CON DATOS DE UBICACION" ] || [ "${varNOMBRE_SECCION}" == "CON DATOS DE UBICACION PERSONALIZADO" ]
+	then
+# INICIA BTEQ
+bteq<<BTEQ
+.logon ${Logon};
+
+REPLACE VIEW ${BDSTAGE}.v_BA2_CamposBase AS
+	LOCK ROW FOR ACCESS
+	-- Persona
+	SELECT
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_P' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+	cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+	Where	UPPER(TRIM(A.Cubo)) = 'PERSONA' and A.Codigo_Campo is not null
+		and	B.Secuencia = 1
+
+	UNION
+
+		--  Direccion  INI
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_D' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+		SELECT
+		COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+		From 
+		(
+			Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, direccion AS CEL,
+			ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion desc,CIUDAD) as Cant_Dir /*#!*/
+			From ${BDSTAGE}.BATCH_CUBO_DIRECCION
+			Where direccion is not null
+			and ( fILTRO_h )=0 
+            QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+		) AS TmpDir
+	) AS TmpDir2	
+
+	Where	UPPER(TRIM(A.Cubo)) = 'DIRECCION' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 0
+
+	UNION
+
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_D' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS_Principal A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+			Sel
+			COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+			From 
+			(
+				Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, direccion AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion desc,CIUDAD) as Cant_Dir /*#1*/
+				From ${BDSTAGE}.BATCH_CUBO_DIRECCION
+				Where direccion is not null
+				and ( fILTRO_h )=0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+			) AS TmpDir
+		) AS TmpDir2	
+	Where	UPPER(TRIM(A.Cubo)) = 'DIRECCION' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 1
+		--  Direccion  FIN
+
+	UNION
+
+	--  Telefono  INI
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_T' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+		SELECT
+			COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+		From 
+		(
+				Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, numero AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion desc,CIUDAD) as Cant_Dir /*#1*/
+				From ${BDSTAGE}.BATCH_CUBO_TELEFONO
+				Where numero is not null
+				and ( fILTRO_h )=0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+		) AS TmpDir
+	) AS TmpDir2
+
+	Where	UPPER(TRIM(A.Cubo)) = 'TELEFONO' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 0
+
+	UNION
+
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_T' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS_Principal A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+	---  Multiplicador
+	SELECT
+		COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+	From 
+		(
+			Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, numero AS CEL,
+			ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion desc,CIUDAD) as Cant_Dir /*#1*/
+			From ${BDSTAGE}.BATCH_CUBO_TELEFONO
+			Where numero is not null
+			and ( fILTRO_h )=0 
+			QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+		) AS TmpDir
+	) AS TmpDir2	
+	Where	UPPER(TRIM(A.Cubo)) = 'TELEFONO' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 1
+		--  Telefono FIN
+
+	UNION
+
+	--  Celular
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_C' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+		SELECT
+			COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+		From 
+		(
+				Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, numero AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion desc) as Cant_Dir /*#1*/
+				From ${BDSTAGE}.BATCH_CUBO_CELULAR
+				Where numero is not null
+				and ( fILTRO_h )=0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+		) AS TmpDir
+	) AS TmpDir2	
+
+	Where	UPPER(TRIM(A.Cubo)) = 'CELULAR' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 0
+
+	UNION
+
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_C' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS_Principal A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+			SELECT
+				COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+			From 
+			(
+				Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, numero AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion desc) as Cant_Dir /*#1*/
+				From ${BDSTAGE}.BATCH_CUBO_CELULAR
+				Where numero is not null
+				and ( fILTRO_h )=0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+			) AS TmpDir
+		) AS TmpDir2	
+	Where	UPPER(TRIM(A.Cubo)) = 'CELULAR' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 1
+		--  Celular FIN
+
+	UNION
+
+	--  Correo
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_E' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+			SELECT
+				COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+			From 
+			(
+				Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, correo AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion desc) as Cant_Dir /*#1*/
+				From ${BDSTAGE}.BATCH_CUBO_CORREO
+				Where correo is not null
+				and ( fILTRO_h )=0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+			) AS TmpDir
+		) AS TmpDir2	
+				
+	Where	UPPER(TRIM(A.Cubo)) = 'CORREO' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 0
+
+	UNION
+
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_E' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS_Principal A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+			SELECT
+				COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+			From 
+			(
+				Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, correo AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion desc) as Cant_Dir /*#1*/
+				From ${BDSTAGE}.BATCH_CUBO_CORREO
+				Where correo is not null
+				and ( fILTRO_h )=0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+			) AS TmpDir
+		) AS TmpDir2	
+	Where	UPPER(TRIM(A.Cubo)) = 'CORREO' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 1
+		--  Correo FIN
+
+	UNION
+
+	--  CIIU
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_I' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+			SELECT
+				COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+			From 
+			(
+				Select	ID_BURO_PERSONA,  CIIU AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY ID_BURO_PERSONA,CIIU) as Cant_Dir
+				From ${BDSTAGE}.BATCH_CUBO_CIIU
+				Where CIIU is not null
+				and ( fILTRO_h )=0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA,CIIU ORDER BY ID_AUTO  ))=1
+			) AS TmpDir
+		) AS TmpDir2	
+	Where	UPPER(TRIM(A.Cubo)) = 'CIIU' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 0
+
+	UNION
+
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_I' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS_Principal A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+			SELECT
+				COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+			From 
+			(
+				Select	ID_BURO_PERSONA,  CIIU AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY ID_BURO_PERSONA,CIIU) as Cant_Dir
+				From ${BDSTAGE}.BATCH_CUBO_CIIU
+				Where CIIU is not null
+				and ( fILTRO_h )=0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA,CIIU ORDER BY ID_AUTO  ))=1
+			) AS TmpDir
+		) AS TmpDir2	
+	Where	UPPER(TRIM(A.Cubo)) = 'CIIU' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 1
+		--  CIIU FIN
+
+	UNION
+	
+	-- Puntos de Interes
+	SELECT
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		--,Valor_Ini || '_A' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,ColumnName as CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,B.ColumnId SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+	INNER JOIN ${BDSTAGE}.ConsumiblePtosInt as B ON A.Codigo_Campo=B.Codigo_Campo
+
+	UNION
+
+	-- Batch Validacion
+	SELECT
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		--,Valor_Ini || '_B' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,Valor_Ini as CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+	cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+	Where	UPPER(TRIM(A.Cubo)) = 'BATCHVALIDACION' and A.Codigo_Campo is not null
+		and	B.Secuencia = 1
+
+	;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creación del Sentencia Paso . 3A.'
+	.EXIT ERRORCODE
+
+.LOGOFF
+.EXIT
+BTEQ
+
+fi
+
+
+
+
+if [ "${varNOMBRE_SECCION}" == "SIN DATOS DE UBICACION" ] || [ "${varNOMBRE_SECCION}" == "SIN DATOS DE UBICACION PERSONALIZADO" ]
+	then
+# INICIA BTEQ
+bteq<<BTEQ
+.logon ${Logon};
+
+REPLACE VIEW ${BDSTAGE}.v_BA2_CamposBase AS
+	LOCK ROW FOR ACCESS
+	-- Persona
+	SELECT
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_P' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+	cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+	Where	UPPER(TRIM(A.Cubo)) = 'PERSONA' and A.Codigo_Campo is not null
+		and	B.Secuencia = 1
+
+	UNION
+
+		--  Direccion  INI
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_D' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+		SELECT
+		COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+		From 
+		(
+
+			Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, direccion AS CEL,
+			ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion DESC,CIUDAD) AS Cant_Dir /*#1*/
+			From ${BDSTAGE}.BATCH_CUBO_DIRECCION
+			Where direccion is not null
+			and ( fILTRO_h )>0 
+            QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+						
+		) AS TmpDir
+	) AS TmpDir2	
+
+	Where	UPPER(TRIM(A.Cubo)) = 'DIRECCION' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 0
+
+	UNION
+
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_D' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS_Principal A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+			Sel
+			COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+			From 
+			(
+				Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, direccion AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion DESC,CIUDAD) AS Cant_Dir /*#1*/
+				From ${BDSTAGE}.BATCH_CUBO_DIRECCION
+				Where direccion is not null
+				and ( fILTRO_h )>0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+			) AS TmpDir
+		) AS TmpDir2	
+	Where	UPPER(TRIM(A.Cubo)) = 'DIRECCION' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 1
+		--  Direccion  FIN
+
+	UNION
+
+	--  Telefono  INI
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_T' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+		SELECT
+			COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+		From 
+		(
+			
+			Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, numero AS CEL,
+			ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion DESC,CIUDAD) AS Cant_Dir /*#1*/
+			From ${BDSTAGE}.BATCH_CUBO_TELEFONO
+			Where numero is not null
+			and ( fILTRO_h )>0 
+            QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+			
+		) AS TmpDir
+	) AS TmpDir2
+
+	Where	UPPER(TRIM(A.Cubo)) = 'TELEFONO' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 0
+
+	UNION
+
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_T' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS_Principal A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+	---  Multiplicador
+	SELECT
+		COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+	From 
+		(
+			Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, numero AS CEL,
+			ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion DESC,CIUDAD) AS Cant_Dir /*#1*/
+			From ${BDSTAGE}.BATCH_CUBO_TELEFONO
+			Where numero is not null
+			and ( fILTRO_h )>0 
+            QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+		) AS TmpDir
+	) AS TmpDir2	
+	Where	UPPER(TRIM(A.Cubo)) = 'TELEFONO' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 1
+		--  Telefono FIN
+
+	UNION
+
+	--  Celular
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_C' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+		SELECT
+			COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+		From 
+		(
+			
+			Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, numero AS CEL,
+			ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion DESC) AS Cant_Dir /*#1*/
+			From ${BDSTAGE}.BATCH_CUBO_CELULAR
+			Where numero is not null
+			and ( fILTRO_h )>0 
+            QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+			
+		) AS TmpDir
+	) AS TmpDir2	
+
+	Where	UPPER(TRIM(A.Cubo)) = 'CELULAR' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 0
+
+	UNION
+
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_C' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS_Principal A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+			SELECT
+				COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+			From 
+			(
+				Select	ID_BURO_PERSONA, Cod_DW_Persona_Ubic, numero AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion DESC) AS Cant_Dir /*#1*/
+				From ${BDSTAGE}.BATCH_CUBO_CELULAR
+				Where numero is not null
+				and ( fILTRO_h )>0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+			) AS TmpDir
+		) AS TmpDir2	
+	Where	UPPER(TRIM(A.Cubo)) = 'CELULAR' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 1
+		--  Celular FIN
+
+	UNION
+
+	--  Correo
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_E' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+			SELECT
+				COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+			From 
+			(
+							
+				Select	ID_BURO_PERSONA, Correo AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion DESC) AS Cant_Dir /*#1*/
+				From ${BDSTAGE}.BATCH_CUBO_CORREO
+				Where Correo is not null
+				and ( fILTRO_h )>0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+				
+				
+			) AS TmpDir
+		) AS TmpDir2	
+				
+	Where	UPPER(TRIM(A.Cubo)) = 'CORREO' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 0
+
+	UNION
+
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_E' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS_Principal A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+			SELECT
+				COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+			From 
+			(
+				Select	ID_BURO_PERSONA, Correo AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY orden_prioridad, fecha_ultima_actualizacion DESC) AS Cant_Dir /*#1*/
+				From ${BDSTAGE}.BATCH_CUBO_CORREO
+				Where Correo is not null
+				and ( fILTRO_h )>0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA, Cod_DW_Persona_Ubic ORDER BY ID_AUTO  ))=1
+			) AS TmpDir
+		) AS TmpDir2	
+	Where	UPPER(TRIM(A.Cubo)) = 'CORREO' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 1
+		--  Correo FIN
+
+	UNION
+
+	--  CIIU
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_I' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+			SELECT
+				COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+			From 
+			(
+				Select	ID_BURO_PERSONA,  CIIU AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY ID_BURO_PERSONA,CIIU) as Cant_Dir
+				From ${BDSTAGE}.BATCH_CUBO_CIIU
+				Where CIIU is not null
+				and ( fILTRO_h )>0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA,CIIU ORDER BY ID_AUTO  ))=1
+			) AS TmpDir
+		) AS TmpDir2	
+	Where	UPPER(TRIM(A.Cubo)) = 'CIIU' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 0
+
+	UNION
+
+	Select
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		,Valor_Ini || '_I' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS_Principal A
+		cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+		,
+		(
+		---  Multiplicador
+			SELECT
+				COALESCE( MAX(TmpDir.Cant_Dir) , 1) AS CantMax_Dir
+			From 
+			(
+				Select	ID_BURO_PERSONA,  CIIU AS CEL,
+				ROW_NUMBER() OVER (PARTITION BY ID_BURO_PERSONA ORDER BY ID_BURO_PERSONA,CIIU) as Cant_Dir
+				From ${BDSTAGE}.BATCH_CUBO_CIIU
+				Where CIIU is not null
+				and ( fILTRO_h )>0 
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ID_BURO_PERSONA,CIIU ORDER BY ID_AUTO  ))=1
+			) AS TmpDir
+		) AS TmpDir2	
+	Where	UPPER(TRIM(A.Cubo)) = 'CIIU' and A.Codigo_Campo is not null
+			and	B.Secuencia <= TmpDir2.CantMax_Dir
+			and	A.Principal = 1
+		--  CIIU FIN
+
+	UNION
+	
+	-- Puntos de Interes
+	SELECT
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		--,Valor_Ini || '_A' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,ColumnName as CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,B.ColumnId SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+	INNER JOIN ${BDSTAGE}.ConsumiblePtosInt as B ON A.Codigo_Campo=B.Codigo_Campo
+
+		UNION
+
+	-- Batch Validacion
+	SELECT
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.Codigo_Campo
+		,A.Homologado as Valor_Ini
+		--,Valor_Ini || '_B' || LPAD(TRIM(B.Secuencia),3,'0') AS CampoNuevo
+		,Valor_Ini as CampoNuevo
+		,A.AF_ANCHO_CAMPO
+		,A.AF_RELLENO_CAMPO
+		,A.AF_ORIENTACION_CAMPO
+		,A.XALIAS
+		,A.COMA
+		,A.PRINCIPAL
+		,A.TIPOCAMPO
+		,A.DEFAULTCAMPO
+		,A.Ordenamiento
+		,1000 SubOrden
+	From	${BDSTAGE}.vstg_BA2_CAMPOS A
+	cross join ${BDSTAGE}.Secuencia B	--Secuenciador
+	Where	UPPER(TRIM(A.Cubo)) = 'BATCHVALIDACION' and A.Codigo_Campo is not null
+		and	B.Secuencia = 1
+
+	;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creación del Sentencia Paso . 3B.'
+	.EXIT ERRORCODE
+
+.LOGOFF
+.EXIT
+BTEQ
+
+fi
+
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+.logon ${Logon};
+
+	--  Paso 4
+--  Lista Final de Campos por Parametrizacion
+REPLACE  VIEW ${BDSTAGE}.v_ba2_Campos_Salida
+AS
+	LOCK ROW FOR ACCESS
+	SELECT
+		 A.ID_SOLICITUD
+		,A.ID_PLANTILLA
+		,A.NOMBRE_SECCION
+		,A.NOMBRE_SUBSECCION
+		,A.CODIGO_SUBSECCION
+		,A.NOMBRE_CAMPO
+		,A.Cubo
+		,A.Grupo_Campo
+		,A.CODIGO_CAMPO 
+		,A.Valor_Ini 
+		,A.CampoNuevo 
+		,B.AF_ANCHO_CAMPO 
+		,B.AF_RELLENO_CAMPO 
+		,B.AF_ORIENTACION_CAMPO 
+		,B.XALIAS 
+		,B.COMA 
+		,B.PRINCIPAL 
+		,B.TIPOCAMPO
+		,B.DEFAULTCAMPO
+		,B.Orden_Subseccion
+		,B.Orden_Campo
+		,A.SubOrden
+		,RIGHT(A.camponuevo,3) as Orden2
+		/* ,row_number() over(order by B.ordenamiento, A.camponuevo) as Ordenamiento */
+		--,row_number() over(order by B.Orden_Subseccion, Orden2, B.Orden_Campo) as Ordenamiento 
+		,row_number() over(order by B.Orden_Subseccion, A.SubOrden, Orden2, B.Orden_Campo) as Ordenamiento 
+		FROM ${BDSTAGE}.v_ba2_camposbase A
+		INNER JOIN ${BDSTAGE}.vstg_BA2_Campos B on A.codigo_campo=B.codigo_campo and A.grupo_campo=B.grupo_campo
+	; 
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+-------------------------------------------  
+---Esquema Archivo de Salida  ( Con / Sin )
+-------------------------------------------  
+REPLACE VIEW ${BDSTAGE}.vstg_EsquemaTabla AS 
+	LOCK ROW FOR ACCESS
+	Select coalesce(A.nombre_subseccion,'')
+			|| ';' || 
+		    CASE 	WHEN	UPPER(A.Xalias)='CBBAT' then 'RECVAL'  else	coalesce(A.codigo_subseccion,'')END
+		    || ';' || coalesce(A.codigo_campo,'') || ';' || Coalesce(A.NOMBRE_CAMPO,'') || ' ' ||
+	CASE
+		when UPPER(left(A.CampoNuevo,12))='DIST_SUSCRIP' then substr(A.CampoNuevo,14,20)
+		when UPPER(left(A.CampoNuevo,11))='DIST_COMPET' then substr(A.CampoNuevo,13,20)
+		when UPPER(left(A.CampoNuevo,11))='TIPO_PTOINT' then substr(A.CampoNuevo,13,20)
+		when UPPER(left(A.CampoNuevo,10))='NOM_PTOINT' then substr(A.CampoNuevo,12,20)
+		when UPPER(left(A.CampoNuevo,9))='DISTANCIA' then substr(A.CampoNuevo,11,20)
+	ELSE	
+		CASE
+			when A.Xalias='CBBAT' then ''
+		else
+			TRIM(cast(right(A.CampoNuevo,3) as varchar(20)))
+		END
+	END
+	|| ';' || 
+	coalesce(CASE 
+		when (LEFT(A.tipocampo,4) in ('VARC','ANSI','INTE')) and B.Formato_Salida = 'FE_CSV' then 'VARCHAR'
+		when (LEFT(A.tipocampo,4) in ('CHAR','ANSI','INTE')) and B.Formato_Salida = 'FE_TXT'then 'CHAR'	
+	END,'')
+	|| ';' || trim(coalesce(A.af_ancho_campo,'')) esquema,  Coalesce(A.NOMBRE_CAMPO,'') || ' ' || 
+	CASE
+		when UPPER(left(A.CampoNuevo,12))='DIST_SUSCRIP' then substr(A.CampoNuevo,14,20)
+		when UPPER(left(A.CampoNuevo,11))='DIST_COMPET' then substr(A.CampoNuevo,13,20)
+		when UPPER(left(A.CampoNuevo,11))='TIPO_PTOINT' then substr(A.CampoNuevo,13,20)
+		when UPPER(left(A.CampoNuevo,10))='NOM_PTOINT' then substr(A.CampoNuevo,12,20)
+		when UPPER(left(A.CampoNuevo,9))='DISTANCIA' then substr(A.CampoNuevo,11,20)
+	ELSE
+		CASE
+			when A.Xalias='CBBAT' then ''
+		else
+			TRIM(cast(right(A.CampoNuevo,3) as varchar(20)))
+		End
+	END campo
+	, '${varDELIMITADOR}' separador, A.ordenamiento
+	From ${BDSTAGE}.v_ba2_Campos_Salida A
+    INNER JOIN ${BDSTAGE}.BATCH_DATOS_GENERALES B on A.id_solicitud=B.id_solicitud and A.id_plantilla=B.id_plantilla; 
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+-- Salida Esquema Inconsistencias 
+REPLACE VIEW ${BDSTAGE}.vstg_EsquemaInconsistencias AS 
+	LOCK ROW FOR ACCESS
+	Select CAST( 'ID_SOLICITUD;' || CASE when FORMATO_SALIDA = 'FE_CSV' then 'VARCHAR;' ELSE 'CHAR;' END || '15' as VARCHAR(100) ) esquema, CAST('ID_SOLICITUD' as VARCHAR(100)) campo, '${varDELIMITADOR}' separador ,1 ordenamiento
+	From ${BDSTAGE}.Batch_Datos_Generales A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA	
+
+	union
+
+	Select CAST('ID_PLANTILLA;' || CASE when FORMATO_SALIDA = 'FE_CSV' then 'VARCHAR;' ELSE 'CHAR;' END || '15' as VARCHAR(100)) esquema, CAST('ID_PLANTILLA' as VARCHAR(100)) campo, '${varDELIMITADOR}' separador, 2 ordenamiento
+	From ${BDSTAGE}.Batch_Datos_Generales A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA	
+
+	union
+
+	Select CAST('TIPO_ID;' || CASE when FORMATO_SALIDA = 'FE_CSV' then 'VARCHAR;' ELSE 'CHAR;' END || '5' as VARCHAR(100)) esquema, CAST('TIPO_ID' as VARCHAR(100)) campo, '${varDELIMITADOR}' separador, 3 ordenamiento
+	From ${BDSTAGE}.Batch_Datos_Generales A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA	
+
+	union
+
+	Select CAST('NUMERO_ID;' || CASE when FORMATO_SALIDA = 'FE_CSV' then 'VARCHAR;' ELSE 'CHAR;' END || '15' as VARCHAR(100)) esquema, CAST('NUMERO_ID' as VARCHAR(100)) campo, '${varDELIMITADOR}' separador, 4 ordenamiento
+	From ${BDSTAGE}.Batch_Datos_Generales A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA	
+
+	union
+
+	Select CAST('NOMBRE_COMPLETO;' || CASE when FORMATO_SALIDA = 'FE_CSV' then 'VARCHAR;' ELSE 'CHAR;' END || '100' as VARCHAR(100)) esquema, CAST('NOMBRE_COMPLETO' as VARCHAR(100)) campo, '${varDELIMITADOR}' separador, 5 ordenamiento
+	From ${BDSTAGE}.Batch_Datos_Generales A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA	
+
+	union
+
+	Select CAST('NOMBRE_ENTIDAD;' || CASE when FORMATO_SALIDA = 'FE_CSV' then 'VARCHAR;' ELSE 'CHAR;' END || '100' as VARCHAR(100)) esquema, CAST('NOMBRE_ENTIDAD' as VARCHAR(100)) campo, '${varDELIMITADOR}' separador, 6 ordenamiento
+	From ${BDSTAGE}.Batch_Datos_Generales A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA	
+
+	union
+
+	Select CAST('FECHA_EXPEDICION;' || CASE when FORMATO_SALIDA = 'FE_CSV' then 'VARCHAR;' ELSE 'CHAR;' END || '20' as VARCHAR(100)) esquema, CAST('FECHA_EXPEDICION' as VARCHAR(100)) campo, '${varDELIMITADOR}' separador, 7 ordenamiento
+	From ${BDSTAGE}.Batch_Datos_Generales A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA	
+
+	union
+
+	Select CAST('CIUDAD_EXPEDICION;' || CASE when FORMATO_SALIDA = 'FE_CSV' then 'VARCHAR;' ELSE 'CHAR;' END || '100' as VARCHAR(100)) esquema, CAST('CIUDAD_EXPEDICION' as VARCHAR(100)) campo, '${varDELIMITADOR}' separador, 8 ordenamiento
+	From ${BDSTAGE}.Batch_Datos_Generales A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA	
+
+	union
+
+	Select CAST('DEPARTAMENTO_EXPEDICION;' || CASE when FORMATO_SALIDA = 'FE_CSV' then 'VARCHAR;' ELSE 'CHAR;' END || '100' as VARCHAR(100)) esquema, CAST('DEPARTAMENTO_EXPEDICION' as VARCHAR(100)) campo, '${varDELIMITADOR}' separador, 9 ordenamiento
+	From ${BDSTAGE}.Batch_Datos_Generales A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA	
+
+	union
+
+	Select CAST('ESTADO;' || CASE when FORMATO_SALIDA = 'FE_CSV' then 'VARCHAR;' ELSE 'CHAR;' END || '100' as VARCHAR(100)) esquema, CAST('ESTADO' as VARCHAR(100)) campo, '${varDELIMITADOR}' separador, 10 ordenamiento
+	From ${BDSTAGE}.Batch_Datos_Generales A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA	
+
+	union
+
+	Select CAST('CAUSAL;' || CASE when FORMATO_SALIDA = 'FE_CSV' then 'VARCHAR;' ELSE 'CHAR;' END || '100' as VARCHAR(100)) esquema, CAST('CAUSAL' as VARCHAR(100)) campo, ' ' separador, 11 ordenamiento
+	From ${BDSTAGE}.Batch_Datos_Generales A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA	
+
+;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	.LABEL SALIR
+	.exit 0
+	
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en creacion de la vista v_ba2_Campos_Salida/vstg_EsquemaTabla/vstg_EsquemaInconsistencias'
+	.EXIT ERRORCODE
+
+	.LOGOFF;
+	.QUIT;
+BTEQ
+
+
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+exit 0
+

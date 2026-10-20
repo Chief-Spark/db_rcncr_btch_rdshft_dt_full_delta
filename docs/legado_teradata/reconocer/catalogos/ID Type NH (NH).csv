@@ -1,0 +1,33 @@
+Code,Code/text,Full Name,Name,Abbreviation,Technical Data Type,Size,Initial Position,Final Position,Data Source,Ranges,Minimum Value,Maximum Value,Minimum Value 2,Maximum Value 2,Type ID Homologated,03,File Type,Description,Mandatory,Security Clasification,Tag,[Code Value] Grouped by [Code Set] > Name
+0.0,0,SIN IDENTIFICACIÓN,SIN IDENTIFICACIÓN,'-,ALPHANUMERIC,2,1.0,2.0,ACTNOMID,,,,,,0,False,MASTERS,WITHOUT ID TYPE,Si,Confidential,7_ID_TYPE_NH,7_ID_TYPE_NH
+1.0,1,CÉDULA DE CIUDADANÍA Y NUIP,CÉDULA DE CIUDADANÍA Y NUIP,CC,NUMERIC,2,1.0,2.0,ACTNOMID,1 - 99999999 and 1000000000 - 9999999999,1,99999999,1000000000,9999999999,1,True,MASTERS,"Es el documento de identificación por medio del cual los colombianos mayores de 18 años, se identifican en todos los actos civiles, políticos, administrativos y judiciales en todos los escenarios presenciales.
+Fuente: Registraduría",Si,Confidential,7_ID_TYPE_NH,7_ID_TYPE_NH
+2.0,2,NÚMERO DE IDENTIFICACIÓN TRIBUTARIA,NÚMERO DE IDENTIFICACIÓN TRIBUTARIA,NIT,NUMERIC,2,1.0,2.0,ACTNOMID,1 - 99999999  and  800000000 - 1999999999,1,99999999,800000000,1999999999,2,True,MASTERS,TAX ID,Si,Confidential,7_ID_TYPE_NH,7_ID_TYPE_NH
+3.0,3,PERSONA JURÍDICA DEL EXTRANJERO,PERSONA JURÍDICA DEL EXTRANJERO,PJE,NUMERIC,2,1.0,2.0,ACTNOMID,600000000 - 799999999,600000000,799999999,,,3,True,MASTERS,FOREIGN TAX ID,Si,Confidential,7_ID_TYPE_NH,7_ID_TYPE_NH
+4.0,4,CÉDULA DE EXTRANJERÍA,CÉDULA DE EXTRANJERÍA,CE,NUMERIC,2,1.0,2.0,ACTNOMID,1 - 9999999,1,9999999,,,4,True,MASTERS,"La cédula de extranjería es expedida por la Unidad Administrativa Especial Migración Colombia, cuya única finalidad es la identificación de los extranjeros en territorio colombiano.
+Deberá solicitar una cédula de extranjería las personas mayor edad y menores a partir de los 7 años de edad en posesión de una visa en calidad de titular principal o titular beneficiario con una vigencia superior a tres (3) meses.
+Tenga en cuenta que ciertas actividades dentro de la categoría de visa Visitante Tipo V no está obligada a solicitar este documento.
+Fuente: Cancillería",Si,Confidential,7_ID_TYPE_NH,7_ID_TYPE_NH
+5.0,5,PASAPORTE,PASAPORTE,PAS,ALPHANUMERIC,2,1.0,2.0,ACTNOMID,1 - 9999999999,1,9999999999,,,5,True,MASTERS,"Documento de viaje expedido por un Estado para que las personas puedan salir o ingresar a otro país. En Colombia existen (5) tipos de pasaporte: Ordinario con zona de lectura mecánica, Ejecutivo con zona de lectura mecánica, Emergencia, Fronterizo con zona de lectura mecánica, y Exento.
+Fuente: Cancillería
+Fuente: Cancilleria",Si,Confidential,7_ID_TYPE_NH,7_ID_TYPE_NH
+6.0,6,CARNÉ DIPLOMATICO/PERMISO PROTECCION TEMPORAL,CARNÉ DIPLOMATICO/PERMISO PROTECCION TEMPORAL,PPT,ALPHANUMERIC,2,1.0,2.0,ACTNOMID,1 - 9999999999,1,9999999999,,,6,True,MASTERS,DIPLOMATIC ID,Si,Confidential,7_ID_TYPE_NH,7_ID_TYPE_NH
+7.0,7,TARJETA DE IDENTIDAD,TARJETA DE IDENTIDAD,TI,NUMERIC,2,1.0,2.0,ACTNOMID,1 - 9999999999,1,9999999999,,,7,True,MASTERS,"Es el documento de identificación por medio del cual los niños, niñas y adolescentes entre los 7 años y hasta que adquieren la mayoría de edad, pueden identificarse en todos los actos a que haya lugar y en los que se requiera demostrar su identidad.
+Fuente: Registraduría",Si,Confidential,7_ID_TYPE_NH,7_ID_TYPE_NH
+8.0,8,DOCUMENTO NACIONAL DE IDENTIDAD,DOCUMENTO NACIONAL DE IDENTIDAD,DNI,NUMERIC,2,1.0,2.0,ACTNOMID,1 - 9999999999,1,9999999999,,,8,True,MASTERS,DOCUMENTO NACIONAL DE IDENTIDAD) (NATIONAL IDENTIFICATION DOCUMENT,Si,Confidential,7_ID_TYPE_NH,7_ID_TYPE_NH
+9.0,9,PERMISO ESPECIAL DE PERMANENCIA,PERMISO ESPECIAL DE PERMANENCIA,PEP,NUMERIC,2,1.0,2.0,ACTNOMID,1 - 9999999,1,9999999,,,9,True,MASTERS,"El Permiso Especial de Permanencia (PEP), se otorgará únicamente a los nacionales venezolanos que cumplan con los siguientes requisitos:
+1. Encontrarse en el territorio colombiano a la fecha de publicación de la presente resolución.
+2. Haber ingresado al territorio nacional por Puesto de Control Migratorio habilitado con pasaporte.
+3. No tener antecedentes judiciales a nivel nacional e internacional.
+4. No tener una medida de expulsión o deportación vigente.
+El Permiso Especial de Permanencia (PEP), no reemplaza el pasaporte y no será válido como documento de viaje para salir y entrar al país.
+El Permiso Especial de Permanencia (PEP), será expedido por la Unidad Administrativa Especial Migración Colombia, previo cumplimiento de los requisitos establecidos en este artículo
+Fuente: Cancillería",Si,Confidential,7_ID_TYPE_NH,7_ID_TYPE_NH
+10.0,10,REGISTRO CIVIL,REGISTRO CIVIL,RC,NUMERIC,2,1.0,2.0,ACTNOMID,1000000000 - 1999999999,1000000000,1999999999,,,10,False,MASTERS,CIVIL RECORDS,Si,Confidential,7_ID_TYPE_NH,7_ID_TYPE_NH
+,,7_ID_TYPE_NH,7_ID_TYPE_NH,,,,,,ACTNOMID,,,,,,,,,"Tipo de Identificaciones
+Manual de entrega de información - Cartera, CRT Tarjeta de Crédito, Pagos Parciales - Manual de entrega de información express - Aperturas - Manual de entrega de Información - Cuenta Ahorros y Cuenta Corriente
+Anexo 2.1 Tipo de identificación
+Manual de entrega de información - Clientes
+Anexo 1.
+Manual de reporte de información - Desembolsos y Pagos Express (en Tiempo Real)
+Anexo 4.1. Tipo de Identificación",,Confidential,7_ID_TYPE_NH,

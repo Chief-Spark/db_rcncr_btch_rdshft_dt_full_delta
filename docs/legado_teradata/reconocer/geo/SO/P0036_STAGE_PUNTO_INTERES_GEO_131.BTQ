@@ -1,0 +1,94 @@
+# ################################################################################
+# 
+# Objetivo:			Crear Tabla TMP_PLANO_POINT para luego exportar Plano
+#                   Punto_Interes_YYYYMMDD.0001
+# Fecha:			2019-07-08
+# Realizado por:	Fernando Garrido 
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:			P0036_STAGE_PUNTO_INTERES_GEO_110.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha				Objetivo						Realizado por
+# 2019-07-08        Version Inicial                 Fernando Garrido.
+# --------------------------------------------------------------------------- 
+# ################################################################################
+
+#Renombrando DATAFILE
+PREFIX=$(grep PREFIX ${PARAMETROS}/P0036_STAGE_PUNTO_INTERES_GEO.par|awk -F"=" '{print $2}')
+CNT=$(ls -lrth ${ENTRADAS}/${PREFIX}*|wc -l|awk '{ if ( $0 > 0 ) print $0+1 ; else  print "1" }')
+DATE=`date +%Y%m%d`
+FILE=${PREFIX}_$DATE.$(printf "%04d" $CNT)
+LOTE=$(grep LOTE ${PARAMETROS}/P0036_STAGE_PUNTO_INTERES_GEO.par|head -1|awk -F"=" '{print $2}'|awk -F"'" '{print $2}')
+grep -v DATAFILE ${PARAMETROS}/P0036_STAGE_PUNTO_INTERES_GEO.par > ${PARAMETROS}/P0036_STAGE_PUNTO_INTERES_GEO.partmp
+echo DATAFILE="'$FILE'" >> ${PARAMETROS}/P0036_STAGE_PUNTO_INTERES_GEO.partmp
+mv -f  ${PARAMETROS}/P0036_STAGE_PUNTO_INTERES_GEO.partmp ${PARAMETROS}/P0036_STAGE_PUNTO_INTERES_GEO.par
+DATAFILE=$(grep DATAFILE ${PARAMETROS}/P0036_STAGE_PUNTO_INTERES_GEO.par|awk -F"=" '{print $2}' )
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'TMP_PLANO_POINT' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA
+	
+	DROP TABLE ${BDSTAGE}.TMP_PLANO_POINT ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+
+   .LABEL CREA
+	CREATE MULTISET TABLE ${BDSTAGE}.TMP_PLANO_POINT
+	AS 
+	(SEL  sum(1) over(rows unbounded preceding) OBJECTID
+				,RDG.Cod_Punto_Interes_Host POI_ID
+				,Cod_Tipo_Punto_Interes_Host CAT_ID
+				,RDG.Nombre_Punto_Interes   POI_Name
+				,RDG.Tipo_Punto_Interes Descripcion_CAT_ID
+				, VG.Descripcion_Municipio Municipio
+				, VG.Descripcion_Departamento Departamento            
+				,RDG.Longitud_Punto_Interes Point_X
+				,RDG.Latitud_Punto_Interes  Point_Y 
+	FROM ${BDSTAGE}.RESULTADO_DISTANCIAS_GEO RDG
+	INNER JOIN ${BDVISTA}.V_Ubicacion_Estandarizada  UE
+	ON RDG.Cod_Dw_Ubic = UE.Cod_Dw_Ubic 
+	INNER JOIN ${BDVISTA}.V_Geografia VG
+	ON UE.Cod_DW_Ciudad = VG.Cod_Dw_Ciudad 
+	INNER JOIN  ${BDVISTA}.v_tipo_Punto_interes  TPI
+	ON RDG.Tipo_Punto_Interes = TPI.Descripcion_Tipo_Punto_Interes
+	)WITH DATA 
+	PRIMARY INDEX(OBJECTID); 
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	-- CREATE SQUEMA DINAMIC
+	COLLECT STAT INDEX(OBJECTID) ON ${BDSTAGE}.TMP_PLANO_POINT;	    
+	
+	update rec_mtdat.log_td
+	Set Tabla_Origen_Stage = 'TMP_PLANO_POINT'
+		,Cant_Registros_Stage = (SELECT COUNT(1) CNT FROM ${BDSTAGE}.TMP_PLANO_POINT)
+		,Archivo_Plano = ${DATAFILE}
+	 Where Lote  = $LOTE; 
+	
+	.QUIT 0
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creacion de la tabla TMP_PLANO_POINT.'
+	.EXIT ERRORCODE
+
+
+	.LOGOFF
+	.EXIT
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+exit 0

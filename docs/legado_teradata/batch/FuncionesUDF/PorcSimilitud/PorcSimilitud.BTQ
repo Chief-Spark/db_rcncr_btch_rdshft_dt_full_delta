@@ -1,0 +1,33 @@
+REPLACE FUNCTION REC_VISTA.PorcSimilitud (
+		TelInsIn VARCHAR(20)
+		,TelBodIn VARCHAR(20)
+/*
+ * ############################################################################
+ * 
+ * Objetivo:	  Funcion  para aplicar el algoritmo de Levenshtein para ver el procentaje de
+*                 similud de una palabra con otra 
+ * Fecha:	  2017/04/24
+ * Realizado por: Fernando Garrido(Stefanini)
+ * Parametros:	  TelInsIn, TelBodIn, retorna INTEGER
+ * Proyecto:	  Experian - Reconocer
+ * Script:	  PorcSimilitud.BTQ
+ * 
+ * 
+ * 
+ * BITACORA
+ * ---------------------------------------------------------------------------
+ * Fecha		Objetivo			Realizado por
+ * 2018-02-08          Version Inicial             Fernando Garrido 
+ * ---------------------------------------------------------------------------
+ * ############################################################################
+ */
+ )
+        RETURNS FLOAT	
+	LANGUAGE C
+	NO SQL
+	SPECIFIC PorcSimilitud
+	EXTERNAL NAME 'CI!loadParamsAcepAut!/reconocer/pruebas/fuentes/udfs/library/loadParamsAcepAut.h!CS!PorcSimilitud!/reconocer/pruebas/fuentes/udfs/PorcSimilitud/PorcSimilitud.c'
+	PARAMETER STYLE TD_GENERAL
+;
+
+

@@ -1,0 +1,851 @@
+# ################################################################################
+# 
+# Objetivo:		Ejecutar el SPs Pro_Novedades_Linea
+# Fecha:		2017/12/07
+# Realizado por:	Capgemini 
+# Parametros:		N/A
+# Proyecto:		Nuevo Reconocer
+# Script:		P0035_Extractor_Novedades_131.BTQ
+# 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha			Objetivo				Realizado por
+# 2018-04-10	#1 Parametros SALIDAS	Carlos Castillo
+# 2021-06-18    #2 Creacion de tablas BK para disponer informacion con novedades actualizadas de correcciones a calidad de datos.
+# 2021-08-23    #3 Se agrega a la vista Vu_Agrupa_Ubica el campo INFO_BASICA
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2016 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+
+# Definicion nombre del proceso
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+# Definicion de Logs de ejecucion
+export REPORTE=${LOGS}/${BTQ}.log
+
+rm -r ${REPORTE} 2>/dev/null
+
+## Actulización ruta parametros salidas
+grep -v SALIDAS1 ${PARAMETROS}/${process}.par >${PARAMETROS}/${process}.partmp
+echo "SALIDAS1 = '"${SALIDAS}"'" >>${PARAMETROS}/${process}.partmp
+
+#1
+mv -f ${PARAMETROS}/${process}.partmp ${PARAMETROS}/${process}.par 
+
+if [ $? == 1 ] 
+then
+   echo 'Error en la actualización de parametros validar permisos en ${PARAMETROS}/${process}.par'
+   exit 3
+else
+   echo "ok actualizacion de parametros"
+fi
+#1 
+
+### COMIENZA BTEQ
+bteq<<BTEQU
+	.logon ${Logon};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	SELECT USER;
+	
+	DELETE FROM ${BDMTDAT}.LOG_TD 
+	WHERE Nombre_Proceso = 'P0035_Extractor_Novedades';
+	
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	.EXPORT reset
+BTEQU
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ, identificacion de USUARIO'
+	exit 3
+fi
+
+User=`cat ${REPORTE} |tail -1`
+echo $User >${REPORTE}
+User=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+User=`echo ${User}` 
+
+rm -r ${REPORTE} 2>/dev/null
+
+# Ejecuta SP
+
+rm -f ${PARAMETROS}/Validac_key.txt;
+
+bteq<<BTEQU3
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	.EXPORT DATA FILE=${PARAMETROS}/Validac_key.txt;
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	CALL PRO_Novedad_Linea_Catalogo
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BDMTDAT}'
+		,P_ERROR
+	) ;
+
+	.EXPORT reset;
+	.logoff;
+.quit;
+BTEQU3
+
+Salida_VALID_KEY=`grep SQLCODE ${PARAMETROS}/Validac_key.txt`
+
+if [ $? == 0 ] 
+then
+   echo 'Error en ejecucion del procedimiento PRO_Novedad_Linea_Catalogo'
+   echo "VALID_KEY=$Salida_VALID_KEY"
+   rm -f ${PARAMETROS}/Validac_key.txt;
+   exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+
+fi
+
+rm -f ${PARAMETROS}/Validac_key.txt;
+
+bteq<<BTEQU4
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	.EXPORT DATA FILE=${PARAMETROS}/Validac_key.txt;
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	CALL PRO_Novedad_Linea_Mosaic
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BDMTDAT}'
+		,P_ERROR
+	) ;
+
+	.EXPORT reset;
+	.logoff;
+.quit;
+BTEQU4
+
+Salida_VALID_KEY=`grep SQLCODE ${PARAMETROS}/Validac_key.txt`
+
+if [ $? == 0 ] 
+then
+   echo 'Error en ejecucion del procedimiento PRO_Novedad_Linea_Mosaic'
+   echo "VALID_KEY=$Salida_VALID_KEY"
+   rm -f ${PARAMETROS}/Validac_key.txt;
+   exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+
+fi
+
+rm -f ${PARAMETROS}/Validac_key.txt;
+
+bteq<<BTEQU5
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	.EXPORT DATA FILE=${PARAMETROS}/Validac_key.txt;
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	CALL PRO_Novedad_Linea_Info_Basica
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BTTVISTA}'
+		,'${BDMTDAT}'
+		,'${BTTMTDAT}'
+		,P_ERROR
+	) ;
+
+	.EXPORT reset;
+	.logoff;
+.quit;
+BTEQU5
+
+Salida_VALID_KEY=`grep SQLCODE ${PARAMETROS}/Validac_key.txt`
+
+if [ $? == 0 ] 
+then
+   echo 'Error en ejecucion del procedimiento PRO_Novedad_Linea_Info_Basica'
+   echo "VALID_KEY=$Salida_VALID_KEY"
+   rm -f ${PARAMETROS}/Validac_key.txt;
+   exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+
+fi
+
+rm -f ${PARAMETROS}/Validac_key.txt;
+
+bteq<<BTEQU6
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	.EXPORT DATA FILE=${PARAMETROS}/Validac_key.txt;
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	CALL PRO_Novedad_Linea_Ubicacion
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BTTVISTA}'
+		,'${BDMTDAT}'
+		,'${BTTMTDAT}'
+		,P_ERROR
+	) ;
+
+	.EXPORT reset;
+	.logoff;
+.quit;
+BTEQU6
+
+Salida_VALID_KEY=`grep SQLCODE ${PARAMETROS}/Validac_key.txt`
+
+if [ $? == 0 ] 
+then
+   echo 'Error en ejecucion del procedimiento PRO_Novedad_Linea_Ubicacion'
+   echo "VALID_KEY=$Salida_VALID_KEY"
+   rm -f ${PARAMETROS}/Validac_key.txt;
+   exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+
+fi
+
+rm -f ${PARAMETROS}/Validac_key.txt;
+
+bteq<<BTEQU7
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	.EXPORT DATA FILE=${PARAMETROS}/Validac_key.txt;
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	CALL PRO_Novedad_Linea_Contact
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BTTVISTA}'
+		,'${BDMTDAT}'
+		,P_ERROR
+	) ;
+
+
+	.EXPORT reset;
+	.logoff;
+.quit;
+BTEQU7
+
+Salida_VALID_KEY=`grep SQLCODE ${PARAMETROS}/Validac_key.txt`
+
+if [ $? == 0 ] 
+then
+   echo 'Error en ejecucion del procedimiento PRO_Novedad_Linea_Contact'
+   echo "VALID_KEY=$Salida_VALID_KEY"
+   rm -f ${PARAMETROS}/Validac_key.txt;
+   exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+
+fi
+
+rm -f ${PARAMETROS}/Validac_key.txt;
+
+bteq<<BTEQU8
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	.EXPORT DATA FILE=${PARAMETROS}/Validac_key.txt;
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	CALL PRO_Novedad_Linea_Punto_Interes
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BDMTDAT}'
+		,P_ERROR
+	) ;
+
+	.EXPORT reset;
+	.logoff;
+.quit;
+BTEQU8
+
+Salida_VALID_KEY=`grep SQLCODE ${PARAMETROS}/Validac_key.txt`
+
+if [ $? == 0 ] 
+then
+   echo 'Error en ejecucion del procedimiento PRO_Novedad_Linea_Punto_Interes'
+   echo "VALID_KEY=$Salida_VALID_KEY"
+   rm -f ${PARAMETROS}/Validac_key.txt;
+   exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+
+fi
+
+rm -f ${PARAMETROS}/Validac_key.txt;
+
+bteq<<BTEQU9
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	.EXPORT DATA FILE=${PARAMETROS}/Validac_key.txt;
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	CALL PRO_Novedad_Linea_Historial
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BTTVISTA}'
+		,'${BDMTDAT}'
+		,'${BTTMTDAT}'
+		,P_ERROR
+	) ;
+
+	.EXPORT reset;
+	.logoff;
+.quit;
+BTEQU9
+
+
+Salida_VALID_KEY=`grep SQLCODE ${PARAMETROS}/Validac_key.txt`
+
+if [ $? == 0 ] 
+then
+   echo 'Error en ejecucion del procedimiento PRO_Novedad_Linea_Historial'
+   echo "VALID_KEY=$Salida_VALID_KEY"
+   rm -f ${PARAMETROS}/Validac_key.txt;
+   exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+
+fi
+
+bteq<<BTEQU10
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	.EXPORT DATA FILE=${PARAMETROS}/Validac_key.txt;
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	CALL PRO_Novedad_Linea_Indic_Movilidad
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BDMTDAT}'
+		,P_ERROR
+	) ;
+
+	.EXPORT reset;
+	.logoff;
+.quit;
+BTEQU10
+
+Salida_VALID_KEY=`grep SQLCODE ${PARAMETROS}/Validac_key.txt`
+
+if [ $? == 0 ] 
+then
+   echo 'Error en ejecucion del procedimiento PRO_Novedad_Linea_Indic_Movilidad'
+   echo "VALID_KEY=$Salida_VALID_KEY"
+   rm -f ${PARAMETROS}/Validac_key.txt;
+   exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+
+fi
+
+rm -f ${PARAMETROS}/Validac_key.txt;
+
+bteq<<BTEQU11
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	.EXPORT DATA FILE=${PARAMETROS}/Validac_key.txt;
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	CALL PRO_Novedad_Linea_Ubi_Agregada
+    (	${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BTTVISTA}'
+		,'${BDMTDAT}'
+		,'${BTTMTDAT}'
+		,P_ERROR
+	) ;
+
+	.EXPORT reset;
+	.logoff;
+.quit;
+BTEQU11
+
+Salida_VALID_KEY=`grep SQLCODE ${PARAMETROS}/Validac_key.txt`
+
+if [ $? == 0 ] 
+then
+   echo 'Error en ejecucion del procedimiento PRO_Novedad_Linea_Ubi_Agregada'
+   echo "VALID_KEY=$Salida_VALID_KEY"
+   rm -f ${PARAMETROS}/Validac_key.txt;
+   exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+
+fi
+
+rm -f ${PARAMETROS}/Validac_key.txt;
+
+bteq<<BTEQU12
+	.logon ${Logon};
+	
+	SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_INFO_BASICA';
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+	DROP TABLE ${BDDATOS}.BK_MAT_INFO_BASICA;
+	.LABEL OK
+	CREATE TABLE ${BDDATOS}.BK_MAT_INFO_BASICA AS ${BDDATOS}.MAT_INFO_BASICA WITH DATA;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	REPLACE VIEW ${BDVISTA}.VU_InBas
+	(  
+		ID
+	  ,PRIMER_NOMBRE
+	  ,SEGUNDO_NOMBRE
+	  ,PRIMER_APELLIDO
+	  ,SEGUNDO_APELLIDO
+	  ,NOMBRE_COMPLETO
+	  ,COD_TIPO_IDENT_FTE
+	  , TIPO_IDENTIFICACION
+	  ,NUMERO_IDENTIFICACION
+	  , ESTADO_DOCUMENTO
+	  ,RANGO_EDAD
+	  ,LUGAR_EXPEDICION
+	  ,FECHA_EXPEDICION
+	  ,GENERO
+	  ,CIIU
+	  ,ACTIVIDAD_ECONOMICA
+	  ,RAZON_SOCIAL
+	  ,PAGINA_WEB
+	  ,MOSAIC_ID
+	  ,DEPARTAMENTO_EXPEDICION 
+	  ,COD_PIN_PERSONA
+	  ,RUT
+	) AS LOCK ROW FOR ACCESS
+	SELECT  ID
+	   ,PRIMER_NOMBRE
+	   ,SEGUNDO_NOMBRE
+	   ,PRIMER_APELLIDO
+	   ,SEGUNDO_APELLIDO
+	   ,NOMBRE_COMPLETO
+	   ,COD_TIPO_IDENT_FTE
+	   ,TIPO_IDENTIFICACION
+	   ,NUMERO_IDENTIFICACION
+	   ,ESTADO_DOCUMENTO
+	   ,RANGO_EDAD
+	   ,LUGAR_EXPEDICION
+	   ,FECHA_EXPEDICION
+	   ,GENERO
+	   ,CIIU
+	   ,ACTIVIDAD_ECONOMICA
+	   ,RAZON_SOCIAL
+	   ,PAGINA_WEB
+	   ,MOSAIC_ID
+	   ,DEPARTAMENTO_EXPEDICION
+	   ,COD_PIN_PERSONA
+	   ,RUT
+	FROM ${BDDATOS}.BK_MAT_INFO_BASICA;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_INFO_CONTACTABILIDAD';
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+	DROP TABLE ${BDDATOS}.BK_MAT_INFO_CONTACTABILIDAD;
+	.LABEL OK
+	CREATE TABLE ${BDDATOS}.BK_MAT_INFO_CONTACTABILIDAD AS ${BDDATOS}.MAT_INFO_CONTACTABILIDAD WITH DATA;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	REPLACE VIEW ${BDVISTA}.VU_Contact
+	(
+	 ID
+	 ,CONTACTABILIDAD
+	 ,FECHA_ULTIMO_CONTACTO
+	 ,Fecha_Gestion                 
+	 ,MEJOR_DIA_GESTION
+	 ,MEJOR_HORA_GESTION
+	 ,MEJOR_RESULTADO_3MESES
+	 ,MEJOR_RESULTADO_6MESES
+	 ,REPORTADO_POR
+	 ,SECTOR
+	 ,UBICACION_ID
+	 ,PESO          
+	) AS  LOCK ROW FOR ACCESS
+	SEL ID                            
+	  ,CONTACTABILIDAD               
+	  ,FECHA_ULTIMO_CONTACTO         
+	  ,Fecha_Gestion                 
+	  ,MEJOR_DIA_GESTION             
+	  ,MEJOR_HORA_GESTION                                     
+	  ,MEJOR_RESULTADO_3MESES        
+	  ,MEJOR_RESULTADO_6MESES
+	  ,REPORTADO_POR                 
+	  ,SECTOR                        
+	  ,UBICACION_ID                  
+	  ,PESO          
+	FROM ${BDDATOS}.BK_MAT_INFO_CONTACTABILIDAD;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_INFO_ACTIV_ECONOMICA';
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+	DROP TABLE ${BDDATOS}.BK_MAT_INFO_ACTIV_ECONOMICA;
+	.LABEL OK
+	CREATE TABLE ${BDDATOS}.BK_MAT_INFO_ACTIV_ECONOMICA AS ${BDDATOS}.MAT_INFO_ACTIVIDAD_ECONOMICA WITH DATA;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	REPLACE VIEW ${BDVISTA}.VU_Historial 
+	(
+		ID
+		,TIPO_IDENTIFICACION
+		,NUMERO_IDENTIFICACION
+		,CIIU
+		,ACTIVIDAD_ECONOMICA
+		,VERSION
+		,FECHA_REPORTE
+		,INFO_BASICA_ID
+	) AS LOCK ROW FOR ACCESS
+	SELECT ID                         
+		,TIPO_IDENTIFICACION
+		,NUMERO_IDENTIFICACION   
+		,CIIU                          
+		,ACTIVIDAD_ECONOMICA           
+		,VERSION                       
+		,FECHA_REPORTE                 
+		,INFO_BASICA_ID                
+	FROM ${BDDATOS}.BK_MAT_INFO_ACTIV_ECONOMICA;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_INFO_MOVILIDAD';
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+	DROP TABLE ${BDDATOS}.BK_MAT_INFO_MOVILIDAD;
+	.LABEL OK
+	CREATE TABLE ${BDDATOS}.BK_MAT_INFO_MOVILIDAD AS ${BDDATOS}.MAT_INFO_MOVILIDAD WITH DATA;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND		
+	REPLACE VIEW ${BDVISTA}.VU_Ind_Movil 
+	(
+		ID
+		,TIPO_IDENTIFICACION
+		,NUMERO_IDENTIFICACION
+		,FECHA
+		,DESCRIPCION
+		,NOVEDAD
+		,INFO_BASICA_ID
+		,NOVEDAD_2        
+	) AS LOCK ROW FOR ACCESS
+	SELECT ID            
+		,TIPO_IDENTIFICACION
+		,NUMERO_IDENTIFICACION                   
+		,FECHA                         
+		,DESCRIPCION                   
+		,NOVEDAD                       
+		,INFO_BASICA_ID                
+		,NOVEDAD_2                     
+	FROM ${BDDATOS}.BK_MAT_INFO_MOVILIDAD;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_INFO_PUNTO_INTERES';
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+	DROP TABLE ${BDDATOS}.BK_MAT_INFO_PUNTO_INTERES;
+	.LABEL OK
+	CREATE TABLE ${BDDATOS}.BK_MAT_INFO_PUNTO_INTERES AS ${BDDATOS}.MAT_INFO_PUNTO_INTERES WITH DATA;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND			
+	REPLACE VIEW ${BDVISTA}.VU_Punto_Inter 
+	(
+		ID
+		,NOMBRE
+		,DISTANCIA
+		,Descripcion_Tipo_Punto_Interes
+		,UBICACION_ID
+		,NOMBRE_ENTIDAD
+		,NIT_ENTIDAD
+		,LATITUD
+		,LONGITUD
+		,TIPO  
+	) AS LOCK ROW FOR ACCESS
+	SELECT  ID                            
+		,NOMBRE                        
+		,DISTANCIA                     
+		,Descripcion_Tipo_Punto_Interes
+		,UBICACION_ID                  
+		,NOMBRE_ENTIDAD                
+		,NIT_ENTIDAD                   
+		,LATITUD                       
+		,LONGITUD                      
+		,TIPO                          
+	FROM ${BDDATOS}.BK_MAT_INFO_PUNTO_INTERES;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_INFO_UBICACION';
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+	DROP TABLE ${BDDATOS}.BK_MAT_INFO_UBICACION;
+	.LABEL OK
+	CREATE TABLE ${BDDATOS}.BK_MAT_INFO_UBICACION AS ${BDDATOS}.MAT_INFO_UBICACION WITH DATA;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	REPLACE VIEW ${BDVISTA}.VU_Ubica 
+	(
+		ID                            
+		,Cod_Tipo_Ident_Fte            
+		,TIPO_IDENTIFICACION           
+		,NUMERO_IDENTIFICACION         
+		,ORDEN                         
+		,INDICATIVO                    
+		,DATO                          
+		,ESTRATO                       
+		,TIPO                          
+		,ZONA                          
+		,CIUDAD                        
+		,DEPARTAMENTO                  
+		,LONGITUD                      
+		,LATITUD                       
+		,REPORTADO_DESDE               
+		,ULTIMO_REPORTE                
+		,FUENTE                        
+		,NUMERO_REPORTES               
+		,NUMERO_ENTIDADES              
+		,BARRIO                        
+		,LOCALIDAD                     
+		,CODIGO_POSTAL                 
+		,CLASE                         
+		,INFO_BASICA                   
+		,CODIGO_DANE                   
+		,ES_TIPO_CRR                   
+		,ES_TIPO_RES                   
+		,ES_TIPO_PPL                   
+		,ES_TIPO_AGN                   
+		,ES_TIPO_SUC                   
+		,ES_TIPO_EST                   
+		,ES_TIPO_CDI                   
+		,ES_TIPO_LAB                   
+		,TIPO_CUENTA                   
+		,FLAG_OP                       
+		,Cod_DW_Ubic                   
+		,Cod_DW_Direccion_Fisica       
+		,Cod_DW_Telefono               
+		,Cod_DW_Direccion_Electronica  
+		,Ind_Unificacion               
+		,Cod_DW_Tipo_Ubicacion_Dir     
+		,Cod_Pin_Persona
+	) AS LOCK ROW FOR ACCESS
+	SELECT ID                            
+		,Cod_Tipo_Ident_Fte            
+		,TIPO_IDENTIFICACION           
+		,NUMERO_IDENTIFICACION         
+		,ORDEN                         
+		,INDICATIVO                    
+		,DATO                          
+		,ESTRATO                       
+		,TIPO                          
+		,ZONA                          
+		,CIUDAD                        
+		,DEPARTAMENTO                  
+		,LONGITUD                      
+		,LATITUD                       
+		,REPORTADO_DESDE               
+		,ULTIMO_REPORTE                
+		,FUENTE                        
+		,NUMERO_REPORTES               
+		,NUMERO_ENTIDADES              
+		,BARRIO                        
+		,LOCALIDAD                     
+		,CODIGO_POSTAL                 
+		,CLASE                         
+		,INFO_BASICA                   
+		,CODIGO_DANE                   
+		,ES_TIPO_CRR                   
+		,ES_TIPO_RES                   
+		,ES_TIPO_PPL                   
+		,ES_TIPO_AGN                   
+		,ES_TIPO_SUC                   
+		,ES_TIPO_EST                   
+		,ES_TIPO_CDI                   
+		,ES_TIPO_LAB                   
+		,TIPO_CUENTA                   
+		,FLAG_OP                       
+		,Cod_DW_Ubic                   
+		,Cod_DW_Direccion_Fisica       
+		,Cod_DW_Telefono               
+		,Cod_DW_Direccion_Electronica  
+		,Ind_Unificacion               
+		,Cod_DW_Tipo_Ubicacion_Dir     
+		,Cod_Pin_Persona
+	FROM ${BDDATOS}.BK_MAT_INFO_UBICACION;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	SELECT 1 FROM dbc.Tables WHERE databasename = '${BDDATOS}' AND TableName = 'BK_MAT_UBICACION_AGREGADA';
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO OK
+	DROP TABLE ${BDDATOS}.BK_MAT_UBICACION_AGREGADA;
+	.LABEL OK
+	CREATE TABLE ${BDDATOS}.BK_MAT_UBICACION_AGREGADA AS ${BDDATOS}.MAT_UBICACION_AGREGADA WITH DATA;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	REPLACE VIEW ${BDVISTA}.Vu_Agrupa_Ubica
+	(
+		TIPO_IDENTIFICACION,
+		NUMERO_IDENTIFICACION,
+		UBICACION_DATO,
+		UBICACION_CLASE,
+		UBICACION_TIPOCUENTA,
+		UBICACION_ORDEN,
+		UBICACCION_INDICATIVO,
+		UBICACION_ESTRATO,
+		UBICACION_ZONA,
+		UBICACION_CIUDAD,
+		UBICACION_DEPARTAMENTO,
+		UBICACION_CODIGODANE,
+		UBICACION_BARRIO,
+		UBICACION_LOCALIDAD,
+		UBICACION_CODIGOPOSTAL,
+		UBICACION_LONGITUD,
+		UBICACION_LATITUD,
+		UBICACION_REPORTDESDE,
+		UBICACION_ULTREPORTE,
+		UBICACION_NUMENTIDADES,
+		UBICACION_NUMREPORTES,
+		UBICACION_FUENTE,
+		UBICACION_TIPO,
+		IDS_UBICACIONES_ORIGEN,
+		COD_PAIS,
+		INFO_BASICA	
+	) AS LOCK ROW FOR ACCESS
+	SELECT  TIPO_IDENTIFICACION,
+		NUMERO_IDENTIFICACION,
+		UBI.UBICACION_DATO,
+		UBI.UBICACION_CLASE,
+		UBI.UBICACION_TIPOCUENTA,
+		UBI.UBICACION_ORDEN,
+		UBI.UBICACCION_INDICATIVO,
+		UBI.UBICACION_ESTRATO,
+		UBI.UBICACION_ZONA,
+		UBI.UBICACION_CIUDAD,
+		UBI.UBICACION_DEPARTAMENTO,
+		UBI.UBICACION_CODIGODANE,
+		UBI.UBICACION_BARRIO,
+		UBI.UBICACION_LOCALIDAD,
+		UBI.UBICACION_CODIGOPOSTAL,
+		UBI.UBICACION_LONGITUD,
+		UBI.UBICACION_LATITUD,
+		UBI.UBICACION_REPORTDESDE,
+		UBI.UBICACION_ULTREPORTE,
+		UBI.UBICACION_NUMENTIDADES,
+		UBI.UBICACION_NUMREPORTES,
+		UBI.FUENTE AS UBICACION_FUENTE,
+		UBI.TIPO AS UBICACION_TIPO,
+		UBI.ID,
+		UBI.COD_PAIS,
+		UBI.INFO_BASICA
+	FROM ${BDDATOS}.BK_MAT_UBICACION_AGREGADA UBI;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	DELETE ${BDDATOS}.MAT_INFO_BASICA ALL;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	DELETE ${BDDATOS}.MAT_INFO_CONTACTABILIDAD ALL;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	DELETE ${BDDATOS}.MAT_INFO_ACTIVIDAD_ECONOMICA ALL;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	DELETE ${BDDATOS}.MAT_INFO_MOVILIDAD ALL;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	DELETE ${BDDATOS}.MAT_INFO_PUNTO_INTERES ALL;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+			
+	DELETE ${BDDATOS}.MAT_INFO_UBICACION ALL;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	DELETE ${BDDATOS}.MAT_UBICACION_AGREGADA ALL;
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la generacion de tablas BK'
+	.EXIT ERRORCODE
+
+	.LOGOFF;
+	.QUIT;
+BTEQU12 
+
+export REPORTE=${PARAMETROS}/${process}.partmp
+rm -r ${REPORTE} 2>/dev/null
+
+#Actualización de nombres de tabla para Parametros
+
+exit 0

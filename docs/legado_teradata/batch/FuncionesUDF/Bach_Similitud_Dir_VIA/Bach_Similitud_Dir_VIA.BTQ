@@ -1,0 +1,156 @@
+REPLACE FUNCTION REC_VISTA.Bach_Similitud_Dir_VIA  (
+		CiudadInsumoIn VARCHAR(500)
+		,DirInsumoIn VARCHAR(500)
+		,inDaneInsumo VARCHAR(20)
+		,CiudadBodegaIn VARCHAR(500)
+		,DirBodegaIn VARCHAR(500)
+		,inDaneBodega VARCHAR(20)
+		
+		,PorCiudadIn INTEGER
+		,PorDireccionIn INTEGER
+		,PorComplementoIn INTEGER
+		
+		,PorTipoViaPpalIn INTEGER
+		,PorNumViaPpalIn INTEGER
+		,PorModViaPpalIn INTEGER
+		,PorViaGenIn INTEGER
+		
+		,PorModViaGenIn INTEGER
+		
+		,PorNumPlacaIn INTEGER
+		
+		,PorCuadranteIn INTEGER
+		
+		,PorHitMz0In INTEGER
+		,PorDisMz0In INTEGER
+		,PorHitMz1In INTEGER
+		,PorDisMz1In INTEGER
+		,PorHitMz2In INTEGER
+		,PorDisMz2In INTEGER
+		,PorHitMz3In INTEGER
+		,PorDisMz3In INTEGER
+/*
+ * ############################################################################
+ * 
+ * Objetivo:	  Aplicar el algoritmo de comparacion de direcciones fisicas de tipo
+ *		  VIA
+ * Fecha:	  2017/04/24
+ * Realizado por: Luis E Ramirez (Capgemini)
+ * Parametros:	  CiudadInsumoIn ,DirInsumoIn ,CiudadBodegaIn ,DirBodegaIn ,PorCiudadIn
+ *		  ,PorDireccionIn ,PorComplementoIn ,PorTipoViaPpalIn ,PorNumViaPpalIn
+ *		  ,PorModViaGenIn ,PorViaGenIn ,PorModViaGenIn ,PorNumPlacaIn
+		  ,PorCuadranteIn
+ *		  retorna INTEGER
+ * Proyecto:	  Experian - Reconocer
+ * Script:	  Bach_Similitud_Dir_VIA.BTQ
+ * 
+ * 
+ * 
+ * BITACORA
+ * ---------------------------------------------------------------------------
+ * Fecha		Objetivo			Realizado por
+ * 
+ * ---------------------------------------------------------------------------
+ * 
+ * Copyright 2016 Equipo Teradata - Capgemini
+ * 
+ *  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+ * 		se encuentra protegido por las leyes de derechos de autor
+ * 
+ * 
+ * ############################################################################
+ */
+ )
+	RETURNS INTEGER
+	--RETURNS VARCHAR(500)
+	LANGUAGE C
+	NO SQL
+	SPECIFIC BachSimilitudDirVIA
+	EXTERNAL  NAME 'CI!operationsString!/reconocer/pruebas/fuentes/udfs/library/operationsString.h!CI!AddressNormalization!/reconocer/pruebas/fuentes/udfs/ADDRESS_NORMALIZATION/AddressNormalization.h!CI!loadParamsAcepAut!/reconocer/pruebas/fuentes/udfs/library/loadParamsAcepAut.h!CS!BachSimilitudDirVIA!/reconocer/pruebas/fuentes/udfs/Bach_Similitud_Dir_VIA/BachSimilitudDirVIA.c'
+	PARAMETER STYLE TD_GENERAL
+;
+
+
+
+
+/*
+.run file Bach_Similitud_Dir_VIA.BTQ
+SELECT SIMILITUD
+FROM (
+SELECT	'BOGOTA' CiudadInsumoIn
+	,cast('CL 49 G 83 BISB 171 S BL 9 ARBOLEDA 2 APTO 527 BR CALAZANS' as varchar(500)) DirInsumoIn
+	,'12345000' inDaneInsumo
+	,'BOGOTA' CiudadBodegaIn
+	,cast('CL 49 G 83 BISB 171 S BL 9 AP 527' as varchar(500)) DirBodegaIn
+	,'12345000' inDaneBodega
+	,10  PorCiudadIn
+	,60  PorDireccionIn
+	,30  PorComplementoIn
+	
+	,25  PorTipoViaPpalIn
+	,25  PorNumViaPpalIn
+	,5  PorModViaPpalIn
+	,25  PorViaGenIn
+	,5  PorModViaGenIn
+	,10 PorNumPlacaIn
+	,5 PorCuadranteIn
+	
+	,0  PorHitMz0In
+	,100  PorDisMz0In
+	,20  PorHitMz1In
+	,80  PorDisMz1In
+	,50  PorHitMz2In
+	,50  PorDisMz2In
+	,70  PorHitMz3In
+	,30  PorDisMz3In
+	, REC_VISTA.Bach_Similitud_Dir_VIA(
+				CiudadInsumoIn
+				,DirInsumoIn
+				,inDaneInsumo
+				,CiudadBodegaIn
+				,DirBodegaIn
+				,inDaneBodega
+				
+				,PorCiudadIn
+				,PorDireccionIn
+				,PorComplementoIn
+				
+				,PorTipoViaPpalIn
+				,PorNumViaPpalIn
+				,PorModViaPpalIn
+				,PorViaGenIn
+				
+				,PorModViaGenIn
+				
+				,PorNumPlacaIn
+				
+				,PorCuadranteIn
+				
+				,PorHitMz0In
+				,PorDisMz0In
+				,PorHitMz1In
+				,PorDisMz1In
+				,PorHitMz2In
+				,PorDisMz2In
+				,PorHitMz3In
+				,PorDisMz3In
+		) SIMILITUD
+	) T
+;
+
+CL 25 G 32 BISB 45 S TO 3 AP 404
+
+CL 25 G 32 BISB 45 S TO 3 PI 4 AP 404
+CL 25 32 BISB 45  TO 3 AP 404
+
+CL 25 G 32 BISB 45 S TO 3 AP 404
+CL 25 G 32 BISB 54  TO 3 AP 404
+
+CL 25 G 32 BISB 45 S TO 3 AP 404
+CL 25 G 23 BISB 45 S 
+
+CL 49 G 83 BISB 171 S BL 9 ARBOLEDA 2 APTO 527 BR CALAZANS
+CL 49 G 83 BISB 171 S BL 9 AP 527
+
+
+*/

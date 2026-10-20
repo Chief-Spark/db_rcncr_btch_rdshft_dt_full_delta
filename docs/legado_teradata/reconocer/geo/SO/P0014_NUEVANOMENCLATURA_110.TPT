@@ -1,0 +1,220 @@
+/*♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠
+♠  
+♠  Objetivo: Creación vista vs
+♠  Fecha:	2016-09-02	
+♠  Realizado por:	Carlos Castillo
+♠  PARAMETROS:	
+♠  Proyecto: Experian Reconocer	
+♠  Script:		Paso 110 Creacion vista VS0014
+♠  
+♠  BITACORA
+♠  ---------------------------------------------------------------------------
+♠  Fecha		Objetivo													Realizado por
+♠  15-03-2017   ajustar reglas de severidad									Andrea Bravo
+				se quita la regla de severidad
+				el campo Cod_DW_Ubic_Nomenc
+				y se agrega el campo STG.DIRORI_BDLNEWDIRBOG 
+♠  2018-08-14   #1 AJUSTE se eliminio funcion Oreplace por REGEXP_REPLACE 	Carlos Castillo
+				para limpieza de caracteres 
+				#2 Ajuste MAX ID
+♠  ---------------------------------------------------------------------------
+♠  
+♠  Copyright 2016 Equipo Teradata - Capgemini ♠
+♠  
+♠   Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+♠  		se encuentra protegido por las leyes de derechos de autor
+♠  
+♠ ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠*/
+
+
+
+DEFINE JOB RECHAZADOS_NUEVANOMENCLATURA
+DESCRIPTION 'CRECION VISTA VS0014 MEDIANTE OPERADOR DDL'
+(
+    DEFINE OPERATOR DDL_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR'
+    TYPE DDL
+    ATTRIBUTES
+    (
+      VARCHAR UserName        = @UserName,      
+      VARCHAR UserPassword    = @UserPassword,   
+      VARCHAR TdpId           = @TdpId,          
+      VARCHAR ARRAY ErrorList = ['3803','3807','2574','2743'] 
+    );
+
+		
+ 
+    STEP Limpia_temporales
+    (               
+      APPLY 
+				/* BORRA TABLAS TEMPORALES SI EXISTEN   */
+			('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'_TMP;')	
+		
+			,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'_TMP2;')
+	TO OPERATOR (DDL_OPERATOR );
+	);
+	
+	STEP Tabla_reglas_1
+
+	( APPLY
+	
+           (' 
+		   
+				   CREATE MULTISET TABLE '||@BDSTAGE||'.'||@LAYOUT||'_TMP AS
+										  
+					 (                       
+					   SELECT                
+							AVENIDA_BDLNEWDIRBOG
+							,NUMCOD_BDLNEWDIRBOG
+							,DIRORI_BDLNEWDIRBOG
+							,DIRNEW_BDLNEWDIRBOG
+							,CAST('||@LOTE||' AS INTEGER) as LOTE        
+
+							,REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
+							  REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
+							  REGEXP_REPLACE(DIRNEW_BDLNEWDIRBOG,''182''XC,''A''),''244''XC,''Ñ''),''SIN DEFINIR'','' ''),''181''XC,''A''),''144''XC,''E''),
+							  ''214''XC,''I''),''224''XC,''O''),''233''XC,''U''),'' N '','' ''),'' DR '','' ''),''183''XC,''A''),''212'',''E''),''222''XC,''I''),
+							  ''227''XC,''O''),''235''XC,''U''),''NN  '','' ''),'' CON'','' ''),'' ENTRE'','' ''),'' 0 '','' ''),'' NÚMERO '','' ''),''NUEMRO'','' '')
+ 
+							AS DIRNEW_REGLA1  
+
+							,REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
+							  REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(
+							  REGEXP_REPLACE(DIRORI_BDLNEWDIRBOG,''182''XC,''A''),''244''XC,''Ñ''),''SIN DEFINIR'','' ''),''181''XC,''A''),''144''XC,''E''),
+							  ''214''XC,''I''),''224''XC,''O''),''233''XC,''U''),'' N '','' ''),'' DR '','' ''),''183''XC,''A''),''212'',''E''),''222''XC,''I''),
+							  ''227''XC,''O''),''235''XC,''U''),''NN  '','' ''),'' CON'','' ''),'' ENTRE'','' ''),'' 0 '','' ''),'' NÚMERO '','' ''),''NUEMRO'','' '')
+ 
+							AS DIRORI_REGLA1  
+ 
+
+							,REGEXP_REPLACE(DIRNEW_REGLA1, ''[^a-zñÑ0-9]+'', '' '', 1, 0, ''i'' ) AS DIRNEW_REGLA2
+							 
+							,REGEXP_REPLACE(DIRORI_REGLA1, ''[^a-zñÑ0-9]+'', '' '', 1, 0, ''i'' ) AS DIRORI_REGLA2
+																
+					   FROM  '||@BDSTAGE||'.'||@TABLESTAGE||' AS  TMP 
+					 ) WITH DATA PRIMARY INDEX (DIRORI_BDLNEWDIRBOG,DIRNEW_BDLNEWDIRBOG);
+										   
+		   
+           ')
+	TO OPERATOR (DDL_OPERATOR );
+	);	   
+
+STEP VS_REGLAS_2
+	
+	( APPLY	
+		('RENAME TABLE '||@BDSTAGE||'.'||@TABLESTAGE||' TO '||@BDSTAGE||'.'||@LAYOUT||'_TMP2;')
+		,('CREATE MULTISET TABLE '||@BDSTAGE||'.'||@TABLESTAGE||'
+			AS (SELECT 
+				 AVENIDA_BDLNEWDIRBOG
+				 ,NUMCOD_BDLNEWDIRBOG 
+				 ,DIRORI_BDLNEWDIRBOG 
+				 ,DIRNEW_BDLNEWDIRBOG 
+				 ,LOTE 
+				 ,DIRNEW_REGLA2 
+				 ,DIRORI_REGLA2
+				 ,CAST('||@BDVISTA||'.hash_md5(DIRNEW_REGLA2) AS CHAR(50))/*Se iguala al tipo de dato de UBICACION_ESTANDARIZADA*/ as HASH_DIRNEW  
+				 ,CAST('||@BDVISTA||'.hash_md5(DIRORI_REGLA2) AS CHAR(50))/*Se iguala al tipo de dato de UBICACION_ESTANDARIZADA*/ as HASH_DIRORI	
+				FROM '||@BDSTAGE||'.'||@LAYOUT||'_TMP
+				)
+				WITH DATA PRIMARY INDEX (DIRORI_BDLNEWDIRBOG,DIRNEW_BDLNEWDIRBOG)
+				;')   
+		
+		,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'_TMP;')	
+	
+		,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'_TMP2;')
+					
+		, ('REPLACE VIEW '||@BDSTAGE||'.VS0014 AS 
+			  LOCK ROW FOR ACCESS  
+                                  
+             SELECT * FROM  '||@BDSTAGE||'.'||@TABLESTAGE||' ;
+			')
+			
+		,('COLLECT STATISTICS '||@BDSTAGE||'.'||@TABLESTAGE||' COLUMN (DIRNEW_BDLNEWDIRBOG ,HASH_DIRNEW);')
+		,('COLLECT STATISTICS '||@BDSTAGE||'.'||@TABLESTAGE||' COLUMN (DIRORI_BDLNEWDIRBOG ,HASH_DIRORI);')
+	
+	TO OPERATOR (DDL_OPERATOR );
+	);
+
+			
+STEP CREA_VSTG
+
+( APPLY
+
+('REPLACE VIEW '||@BDSTAGE||'.VstgCargaNomenclatura as
+     LOCK ROW FOR ACCESS 
+
+		SELECT  
+		CAST(
+		CASE WHEN UE1.Cod_DW_Ubic IS NULL AND SEVERIDAD1=1
+		 THEN (MAX_ID.ID +  SUM(CASE WHEN UE1.Cod_DW_Ubic IS NULL AND SEVERIDAD1=1 THEN 1 ELSE 0 END) OVER (ORDER BY 1 ROWS UNBOUNDED PRECEDING))
+		 ELSE UE1.Cod_DW_Ubic
+		 END AS BIGINT /*#3*/) /*#2*/ AS Cod_DW_Ubic_Nomenc
+
+		,CAST(CASE WHEN RUEN.Cod_DW_Ubic_Act IS NULL THEN  UE1.Cod_DW_Ubic ELSE RUEN.Cod_DW_Ubic_Act END AS BIGINT /*#3*/) /*#2*/ as Cod_DW_Ubic_Act
+		,STG.NUMCOD_BDLNEWDIRBOG as  Cod_Numero_Nomenclatura
+		,STG.DIRNEW_BDLNEWDIRBOG as Texto_Nueva_Nomencl
+		,STG.Lote
+		,CURRENT_DATE AS Fecha_Actualizacion
+		,CAST(USER AS VARCHAR(30)) AS Usuario_BD
+		,STG.DIRORI_BDLNEWDIRBOG   AS  Texto_Nomencl_Orig
+		,UE2.Cod_DW_Ubic
+		,CASE WHEN (
+				   STG.NUMCOD_BDLNEWDIRBOG IS NULL 
+				   OR NULLIF(STG.DIRNEW_BDLNEWDIRBOG,'''') IS NULL  
+				   OR STG.DIRORI_BDLNEWDIRBOG IS NULL
+				   OR UE2.Cod_Dw_Ubic IS NULL )
+				   THEN 3
+				   WHEN CantLlave > 1 THEN 5 
+				   ELSE 1 END AS Severidad1
+		,CASE WHEN STG.NUMCOD_BDLNEWDIRBOG IS NULL  THEN ''Cod_Numero_Nomenclatura es nulo'' ELSE '''' end||
+		 CASE WHEN NULLIF(STG.DIRNEW_BDLNEWDIRBOG,'''') IS NULL  THEN ''Texto_Nueva_Nomencl es nulo'' ELSE '''' end ||
+		 CASE WHEN UE2.Cod_Dw_Ubic IS NULL  THEN ''Cod_Dw_Ubic es nulo'' ELSE '''' end as Desc_severidad
+  
+  /*CODIGO SEVERIDAES*/
+  
+	,CASE WHEN (STG.NUMCOD_BDLNEWDIRBOG IS NULL OR STG.NUMCOD_BDLNEWDIRBOG ='''') THEN ''001401 '' ELSE '''' END
+        || CASE WHEN (STG.DIRNEW_BDLNEWDIRBOG IS NULL OR STG.DIRNEW_BDLNEWDIRBOG='''')THEN ''001402 '' ELSE '''' END
+		|| CASE WHEN (UE2.Cod_Dw_Ubic IS NULL OR UE2.Cod_Dw_Ubic='''') THEN ''001403 '' ELSE '''' END  
+		|| CASE WHEN (STG.DIRORI_BDLNEWDIRBOG IS NULL) THEN ''001404 '' ELSE '''' END 
+		as COD_RECHAZO
+  
+ /*campos layout original  */
+ 
+ 
+	,STG.AVENIDA_BDLNEWDIRBOG
+	,STG.NUMCOD_BDLNEWDIRBOG 
+	,STG.DIRORI_BDLNEWDIRBOG 
+	,STG.DIRNEW_BDLNEWDIRBOG 
+ 
+
+		FROM (SELECT Stg.*, (ROW_NUMBER() OVER (PARTITION BY AVENIDA_BDLNEWDIRBOG ,NUMCOD_BDLNEWDIRBOG ORDER BY AVENIDA_BDLNEWDIRBOG ,NUMCOD_BDLNEWDIRBOG )) CantLlave   FROM  '||@BDSTAGE||'.VS0014 AS Stg) Stg
+			
+			LEFT JOIN '||@BDDATOS||'.RELACION_UBIC_EST_NOMENCLATURA RUEN
+				ON STG.DIRORI_BDLNEWDIRBOG = RUEN.Texto_Nomencl_Orig 
+				AND STG.DIRNEW_BDLNEWDIRBOG = RUEN.Texto_Nueva_Nomencl
+		 
+			
+			JOIN '||@BDMTDAT||'.MAX_ID ON NOMBRE_TABLA = ''RELACION_UBIC_EST_NOMENCLATURA''
+			
+			LEFT JOIN '||@BDDATOS||'.UBICACION_ESTANDARIZADA UE1
+			 ON STG.DIRNEW_BDLNEWDIRBOG=UE1.Texto_Ubicacion
+			 AND hash_DIRNEW = UE1.Cod_DW_Hash 
+
+			 
+			LEFT JOIN '||@BDDATOS||'.UBICACION_ESTANDARIZADA UE2
+			 ON STG.DIRORI_BDLNEWDIRBOG =UE2.Texto_Ubicacion
+			 AND hash_DIRORI =UE2.Cod_DW_Hash 
+		
+		
+
+		;'
+)
+
+TO OPERATOR (DDL_OPERATOR);
+); 
+	
+	
+      
+    
+); 
+	

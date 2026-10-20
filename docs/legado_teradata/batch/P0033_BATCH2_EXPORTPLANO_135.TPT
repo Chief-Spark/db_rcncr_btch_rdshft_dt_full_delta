@@ -1,0 +1,92 @@
+/* # ################################################################################
+# 
+# Objetivo:			Extrae Datos de BATCH2
+# Fecha:			2017-12-15
+# Realizado por:	John wilmer Bueno 
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:		    P0033_BATCH2_EXPORTPLANO_135.TPT 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		Objetivo			Realizado por
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################ */
+
+
+DEFINE JOB ExportarArchivo
+DESCRIPTION 'Exporta Registros a BATCH2_Reclamos'
+( 
+ 
+ 
+ DEFINE OPERATOR DDL_OPERATOR
+ DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR'
+ TYPE DDL
+ ATTRIBUTES
+ (
+   VARCHAR UserName     = @UserName 
+  ,VARCHAR UserPassword = @UserPassword 
+  ,VARCHAR TdpId        = @TdpId 
+ );
+ 
+ STEP Creacion_Vista_PNPJ_RECLAMOS
+	(
+		APPLY
+		( INCLUDE ''||@PARAMETROS || '/P0033_BATCH2_EXPORTPLANO/VISTA_PNPJ_RECLAMOS.txt' )
+		TO OPERATOR (DDL_OPERATOR);
+	);
+
+DEFINE SCHEMA Schema_ReclamoS
+	( 
+		INCLUDE ''||@PARAMETROS || '/P0033_BATCH2_EXPORTPLANO/Squema_Reclamo.txt' ;
+	);
+	
+DEFINE OPERATOR Data_Connector_PNPJ_ReclamoS
+	TYPE DATACONNECTOR CONSUMER
+	SCHEMA Schema_ReclamoS
+	ATTRIBUTES
+	( VARCHAR 	
+				DirectoryPath 	  = @SALIDAS1, 
+				FileName 		  = @NOM_ARCHIVO||'_RECLAMO'||@FCH_ARCHIVO||@EXTENCION||'_W', 
+				Format 			  = @FORMATO, 
+				TextDelimiter	  = @DELIMITADOR, 
+				IndicatorMode 	  = 'N', 
+				OpenMode 		  = 'Write' 
+		); 
+
+
+	 
+	DEFINE OPERATOR Select_ReclamoS
+	TYPE SELECTOR
+	SCHEMA Schema_ReclamoS
+	ATTRIBUTES
+	(
+		VARCHAR UserName 	  = @UserName,
+		VARCHAR UserPassword = @UserPassword,
+		VARCHAR TdpId = @TdpId,
+		VARCHAR SelectStmt =  INCLUDE ''||@PARAMETROS || '/P0033_BATCH2_EXPORTPLANO/Sql_Sentencia_Reclamo.txt' 
+	);
+	
+	STEP Generacion_Tabla_Salida_PNPJ_ReclamoS
+	 (
+		APPLY
+			TO OPERATOR
+			(Data_Connector_PNPJ_ReclamoS[1])
+	 
+		SELECT  *
+		FROM OPERATOR (Select_ReclamoS[1]);
+	 ); 
+ 
+ ); 
+ 
+ 
+ 
+ 
+ 

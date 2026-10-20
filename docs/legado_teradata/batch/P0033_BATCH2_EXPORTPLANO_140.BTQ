@@ -1,0 +1,234 @@
+# ################################################################################
+# 
+# Objetivo:			Extrae Datos de Cubos
+# Fecha:			2017-12-20
+# Realizado por:	Holmer Alfonso H
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:		    P0033_BATCH2_EXPORTPLANO_140.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha				Objetivo						Realizado por
+#
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+varSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varARCHIVOS_PN_PJ=`grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varNOMBRE_SECCION=`grep NOMBRE_SECCION ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varNOM_ARCHIVO=`grep NOM_ARCHIVO ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varARCHIVO_INCONSISTENCIA=`grep ARCHIVO_INCONSISTENCIA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varEXTENCION=`grep EXTENCION ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varSALIDAS1=`grep SALIDAS1 ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+varORIENTACION=`grep ORIENTACION ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+varFCH_ARCHIVO=`grep FCH_ARCHIVO ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+varSECUENCIA_ITERADOR=`grep SECUENCIA_ITERADOR ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+
+
+
+varPNPJ='_PNPJ'
+varPN='_PN'
+varPJ='_PJ'
+varExt_T='.TITULO'
+varExt_E='.ESQUEMA'
+
+FileName_PNPJ=$varNOM_ARCHIVO$varFCH_ARCHIVO$varEXTENCION
+FileName_PN=$varNOM_ARCHIVO$varPN$varFCH_ARCHIVO$varEXTENCION
+FileName_PJ=$varNOM_ARCHIVO$varPJ$varFCH_ARCHIVO$varEXTENCION
+FileName_INCO_PNPJ=$varARCHIVO_INCONSISTENCIA$varFCH_ARCHIVO$varEXTENCION
+
+FileName_INCO_PN=$varARCHIVO_INCONSISTENCIA$varPN$varFCH_ARCHIVO$varEXTENCION
+FileName_INCO_PJ=$varARCHIVO_INCONSISTENCIA$varPJ$varFCH_ARCHIVO$varEXTENCION
+
+
+Esquema_Datos=$varNOM_ARCHIVO$varFCH_ARCHIVO$varExt_E
+Esquema_Inconsis=$varARCHIVO_INCONSISTENCIA$varFCH_ARCHIVO$varExt_E
+Tit_Datos=$varNOM_ARCHIVO$varFCH_ARCHIVO$varExt_T
+Tit_Incon=$varARCHIVO_INCONSISTENCIA$varFCH_ARCHIVO$varExt_T
+
+
+########################
+##  EXPORTAR ESQUEMAS  #
+########################
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+	
+	--	SQUEMA Archivo de Salida - Datos
+	.EXPORT FILE = '${varSALIDAS1}/${Esquema_Datos}_W'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	select esquema from ${BDSTAGE}.vstg_EsquemaTabla order by ordenamiento ;
+	.EXPORT RESET
+
+
+	--	SQUEMA Inconsistencias 
+	.EXPORT FILE = '${varSALIDAS1}/${Esquema_Inconsis}_W'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	select esquema from ${BDSTAGE}.vstg_EsquemaInconsistencias order by ordenamiento ;
+	.EXPORT RESET
+
+
+	--	TITULOS Archivo de Salida - Datos 
+	.EXPORT FILE = '${varSALIDAS1}/${Tit_Datos}_W'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 60000
+	.SET SEPARATOR '|'
+
+	Select cast(a as varchar(16000))
+	 From( 
+	  select ( xmlagg(TRIM(X1.campo)
+	  ||
+	  CASE
+	  		when X1.ordenamiento < B.Mayor then TRIM(X1.separador)
+		else
+			' '
+	 END
+	  order by X1.Ordenamiento)) a
+	  From ${BDSTAGE}.vstg_EsquemaTabla X1,
+	  	(select max(ordenamiento) Mayor from ${BDSTAGE}.vstg_EsquemaTabla) as B
+	  ) t1 ;
+	.EXPORT RESET
+
+
+	--	TITULOS Inconsistencias 
+	.EXPORT FILE = '${varSALIDAS1}/${Tit_Incon}_W'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select cast(a as varchar(16000))
+	 From( 
+	  select ( xmlagg(TRIM(campo)||TRIM(separador) order by Ordenamiento)) a
+	  From ${BDSTAGE}.vstg_EsquemaInconsistencias
+	  ) t1 ;
+	.EXPORT RESET
+
+
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creación del Squema/Sentencia.'
+	.EXIT ERRORCODE
+
+
+	.LOGOFF
+	.EXIT
+BTEQ
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+	
+	Update	${BDSTAGE}.BATCH2_shells_planejecucion
+	Set		estado_ejecutado = '1'
+	Where	orden_id = '${varSECUENCIA_ITERADOR}' ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Update Iterador.'
+	.EXIT ERRORCODE
+
+
+	.LOGOFF
+	.EXIT
+BTEQ
+
+
+## Recorte de la primera linea de titulos
+
+sed -e '1d' ${varSALIDAS1}/${Esquema_Datos}_W		>	${varSALIDAS1}/${Esquema_Datos}
+sed -e '1d' ${varSALIDAS1}/${Esquema_Inconsis}_W	>	${varSALIDAS1}/${Esquema_Inconsis}
+sed -e '1d' ${varSALIDAS1}/${Tit_Datos}_W			>	${varSALIDAS1}/${Tit_Datos}
+sed -e '1d' ${varSALIDAS1}/${Tit_Incon}_W			>	${varSALIDAS1}/${Tit_Incon}
+
+
+##  Adicion de Linea de Titulos para formato CSV
+if [ "${varEXTENCION}" = ".CSV" ]
+	then
+		cat ${varSALIDAS1}/${Tit_Datos}			>	${varSALIDAS1}/${FileName_PNPJ}
+		cat ${varSALIDAS1}/${FileName_PNPJ}_W	>>	${varSALIDAS1}/${FileName_PNPJ}
+
+		cat ${varSALIDAS1}/${Tit_Datos}			>	${varSALIDAS1}/${FileName_PN}
+		cat ${varSALIDAS1}/${FileName_PN}_W		>>	${varSALIDAS1}/${FileName_PN}
+
+		cat ${varSALIDAS1}/${Tit_Datos}			>	${varSALIDAS1}/${FileName_PJ}
+		cat ${varSALIDAS1}/${FileName_PJ}_W		>>	${varSALIDAS1}/${FileName_PJ}
+
+		cat ${varSALIDAS1}/${Tit_Incon}				>	${varSALIDAS1}/${FileName_INCO_PNPJ}
+		cat ${varSALIDAS1}/${FileName_INCO_PNPJ}_W	>>	${varSALIDAS1}/${FileName_INCO_PNPJ}
+
+		rm -f ${varSALIDAS1}/${Tit_Datos}
+		rm -f ${varSALIDAS1}/${Tit_Incon}
+	else
+		mv ${varSALIDAS1}/${FileName_PNPJ}_W       ${varSALIDAS1}/${FileName_PNPJ}
+		mv ${varSALIDAS1}/${FileName_PN}_W         ${varSALIDAS1}/${FileName_PN}
+		mv ${varSALIDAS1}/${FileName_PJ}_W         ${varSALIDAS1}/${FileName_PJ}
+		mv ${varSALIDAS1}/${FileName_INCO_PNPJ}_W  ${varSALIDAS1}/${FileName_INCO_PNPJ}
+fi
+
+
+##  Identificador de Archivos PN/PJ
+if [ "${varARCHIVOS_PN_PJ}" == "1" ]
+	then
+		rm -f ${varSALIDAS1}/${FileName_PNPJ}
+		rm -f ${varSALIDAS1}/${FileName_PNPJ}_W
+	else
+		rm -f $varSALIDAS1/$FileName_PN
+		rm -f $varSALIDAS1/$FileName_PJ
+fi
+
+
+##  Identificador de Archivos PN/PJ
+if [ "${varORIENTACION}" == "OE_VERTICA" ]
+	then
+		rm -f ${varSALIDAS1}/${FileName_PNPJ}
+		rm -f ${varSALIDAS1}/${FileName_PN}
+		rm -f ${varSALIDAS1}/${FileName_PJ}
+		rm -f ${varSALIDAS1}/${Esquema_Datos}
+fi
+
+
+
+rm -f ${varSALIDAS1}/${FileName_PNPJ}_W
+rm -f ${varSALIDAS1}/${FileName_PN}_W
+rm -f ${varSALIDAS1}/${FileName_PJ}_W
+rm -f ${varSALIDAS1}/${FileName_INCO_PNPJ}_W
+
+rm -f ${varSALIDAS1}/${Esquema_Datos}_W
+rm -f ${varSALIDAS1}/${Esquema_Inconsis}_W
+rm -f ${varSALIDAS1}/${Tit_Datos}_W
+rm -f ${varSALIDAS1}/${Tit_Incon}_W
+
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+exit 0
+
+

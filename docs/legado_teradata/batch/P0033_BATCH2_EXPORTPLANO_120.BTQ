@@ -1,0 +1,455 @@
+# ################################################################################
+# 
+# Objetivo:			Extrae Datos de Cubos
+# Fecha:			2023-07-27
+# Realizado por:	John Wilmer Bueno 
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:			P0033_BATCH2_EXPORTPLANO_120.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha				Objetivo						Realizado por
+#2023-07-27			Version Inicial					John Bueno
+# ---------------------------------------------------------------------------
+# 
+# 
+# ################################################################################
+varSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varARCHIVOS_PN_PJ=`grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varTIPO_SALIDA=`grep TIPO_SALIDA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varSALIDAS1=`grep SALIDAS1 ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+varNOMBRE_SECCION=`grep NOMBRE_SECCION ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+
+#############################################################
+#     SQUEMA DINAMICO FORMATO FIJO
+#############################################################
+
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/VISTA_PNPJ_RECLAMOS.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/TABLA_PNPJ_RECLAMOS.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sql_Sentencia_Reclamo.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_Reclamo.txt
+
+
+echo "INICIO..."
+echo "${varNOMBRE_SECCION}"
+
+
+if [ "${varNOMBRE_SECCION}" == "CON DATOS DE UBICACION" ]
+	then
+# INICIA BTEQ
+	bteq<<BTEQ
+		.logon ${Logon};
+		
+		/*	Create de la Tabla Temporal  */
+		-- Busca la tabla Si existe y la borra
+		SELECT tablename 
+		FROM dbc.tables 
+		WHERE databasename = '${BDSTAGE}'
+		AND tablename = 'w_Borrar_002' ;
+
+		.IF ACTIVITYCOUNT = 0 THEN .GOTO CREAS
+
+		DROP TABLE ${BDSTAGE}.w_Borrar_002 ;
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+		.LABEL CREAS
+		CREATE SET TABLE ${BDSTAGE}.w_Borrar_002
+		(
+		esquema VARCHAR(400) CHARACTER SET UNICODE CASESPECIFIC,
+		campo VARCHAR(200) CHARACTER SET LATIN CASESPECIFIC,
+		separador VARCHAR(10) CHARACTER SET UNICODE CASESPECIFIC,
+		Ordenamiento int
+		)
+		PRIMARY INDEX (esquema) ;
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		----------
+		INSERT INTO ${BDSTAGE}.w_Borrar_002	
+		SELECT esquema,campo,separador,Ordenamiento
+		FROM ${BDSTAGE}.esquemaTable;
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		----------
+		INSERT INTO ${BDSTAGE}.w_Borrar_002	
+		Select 'RECLAMACION;RECLAMACION;T_RECLAMACION;CODIGO_ESTADO;VARCHAR;300',
+		'CODIGO_ESTADO',
+		(SELECT MAX(SEPARADOR)FROM ${BDSTAGE}.vstg_EsquemaTabla),
+		(SELECT MAX(ORDENAMIENTO)+1 FROM ${BDSTAGE}.vstg_EsquemaTabla)
+		FROM ${BDSTAGE}.vstg_EsquemaTabla where ordenamiento=1;
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		----------
+		INSERT INTO ${BDSTAGE}.w_Borrar_002	
+		Select 'RECLAMACION;RECLAMACION;RECLAMACION;COLUMNA_RECLAMO;VARCHAR;300',
+		'COLUMNA_RECLAMO',
+		(SELECT MAX(SEPARADOR)FROM ${BDSTAGE}.vstg_EsquemaTabla),
+		(SELECT MAX(ORDENAMIENTO)+2 FROM ${BDSTAGE}.vstg_EsquemaTabla)
+		FROM ${BDSTAGE}.vstg_EsquemaTabla where ordenamiento=1;
+
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		
+		-- Busca la tabla Si existe y la borra
+		SELECT tablename 
+		FROM dbc.tables 
+		WHERE databasename = '${BDSTAGE}'
+		AND tablename = 'Batch2_PNPJ_RECLAMOS' ;
+		
+		.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA
+		
+		DROP TABLE ${BDSTAGE}.Batch2_PNPJ_RECLAMOS ;
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		.LABEL CREA
+		--	HEADER VISTA
+		INSERT INTO ${BDSTAGE}.w_Borrar_001	
+		SELECT
+			SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+			,' '' REPLACE VIEW ' || '${BDSTAGE}' || '.Vstg_Batch2_PNPJ_RECLAMOS AS LOCK ROW FOR ACCESS ('
+			,0
+			,'SQL_CONSULTA'
+			,'HEADER_VISTA_PNPJ_RECLAMOS'
+		FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		--  CREATE SENTENCIA DINAMICA
+		--	HEADER TABLA RECLAMOS
+		INSERT INTO ${BDSTAGE}.w_Borrar_001	
+		SELECT
+			SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+			,' '' CREATE TABLE ' || '${BDSTAGE}' || '.Batch2_PNPJ_RECLAMOS AS ( '
+			,0
+			,'SQL_CONSULTA'
+			,'HEADER_TABLA_PNPJ_RECLAMOS'
+		FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	-- cuerpo Dinamicos
+		INSERT INTO ${BDSTAGE}.w_Borrar_001
+ SELECT (Select count(*) Contador from ${BDSTAGE}.w_Borrar_001)+1
+			,'Select T1.TIPO_ID,
+			T1.NUMERO_ID,
+			CAST(OREPLACE(TRIM(TRAILING'||chr(39)||chr(39)||chr(124)||chr(39)||chr(39)||' FROM (XMLAGG(CONCAT(CODIGO_ESTADO,'||chr(39)||chr(39)||chr(124)||chr(39)||chr(39)||')  ORDER BY COLUMNA_RECLAMO ASC )(VARCHAR(2000)))),'||chr(39)||chr(39)||chr(32)||chr(39)||chr(39)||','||chr(39)||chr(39)||chr(39)||chr(39)||')as varchar(2000)) CODIGO_ESTADO,
+			CAST(OREPLACE(TRIM(TRAILING'||chr(39)||chr(39)||chr(124)||chr(39)||chr(39)||' FROM (XMLAGG(CONCAT(COLUMNA_RECLAMO,'||chr(39)||chr(39)||chr(124)||chr(39)||chr(39)||')  ORDER BY COLUMNA_RECLAMO ASC )(VARCHAR(2000)))),'||chr(39)||chr(39)||chr(32)||chr(39)||chr(39)||','||chr(39)||chr(39)||chr(39)||chr(39)||')as varchar(2000)) COLUMNA_RECLAMO
+			FROM (SELECT T1.TIPO_ID,T1.NUMERO_ID,T2.CODIGO_ESTADO '
+			,1
+			,'SQL_CONSULTA'
+			,'CUERPO_RECLAMOS';
+		
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		--	Cuerpo de Consulta
+		INSERT INTO ${BDSTAGE}.w_Borrar_001
+		SELECT (Select count(*) Contador from ${BDSTAGE}.w_Borrar_001)+1
+			,',CASE '
+			,2
+			,'SQL_CONSULTA'
+			,'CUERPO_RECLAMOS';
+			
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+			
+			--	Cuerpo de reclamos
+		INSERT INTO ${BDSTAGE}.w_Borrar_001
+			Select 
+			SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+			,' WHEN TRIM(T1.' || A.CAMPONUEVO ||')=TRIM(T2.UBICACION_ESTANDARIZADO) THEN '||chr(39)||chr(39)|| A.CAMPONUEVO||chr(39)||chr(39)
+			,SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) +3
+			,'SQL_CONSULTA'
+			,'CUERPO_RECLAMOS'
+		FROM	${BDSTAGE}.v_ba2_Campos_Salida A 
+		INNER JOIN ${BDSTAGE}.BATCH_DATOS_GENERALES BDG on BDG.id_solicitud = ${varSOLICITUD} and BDG.id_plantilla = ${varPLANTILLA} and PRINCIPAL=1
+		,(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+		
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+			
+			--	Cuerpo de reclamos
+		INSERT INTO ${BDSTAGE}.w_Borrar_001
+			SELECT (Select count(*) Contador from ${BDSTAGE}.w_Borrar_001)+1
+			,' END AS COLUMNA_RECLAMO'
+			,(Select MAX(NADA)+1  from ${BDSTAGE}.w_Borrar_001 where subtipo='CUERPO_RECLAMOS')
+			,'SQL_CONSULTA'
+			,'CUERPO_RECLAMOS';
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+		-- Joins Dinamicos
+		INSERT INTO ${BDSTAGE}.w_Borrar_001
+			SELECT (Select count(*) Contador from ${BDSTAGE}.w_Borrar_001)+1
+			,' FROM ${BDSTAGE}.Vstg_Batch2_PNPJ AS T1
+			LEFT JOIN ${BDSTAGE}.Vstg_Reclamos AS T2 ON TRIM(T1.TIPO_ID)=TRIM(T2.TIPO_ID) AND CAST(TRIM(T1.NUMERO_ID)as BIGINT)=CAST(TRIM(T2.NUMERO_ID)as BIGINT)
+			WHERE T2.NUMERO_ID IS NOT NULL
+				) AS T1
+			GROUP BY 1,2 '
+			,0
+			,'SQL_CONSULTA'
+			,'JOINS_RECLAMOS';
+		
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		INSERT INTO ${BDSTAGE}.w_Borrar_001
+		SELECT
+			SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+			,')WITH DATA PRIMARY INDEX(TIPO_ID,NUMERO_ID) ''  '
+			,0
+			,'SQL_CONSULTA'
+			,'CIERRE_VISTA_RECLAMOS'
+		FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		INSERT INTO ${BDSTAGE}.w_Borrar_001	
+		SELECT
+			SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+			,'SELECT 
+				T1.*,
+				T2.CODIGO_ESTADO,
+				T2.COLUMNA_RECLAMO
+			FROM ${BDSTAGE}.Vstg_Batch2_PNPJ AS T1
+			LEFT JOIN ${BDSTAGE}.Batch2_PNPJ_RECLAMOS AS T2 ON TRIM(T1.TIPO_ID)=TRIM(T2.TIPO_ID) AND CAST(TRIM(T1.NUMERO_ID)as BIGINT)=CAST(TRIM(T2.NUMERO_ID)as BIGINT)
+			) ''  '
+			,0
+			,'SQL_CONSULTA'
+			,'CONSULTA_FINAL_RECLAMOS'
+		FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND	
+		INSERT INTO ${BDSTAGE}.w_Borrar_001	
+		SELECT
+			SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+			,'''SELECT *
+			FROM ${BDSTAGE}.vstg_Batch2_PNPJ_RECLAMOS
+			'''
+			,0
+			,'SQL_CONSULTA'
+			,'CONSULTA_FINAL_SQL_RECLAMOS'
+		FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		--	SQUEMA_RECLAMOS 
+		INSERT INTO ${BDSTAGE}.w_Borrar_001	
+		SELECT
+			SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+			,',CODIGO_ESTADO VARCHAR(2000)'
+			,0
+			,'SQUEMA'
+			,'SQUEMA_RECLAMOS'
+		FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		INSERT INTO ${BDSTAGE}.w_Borrar_001	
+		--	SQUEMA_RECLAMOS
+		SELECT
+			SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+			,',COLUMNA_RECLAMO VARCHAR(2000)'
+			,0
+			,'SQUEMA'
+			,'SQUEMA_RECLAMOS'
+		FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		update ${BDSTAGE}.w_Borrar_001 SET Linea=linea || CHR(13) || CHR(10)||',CAST(CBREC.CODIGO_ESTADO AS VARCHAR(2000)) AS CODIGO_ESTADO'|| CHR(13) || CHR(10)||',CAST(CBREC.COLUMNA_RECLAMO AS VARCHAR(2000)) AS COLUMNA_RECLAMO'
+		where tipo = 'SQL_CONSULTA' 
+		AND secuencia = (Select max(secuencia) secuencia From ${BDSTAGE}.w_Borrar_001 Where tipo = 'SQL_CONSULTA'and subtipo in ('CUERPO','CUERPO_FIJO_BATCHVALIDACION_1','CUERPO_FIJO_BATCHVALIDACION_2'));
+		
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		update ${BDSTAGE}.w_Borrar_001 SET Linea=linea || CHR(13) || CHR(10)||',CBREC.CODIGO_ESTADO'|| CHR(13) || CHR(10) ||',CBREC.COLUMNA_RECLAMO'
+		where tipo = 'SQL_CONSULTA' 
+		AND secuencia = (Select max(secuencia) secuencia From ${BDSTAGE}.w_Borrar_001 Where tipo = 'SQL_CONSULTA'and subtipo in ('GROUP_BY','GROUP_BY_BATCHVALIDACION_1','GROUP_BY_BATCHVALIDACION_2'));
+		
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		update ${BDSTAGE}.w_Borrar_001 SET Linea=linea || CHR(13) || CHR(10)||' LEFT JOIN ${BDSTAGE}.Batch2_PNPJ_RECLAMOS CBREC ON (TRIM(CBPER.TIPO_ID)=TRIM(CBREC.TIPO_ID) AND TRIM(CBPER.NUMERO_ID )=TRIM(CBREC.NUMERO_ID))'
+		where tipo = 'SQL_CONSULTA' 
+		AND secuencia = (Select max(secuencia) secuencia From ${BDSTAGE}.w_Borrar_001 Where tipo = 'SQL_CONSULTA'and subtipo in ('JOINS'));
+		
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		.LABEL ERRORFOUND
+		.REMARK '#### ERROR en la Creación del Squema/Sentencia.'
+		.EXIT ERRORCODE
+		.LOGOFF
+		.EXIT
+BTEQ
+else
+	echo 'SIN DATOS DE UBICACION'
+	# INICIA BTEQ
+	bteq<<BTEQ
+		.logon ${Logon};
+		
+		--	HEADER VISTA
+		INSERT INTO ${BDSTAGE}.w_Borrar_001	
+		SELECT
+			SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+			,' '' REPLACE VIEW ' || '${BDSTAGE}' || '.Vstg_Batch2_PNPJ_RECLAMOS AS LOCK ROW FOR ACCESS (
+			Select * FROM ${BDSTAGE}.Vstg_Batch2_PNPJ) ''  '
+			,0
+			,'SQL_CONSULTA'
+			,'HEADER_VISTA_PNPJ_RECLAMOS'
+		FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+		
+		--  CREATE SENTENCIA DINAMICA
+		--	HEADER TABLA RECLAMOS
+		INSERT INTO ${BDSTAGE}.w_Borrar_001	
+		SELECT
+			SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+			,' '' REPLACE VIEW ' || '${BDSTAGE}' || '.Vstg_Batch2_PNPJ_RECLAMOS AS LOCK ROW FOR ACCESS (
+			Select * FROM ${BDSTAGE}.Vstg_Batch2_PNPJ) ''  '
+			,0
+			,'SQL_CONSULTA'
+			,'HEADER_TABLA_PNPJ_RECLAMOS'
+		FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+		--	CONSULTA_FINAL_SQL_RECLAMOS 
+		INSERT INTO ${BDSTAGE}.w_Borrar_001	
+		SELECT
+			SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+			,' '' 
+			Select * FROM ${BDSTAGE}.Vstg_Batch2_PNPJ ''  '
+			,0
+			,'SQL_CONSULTA'
+			,'CONSULTA_FINAL_SQL_RECLAMOS'
+		FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+		
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND	
+		
+		.LABEL ERRORFOUND
+		.REMARK '#### ERROR en la Creación del Squema/Sentencia.'
+		.EXIT ERRORCODE
+		.LOGOFF
+		.EXIT
+BTEQ
+fi
+
+
+	# INICIA BTEQ
+	bteq<<BTEQ
+	.logon ${Logon};
+
+
+	----------------  EXPORTs  CON  DATOS
+
+	---------------  Materializacion
+	-- Materializar la SQUEMA Dinamico en Plano
+	--  EXPORTANDO
+	--	SQUEMA
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_Reclamo_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select linea From ${BDSTAGE}.w_Borrar_001 where Tipo = 'SQUEMA' Order By secuencia ;
+	--	
+	.EXPORT RESET
+	
+	-- TABLA RECLAMOS
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/TABLA_PN_PJ_RECLAMOS.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select Linea From ${BDSTAGE}.w_Borrar_001
+	Where tipo = 'SQL_CONSULTA'
+		and subtipo in (
+		'HEADER_TABLA_PNPJ_RECLAMOS'
+		,'CUERPO_RECLAMOS'
+		,'JOINS_RECLAMOS'
+		,'CIERRE_VISTA_RECLAMOS'
+		)
+	Order By secuencia ;
+
+	.EXPORT RESET
+		-- Vista PJ
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/VISTA_PN_PJ_RECLAMOS.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select Linea From ${BDSTAGE}.w_Borrar_001
+	Where tipo = 'SQL_CONSULTA'
+		and subtipo in (
+		'HEADER_VISTA_PNPJ_RECLAMOS'
+		,'CONSULTA_FINAL_RECLAMOS'
+		)
+	Order By secuencia ;
+
+	.EXPORT RESET
+			-- CONSULTA_FINAL_SQL_RECLAMOS
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_Reclamo_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select Linea From ${BDSTAGE}.w_Borrar_001
+	Where tipo = 'SQL_CONSULTA'
+		and subtipo in (
+		'HEADER_SELECT_SIMPLE'
+		,'CUERPO'
+		,'CUERPO_FIJO_BATCHVALIDACION_1'
+		,'CUERPO_FIJO_BATCHVALIDACION_2'
+		,'FROM'
+		,'JOINS'
+		,'WHERE'
+		,'WHERE_PNPJ'
+		,'GROUP_BY'
+		,'GROUP_BY_BATCHVALIDACION_1'
+		,'GROUP_BY_BATCHVALIDACION_2'
+		,'CIERRE_SENCILLO'
+		)
+	Order By secuencia ;
+
+	.EXPORT RESET
+	
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en el Export del Sentencia CON DATOS...'
+	.EXIT ERRORCODE
+
+.LOGOFF
+.EXIT
+BTEQ
+
+
+
+# Recorte de la primera linea de titulos
+
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/VISTA_PN_PJ_RECLAMOS.txt  >  ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/VISTA_PNPJ_RECLAMOS.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/TABLA_PN_PJ_RECLAMOS.txt  >  ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/TABLA_PNPJ_RECLAMOS.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_Reclamo_W.txt  >  ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sql_Sentencia_Reclamo.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_Reclamo_W.txt  >  ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_Reclamo.txt
+
+
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/VISTA_PN_PJ_RECLAMOS.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/TABLA_PN_PJ_RECLAMOS.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_Reclamo_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_Reclamo_W.txt
+
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+exit 0

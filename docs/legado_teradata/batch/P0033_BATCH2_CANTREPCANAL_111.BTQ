@@ -1,0 +1,154 @@
+# ################################################################################
+# 
+# Objetivo:			Extrae Log batch2
+# Fecha:			2017-12-15
+# Realizado por:	Carlos Alberto Castillo
+# Parametros:		reconocer/desarrollo/.tdenv P0033_BATCH2_CANTREPCANAL.par
+# Proyecto:			Nuevo Reconocer
+# Script:			P0033_BATCH2_CANTREPCANAL_111.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha				Objetivo						Realizado por
+#
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+set -x
+
+LOGFILE=${vLog}
+export LOGFILE
+touch ${LOGFILE}
+exec </dev/null
+exec >${LOGFILE} 2>&1
+
+
+
+# Se captura el numero de solicitud, plantilla y fechaIncio #
+
+varSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+FechaIncioP=`grep HOY ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+FechaIncioP=20${FechaIncioP:0:2}-${FechaIncioP:2:2}-${FechaIncioP:4:2}" "${FechaIncioP:6:2}":"${FechaIncioP:8:2}":"${FechaIncioP:10:2}.
+NOM_ARCHIVO=`grep NOM_ARCHIVO ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+EXTENCION=`grep EXTENCION ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+ARCHIVO_CONDATOS=`grep ARCHIVO_CONDATOS ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+ARCHIVO_SINDATOS=`grep ARCHIVO_SINDATOS ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+NOMBRE_SECCION=`grep NOMBRE_SECCION ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+SALIDAS1=`grep SALIDAS1 ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+MAQUINA=${SERVTD}
+RUTA=$SALIDAS1
+
+ 
+
+grep -v ARCHIVOPRN ${PARAMETROS}/P0033_BATCH2_CANTREPCANAL.par | grep -v SALIDAS1| grep -v RUTA|grep -v MAQUINA| grep -v IDPLANTILLA| grep -v IDSOLICITUD| grep -v FEINICIO >${PARAMETROS}/P0033_BATCH2_CANTREPCANAL.partmp
+echo "IDPLANTILLA = '"$varPLANTILLA"'" >>${PARAMETROS}/P0033_BATCH2_CANTREPCANAL.partmp
+echo "IDSOLICITUD = '"$varSOLICITUD"'" >>${PARAMETROS}/P0033_BATCH2_CANTREPCANAL.partmp
+echo "FEINICIO = '"$FechaIncioP"'" >>${PARAMETROS}/P0033_BATCH2_CANTREPCANAL.partmp
+echo "ARCHIVOPRN = '"$NOM_ARCHIVO"'" >>${PARAMETROS}/P0033_BATCH2_CANTREPCANAL.partmp
+echo "RUTA = '"$RUTA"'" >>${PARAMETROS}/P0033_BATCH2_CANTREPCANAL.partmp
+echo "MAQUINA = '"$MAQUINA"'" >>${PARAMETROS}/P0033_BATCH2_CANTREPCANAL.partmp
+echo "SALIDAS1 = '"$SALIDAS1"'" >>${PARAMETROS}/P0033_BATCH2_CANTREPCANAL.partmp
+
+#Se actualiza el archivo de parametros con las variables actualizadas 
+mv -f ${PARAMETROS}/P0033_BATCH2_CANTREPCANAL.partmp ${PARAMETROS}/P0033_BATCH2_CANTREPCANAL.par 
+ 
+ 
+
+#'CON DATOS DE UBICACION'=0 
+#'SIN DATOS DE UBICACION'=1 
+#'INCONSISTENCIAS'=2
+  
+ 
+ 
+if [[ "$NOMBRE_SECCION" == "CON DATOS DE UBICACION" ]] || [[ "$NOMBRE_SECCION" == "CON DATOS DE UBICACION PERSONALIZADO" ]]
+then P_CDATOS_SDATOS=0
+fi
+
+if [[ "$NOMBRE_SECCION" == "SIN DATOS DE UBICACION" ]] || [[ "$NOMBRE_SECCION" == "SIN DATOS DE UBICACION PERSONALIZADO" ]]
+then P_CDATOS_SDATOS=1
+fi
+
+if [[ "$NOMBRE_SECCION" == "INCONSISTENCIAS" ]]
+then P_CDATOS_SDATOS=2
+fi
+
+echo "P_CDATOS_SDATOS = "$P_CDATOS_SDATOS
+
+if [[ $P_CDATOS_SDATOS -lt 2 ]]
+
+then 
+
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+export REPORTE=${LOGS}/${BTQ}.log
+
+rm -r ${REPORTE} 2>/dev/null
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_CANTREPCANAL_CON
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BTTVISTA}'
+		,'${BDSTAGE}'
+		,${varPLANTILLA}
+		,${varSOLICITUD}
+		,'${P_CDATOS_SDATOS}'
+		,P_ERROR
+	) ;
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO ACTUALIZACIÓN BATCH_ARCHIVO_LOG Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+	
+	
+	.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+#######################################33
+
+fi
+
+exit 0

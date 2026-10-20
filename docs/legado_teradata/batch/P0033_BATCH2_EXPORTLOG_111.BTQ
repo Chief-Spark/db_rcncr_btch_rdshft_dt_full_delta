@@ -1,0 +1,154 @@
+set -x
+# ################################################################################
+# 
+# Objetivo:			Extrae Log batch2
+# Fecha:			2017-12-15
+# Realizado por:	Carlos Alberto Castillo
+# Parametros:		reconocer/desarrollo/.tdenv P0033_BATCH2_EXPORTLOG.par
+# Proyecto:			Nuevo Reconocer
+# Script:			P0033_BATCH2_EXPORTLOG_111.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha				Objetivo						Realizado por
+#
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+LOGFILE=${vLog}
+export LOGFILE
+touch ${LOGFILE}
+
+exec </dev/null
+exec >${LOGFILE} 2>&1
+
+
+
+# Se captura el numero de solicitud, plantilla y fechaIncio #
+
+varSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varSOLICITUD2="_$varSOLICITUD"
+varPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+FechaIncioP=`grep HOY ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+FechaIncioP=20${FechaIncioP:0:2}-${FechaIncioP:2:2}-${FechaIncioP:4:2}" "${FechaIncioP:6:2}":"${FechaIncioP:8:2}":"${FechaIncioP:10:2}.
+NOM_ARCHIVO=`grep NOM_ARCHIVO ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+EXTENCION=`grep EXTENCION ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+ARCHIVO_CONDATOS=`grep ARCHIVO_CONDATOS ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+ARCHIVO_SINDATOS=`grep ARCHIVO_SINDATOS ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+NOMBRE_SECCION=`grep NOMBRE_SECCION ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+SALIDAS1=`grep SALIDAS1 ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+MAQUINA=${SERVTD}
+RUTA=$SALIDAS1
+ARCHIVOS_PN_PJ=`grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+DELIMITADOR=`grep DELIMITADOR ${PARAMETROS}/P0033_BATCH2_EXPORTLOG.par|awk -F"'" '{print $2}'`
+FCH_ARCHIVO=`grep FCH_ARCHIVO ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+ 
+
+grep -v ARCHIVOPRN ${PARAMETROS}/P0033_BATCH2_EXPORTLOG.par | grep -v SALIDAS1| grep -v RUTA|grep -v MAQUINA| grep -v IDPLANTILLA| grep -v IDSOLICITUD| grep -v FEINICIO >${PARAMETROS}/P0033_BATCH2_EXPORTLOG.partmp
+echo "IDPLANTILLA = '"$varPLANTILLA"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTLOG.partmp
+echo "IDSOLICITUD = '"$varSOLICITUD"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTLOG.partmp
+echo "FEINICIO = '"$FechaIncioP"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTLOG.partmp
+echo "ARCHIVOPRN = '"$NOM_ARCHIVO"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTLOG.partmp
+echo "RUTA = '"$RUTA"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTLOG.partmp
+echo "MAQUINA = '"$MAQUINA"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTLOG.partmp
+echo "SALIDAS1 = '"$SALIDAS1"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTLOG.partmp
+
+#Se actualiza el archivo de parametros con las variables actualizadas 
+mv -f ${PARAMETROS}/P0033_BATCH2_EXPORTLOG.partmp ${PARAMETROS}/P0033_BATCH2_EXPORTLOG.par 
+
+#LISTADO DE ARCHIVOS
+cd $SALIDAS1
+if [[ "$NOMBRE_SECCION" =~ 'DATOS DE UBICACION PERSONALIZADO' ]];then
+	if [[ $ARCHIVOS_PN_PJ == 1 ]];then
+		ARCHIVOPRN=$ARCHIVOPRN$(ls *DATOS_PERSONALIZADO$varSOLICITUD2"_P"*$FCH_ARCHIVO$EXTENCION -1 | grep -v / | tr '\n' $DELIMITADOR)
+	else
+		ARCHIVOPRN=$ARCHIVOPRN$(ls *DATOS_PERSONALIZADO$varSOLICITUD2$FCH_ARCHIVO$EXTENCION -1 | grep -v / | tr '\n' $DELIMITADOR)
+	fi
+else
+	if [[ $ARCHIVOS_PN_PJ == 1 ]];then
+		ARCHIVOPRN=$ARCHIVOPRN$(ls *DATOS$varSOLICITUD2"_P"*$FCH_ARCHIVO$EXTENCION -1 | grep -v / | tr '\n' $DELIMITADOR)
+	else
+		ARCHIVOPRN=$ARCHIVOPRN$(ls *DATOS$varSOLICITUD2$FCH_ARCHIVO$EXTENCION -1 | grep -v / | tr '\n' $DELIMITADOR)
+	fi
+fi
+
+
+ARCHIVOPRN=$ARCHIVOPRN$(ls *INCONSISTENCIA$varSOLICITUD2$FCH_ARCHIVO$EXTENCION -1 | grep -v / | tr '\n' $DELIMITADOR)
+
+
+
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+export REPORTE=${LOGS}/${BTQ}.log
+
+rm -r ${REPORTE} 2>/dev/null
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_ARCHIVO_LOG
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,${varSOLICITUD}
+		,${varPLANTILLA}
+		,'${ARCHIVOPRN}'
+		,'${MAQUINA}'
+		,'${RUTA}'
+		,'${FechaIncioP}'
+		,'${NOMBRE_SECCION}'
+		,P_ERROR
+	) ;
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO ACTUALIZACIÓN BATCH_ARCHIVO_LOG Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+	
+	
+	.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+#######################################33
+
+exit 0

@@ -1,0 +1,84 @@
+# ################################################################################
+# 
+# Objetivo:			Extrae Datos de Cubos
+# Fecha:			2017-12-29
+# Realizado por:	Holmer Alfonso H
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:		    P0033_BATCH2_CANALCONTACTO_140.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha				Objetivo						Realizado por
+#
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+varSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varARCHIVOS_PN_PJ=`grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varNOMBRE_SECCION=`grep NOMBRE_SECCION ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varNOM_ARCHIVO=`grep NOM_ARCHIVO ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varARCHIVO_INCONSISTENCIA=`grep ARCHIVO_INCONSISTENCIA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varARCHIVO_ALERTAS=`grep ARCHIVO_ALERTAS ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varEXTENCION=`grep EXTENCION ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+varSALIDAS1=`grep SALIDAS1 ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+varORIENTACION=`grep ORIENTACION ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+varSECUENCIA_ITERADOR=`grep SECUENCIA_ITERADOR ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+
+
+
+# Ejecuta Apagado de la Vista
+bteq<<BTEQ
+	.logon ${Logon};
+
+	Update ${BDSTAGE}.BATCH2_shells_planejecucion
+	Set	estado_ejecutado = '1'
+	Where	orden_id = '${varSECUENCIA_ITERADOR}' ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO CanalContacto LOG_TD_DETALLE.'
+.EXIT 104
+	
+	
+	.EXPORT reset
+BTEQ
+
+
+varW1='_w1'
+varW2='_w2'
+
+FileName_Alerta_w1=$varARCHIVO_ALERTAS$varW1
+FileName_Alerta_w2=$varARCHIVO_ALERTAS$varW2
+
+cat $varSALIDAS1/$FileName_Alerta_w1 >> $varSALIDAS1/$varARCHIVO_ALERTAS
+cat $varSALIDAS1/$FileName_Alerta_w2 >> $varSALIDAS1/$varARCHIVO_ALERTAS
+
+rm -f $varSALIDAS1/$FileName_Alerta_w1
+rm -f $varSALIDAS1/$FileName_Alerta_w2
+
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+exit 0
+

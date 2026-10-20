@@ -1,0 +1,1153 @@
+/*♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠
+♠  
+♠  Objetivo: Cargando Tabla MAT_INFO_UBICACION
+♠  Fecha:	2018-10-10
+♠  Realizado por: Fernando Garrido Molina
+♠  PARAMETROS:	P0035_Extractor_Novedades.par
+♠  Proyecto: Reconocer Master
+♠  Script:		P0035_Extractor_Novedades_130
+♠  
+♠  BITACORA
+♠  ---------------------------------------------------------------------------
+♠  Fecha		Objetivo																Realizado por
+♠  2018-10-29	#1 Version Inicial														Fernando Garrido
+♠  2018-11-19   #2 Inclusion campos TIPO_IDEBTIFICAION y NUMERO_IDENTIFICACION          Jeimmy Chavez
+♠			 	para movilidad y actividad economica
+♠  2018-12-04 	#3 Incluir campo Cod Pin Persona en Info Basica							Andy Garcia 	
+♠  2019-05-03   #Se ajusta casteo de Fechas cuando es necesario UPDATE en Agregada      Fernando Garrido
+♠  ---------------------------------------------------------------------------
+♠  
+♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠*/
+
+
+DEFINE JOB P0035_Extractor_Novedades_130
+DESCRIPTION 'Paso del Proceso de carga sobre tabla final MAT_INFO_UBICACION, MAT_INFO_ACTIVIDAD_ECONOMICA a partir de las vstg'
+(  
+DEFINE SCHEMA P0035_8
+    DESCRIPTION 'Schema Estructura vista Vstg_Reconocer_Info_Ubica'    
+	(  
+	  IN_Cod_Tipo_Ident_Fte VARCHAR(20) 
+	,IN_TIPO_IDENTIFICACION VARCHAR(30) 
+	,IN_NUMERO_IDENTIFICACION BIGINT
+	,IN_ID BIGINT
+	,IN_ORDEN INTEGER
+	,IN_INDICATIVO VARCHAR(20) 
+	,IN_DATO VARCHAR(201) 
+	,IN_ESTRATO VARCHAR(10) 
+	,IN_TIPO VARCHAR(30) 
+	,IN_ZONA VARCHAR(30) 
+	,IN_CIUDAD VARCHAR(30) 
+	,IN_DEPARTAMENTO VARCHAR(30) 	
+	,IN_LONGITUD VARCHAR(40) 
+	,IN_LATITUD VARCHAR(40) 
+	,IN_REPORTADO_DESDE INTEGER
+	,IN_ULTIMO_REPORTE INTEGER
+	,IN_FUENTE INTEGER
+	,IN_NUMERO_REPORTES BYTEINT
+	,IN_NUMERO_ENTIDADES BYTEINT
+	,IN_BARRIO VARCHAR(100) 
+	,IN_LOCALIDAD VARCHAR(100) 
+	,IN_CODIGO_POSTAL VARCHAR(20) 
+	,IN_CLASE VARCHAR(5)
+	,IN_INFO_BASICA INTEGER
+	,IN_CODIGO_DANE VARCHAR(20) 
+	,IN_ES_TIPO_CRR VARCHAR(1)
+	,IN_ES_TIPO_RES VARCHAR(1)
+	,IN_ES_TIPO_PPL VARCHAR(1) 
+	,IN_ES_TIPO_AGN VARCHAR(1) 
+	,IN_ES_TIPO_SUC VARCHAR(1) 
+	,IN_ES_TIPO_EST VARCHAR(1) 
+	,IN_ES_TIPO_CDI VARCHAR(1) 
+	,IN_ES_TIPO_LAB VARCHAR(1)
+	,IN_TIPO_CUENTA VARCHAR(1) 
+	,IN_Cod_DW_Ubic BIGINT
+	,IN_Cod_DW_Direccion_Fisica BIGINT
+	,IN_Cod_DW_Telefono BIGINT
+	,IN_Cod_DW_Direccion_Electronica BIGINT
+	,IN_Ind_Unificacion INTEGER
+	,IN_Cod_DW_Tipo_Ubicacion_Dir INTEGER
+	,IN_Cod_Pin_Persona INTEGER	
+	,IN_Severidad  BYTEINT
+	,IN_FLAG_OP BYTEINT
+    );    
+	
+	DEFINE SCHEMA P0035_9
+    DESCRIPTION 'Schema Estructura vista Vstg_Reconocer_Actividad_Econo'    
+	( 
+	 IN_ID INTEGER
+      ,IN_CIIU VARCHAR(20)
+      ,IN_ACTIVIDAD_ECONOMICA VARCHAR(500)
+      ,IN_VERSION INTEGER
+      ,IN_FECHA_REPORTE VARCHAR(8) 
+      ,IN_INFO_BASICA_ID INTEGER
+	  ,IN_TIPO_IDENTIFICACION VARCHAR(30)
+	  ,IN_NUMERO_IDENTIFICACION BIGINT
+	  ,IN_Severidad BYTEINT
+	 );
+	 
+	DEFINE SCHEMA P0035_10
+	DESCRIPTION 'Schema Estructura vista Vstg_Reconocer_Info_Basica'    
+	( 
+	 IN_COD_PIN_PERSONA INTEGER /*#3*/
+	,IN_ID INTEGER
+	,IN_PRIMER_NOMBRE VARCHAR(100) 
+	,IN_SEGUNDO_NOMBRE VARCHAR(100)
+	,IN_PRIMER_APELLIDO VARCHAR(100)
+	,IN_SEGUNDO_APELLIDO VARCHAR(100)
+	,IN_NOMBRE_COMPLETO VARCHAR(200)
+	,IN_COD_TIPO_IDENT_FTE VARCHAR(20)
+	,IN_TIPO_IDENTIFICACION VARCHAR(30)
+	,IN_NUMERO_IDENTIFICACION BIGINT
+	,IN_ESTADO_DOCUMENTO VARCHAR(20)
+	,IN_RANGO_EDAD VARCHAR(25)
+	,IN_LUGAR_EXPEDICION VARCHAR(100)
+	,IN_FECHA_EXPEDICION VARCHAR(8)
+	,IN_GENERO VARCHAR(508)
+	,IN_CIIU VARCHAR(20)
+	,IN_ACTIVIDAD_ECONOMICA VARCHAR(500)
+	,IN_RAZON_SOCIAL VARCHAR(500)
+	,IN_PAGINA_WEB VARCHAR(100)
+	,IN_MOSAIC_ID INTEGER
+	,IN_DEPARTAMENTO_EXPEDICION VARCHAR(100)
+	,IN_Rut       VARCHAR(1)
+	,IN_Severidad BYTEINT
+	);
+	
+	DEFINE SCHEMA P0035_11
+	DESCRIPTION 'Schema Estructura vista Vstg_Reconocer_Info_Contacto'    
+	( IN_ID BIGINT
+	,IN_CONTACTABILIDAD VARCHAR(2) 
+	,IN_FECHA_ULTIMO_CONTACTO VARCHAR(32) 
+	,IN_Fecha_Gestion VARCHAR(32) 
+	,IN_MEJOR_DIA_GESTION VARCHAR(9) 
+	,IN_MEJOR_HORA_GESTION VARCHAR(13) 
+	,IN_REPORTADO_POR INTEGER
+	,IN_SECTOR VARCHAR(100) 
+	,IN_UBICACION_ID BIGINT
+	,IN_PESO FLOAT
+	,IN_MEJOR_RESULTADO_3MESES VARCHAR(100) 
+	,IN_MEJOR_RESULTADO_6MESES VARCHAR(100) 
+	,IN_Severidad BYTEINT 
+    );
+
+	DEFINE SCHEMA P0035_12
+	DESCRIPTION 'Schema Estructura vista Vstg_Reconocer_Info_Movilidad'    
+	( IN_ID INTEGER
+      ,IN_FECHA VARCHAR(8)
+      ,IN_DESCRIPCION VARCHAR(100)
+      ,IN_NOVEDAD VARCHAR(1000)
+      ,IN_INFO_BASICA_ID INTEGER
+      ,IN_NOVEDAD_2 VARCHAR(30)
+	  ,IN_TIPO_IDENTIFICACION VARCHAR(30)
+	  ,IN_NUMERO_IDENTIFICACION BIGINT
+	  ,IN_Severidad BYTEINT 
+    );
+   
+    DEFINE SCHEMA P0035_13
+	DESCRIPTION 'Schema Estructura vista Vstg_Reconocer_Info_PuntoInter'    
+	( IN_ID BIGINT
+      ,IN_NOMBRE VARCHAR(200)
+      ,IN_DISTANCIA INTEGER
+      ,IN_Descripcion_Tipo_Punto_Interes VARCHAR(1000)
+      ,IN_UBICACION_ID BIGINT
+      ,IN_NOMBRE_ENTIDAD VARCHAR(1000) 
+      ,IN_NIT_ENTIDAD VARCHAR(20) 
+      ,IN_LATITUD VARCHAR(40) 
+	  ,IN_LONGITUD VARCHAR(40)
+      ,IN_TIPO VARCHAR(30)
+      ,IN_Severidad BYTEINT 	  
+    );
+  
+    DEFINE SCHEMA P0035_14
+	DESCRIPTION 'Schema Estructura vista Vstg_Reconocer_Info_Ubic_Agrupa'    
+	( IN_TIPO_IDENTIFICACION VARCHAR(30)
+      ,IN_NUMERO_IDENTIFICACION BIGINT
+      ,IN_INFO_BASICA INTEGER
+      ,IN_CODIGO_DANE VARCHAR(20)
+      ,IN_CIUDAD VARCHAR(30)
+      ,IN_DEPARTAMENTO VARCHAR(30)
+      ,IN_UBICACION_DATO VARCHAR(201)
+      ,IN_UBICACION_REPORTDESDE VARCHAR(8)
+      ,IN_UBICACION_ULTREPORTE VARCHAR(8)
+      ,IN_UBICACION_NUMENTIDADES INTEGER
+      ,IN_UBICACION_NUMREPORTES INTEGER
+      ,IN_UBICACION_CLASE VARCHAR(5) 
+      ,IN_UBICACION_TIPOCUENTA VARCHAR(1)
+      ,IN_UBICACION_ORDEN INTEGER
+      ,IN_UBICACCION_INDICATIVO VARCHAR(20)
+      ,IN_UBICACION_ESTRATO VARCHAR(10)
+      ,IN_UBICACION_ZONA VARCHAR(30)
+      ,IN_UBICACION_CIUDAD VARCHAR(30)
+      ,IN_UBICACION_DEPARTAMENTO VARCHAR(30)
+      ,IN_UBICACION_CODIGODANE VARCHAR(20)
+      ,IN_UBICACION_BARRIO VARCHAR(100)
+      ,IN_UBICACION_LOCALIDAD VARCHAR(100)
+      ,IN_UBICACION_CODIGOPOSTAL VARCHAR(20)
+      ,IN_UBICACION_LONGITUD VARCHAR(40)
+      ,IN_UBICACION_LATITUD VARCHAR(40)
+      ,IN_TIPO VARCHAR(30) 
+      ,IN_FUENTE VARCHAR(30)
+      ,IN_ID VARCHAR(1000)
+	  ,IN_COD_PAIS VARCHAR(3) 
+      ,IN_Severidad BYTEINT 	  
+    );
+
+    /* ================================================================
+       Definicion del Operador "MAT_INFO_UBICA_OPERATOR" (Vista)
+       ================================================================ */
+    DEFINE OPERATOR MAT_INFO_UBICA_OPERATOR 
+    TYPE EXPORT                   
+    SCHEMA P0035_8            
+    ATTRIBUTES                    
+    (                          
+      VARCHAR UserName     = @UserName      
+     ,VARCHAR UserPassword = @UserPassword  
+     ,VARCHAR TdpId        = @TdpId         
+     ,INTEGER MaxSessions                   
+     ,INTEGER MinSessions                   
+     ,VARCHAR AccountID                                    
+     ,VARCHAR PrivateLogName                               
+     ,VARCHAR TraceLevel                                   
+     ,VARCHAR WorkingDatabase                              
+     ,VARCHAR ErrorTable   = @BDTEMPO||'.'||@LogTable
+     ,INTEGER TenacityHours = @TenacityHours
+     ,INTEGER TenacitySleep = @TenacitySleep
+     ,VARCHAR SelectStmt    = 'SELECT * FROM  '||@BDSTAGE||'.Vstg_Reconocer_Info_Ubica WHERE Severidad <> -1;'
+    );
+	
+	
+	/* ================================================================
+       Definicion del Operador "MAT_INFO_ACTIVIDAD_ECONOMICA" (Vista)
+       ================================================================ */
+    DEFINE OPERATOR MAT_INFO_ACTIVIDAD_ECONOMICA 
+    TYPE EXPORT                   
+    SCHEMA P0035_9            
+    ATTRIBUTES                    
+    (                          
+      VARCHAR UserName     = @UserName      
+     ,VARCHAR UserPassword = @UserPassword  
+     ,VARCHAR TdpId        = @TdpId         
+     ,INTEGER MaxSessions                   
+     ,INTEGER MinSessions                   
+     ,VARCHAR AccountID                                    
+     ,VARCHAR PrivateLogName                               
+     ,VARCHAR TraceLevel                                   
+     ,VARCHAR WorkingDatabase                              
+     ,VARCHAR ErrorTable   = @BDTEMPO||'.'||@LogTable
+     ,INTEGER TenacityHours = @TenacityHours
+     ,INTEGER TenacitySleep = @TenacitySleep
+     ,VARCHAR SelectStmt    = 'SELECT * FROM  '||@BDSTAGE||'.Vstg_Reconocer_Actividad_Econo WHERE Severidad <> -1;'
+    );
+	
+	/* ================================================================
+       Definicion del Operador "MAT_INFO_BASICA" (Vista)
+       ================================================================ */
+	DEFINE OPERATOR MAT_INFO_BASICA 
+	TYPE EXPORT                   
+	SCHEMA P0035_10            
+	ATTRIBUTES                    
+	(                          
+	  VARCHAR UserName     = @UserName      
+	 ,VARCHAR UserPassword = @UserPassword  
+	 ,VARCHAR TdpId        = @TdpId         
+	 ,INTEGER MaxSessions                   
+	 ,INTEGER MinSessions                   
+	 ,VARCHAR AccountID                                    
+	 ,VARCHAR PrivateLogName                               
+	 ,VARCHAR TraceLevel                                   
+	 ,VARCHAR WorkingDatabase                              
+	 ,VARCHAR ErrorTable   = @BDTEMPO||'.'||@LogTable
+	 ,INTEGER TenacityHours = @TenacityHours
+	 ,INTEGER TenacitySleep = @TenacitySleep
+	 ,VARCHAR SelectStmt    = 'SELECT * FROM  '||@BDSTAGE||'.Vstg_Reconocer_Info_Basica WHERE Severidad <> -1;'
+	);
+	
+	/* ================================================================
+       Definicion del Operador "MAT_INFO_CONTACTABILIDAD" (Vista)
+       ================================================================ */
+	DEFINE OPERATOR MAT_INFO_CONTACTABILIDAD 
+	TYPE EXPORT                   
+	SCHEMA P0035_11            
+	ATTRIBUTES                    
+	(                          
+	  VARCHAR UserName     = @UserName      
+	 ,VARCHAR UserPassword = @UserPassword  
+	 ,VARCHAR TdpId        = @TdpId         
+	 ,INTEGER MaxSessions                   
+	 ,INTEGER MinSessions                   
+	 ,VARCHAR AccountID                                    
+	 ,VARCHAR PrivateLogName                               
+	 ,VARCHAR TraceLevel                                   
+	 ,VARCHAR WorkingDatabase                              
+	 ,VARCHAR ErrorTable   = @BDTEMPO||'.'||@LogTable
+	 ,INTEGER TenacityHours = @TenacityHours
+	 ,INTEGER TenacitySleep = @TenacitySleep
+	 ,VARCHAR SelectStmt    = 'SELECT * FROM  '||@BDSTAGE||'.Vstg_Reconocer_Info_Contacto WHERE Severidad <> -1;'
+	);
+	
+	/* ================================================================
+	   Definicion del Operador "MAT_INFO_MOVILIDAD" (Vista)
+	   ================================================================ */
+	DEFINE OPERATOR MAT_INFO_MOVILIDAD 
+	TYPE EXPORT                   
+	SCHEMA P0035_12            
+	ATTRIBUTES                    
+	(                          
+	  VARCHAR UserName     = @UserName      
+	 ,VARCHAR UserPassword = @UserPassword  
+	 ,VARCHAR TdpId        = @TdpId         
+	 ,INTEGER MaxSessions                   
+	 ,INTEGER MinSessions                   
+	 ,VARCHAR AccountID                                    
+	 ,VARCHAR PrivateLogName                               
+	 ,VARCHAR TraceLevel                                   
+	 ,VARCHAR WorkingDatabase                              
+	 ,VARCHAR ErrorTable   = @BDTEMPO||'.'||@LogTable
+	 ,INTEGER TenacityHours = @TenacityHours
+	 ,INTEGER TenacitySleep = @TenacitySleep
+	 ,VARCHAR SelectStmt    = 'SELECT * FROM  '||@BDSTAGE||'.Vstg_Reconocer_Info_Movilidad WHERE Severidad <> -1;'
+	);
+	
+	/* ================================================================
+	   Definicion del Operador "MAT_INFO_PUNTO_INTERES" (Vista)
+	   ================================================================ */
+	DEFINE OPERATOR MAT_INFO_PUNTO_INTERES 
+	TYPE EXPORT                   
+	SCHEMA P0035_13            
+	ATTRIBUTES                    
+	(                          
+	  VARCHAR UserName     = @UserName      
+	 ,VARCHAR UserPassword = @UserPassword  
+	 ,VARCHAR TdpId        = @TdpId         
+	 ,INTEGER MaxSessions                   
+	 ,INTEGER MinSessions                   
+	 ,VARCHAR AccountID                                    
+	 ,VARCHAR PrivateLogName                               
+	 ,VARCHAR TraceLevel                                   
+	 ,VARCHAR WorkingDatabase                              
+	 ,VARCHAR ErrorTable   = @BDTEMPO||'.'||@LogTable
+	 ,INTEGER TenacityHours = @TenacityHours
+	 ,INTEGER TenacitySleep = @TenacitySleep
+	 ,VARCHAR SelectStmt    = 'SELECT * FROM  '||@BDSTAGE||'.Vstg_Reconocer_Info_PuntoInter WHERE Severidad <> -1;'
+	);
+	
+	/* ================================================================
+	   Definicion del Operador "MAT_UBICACION_AGREGADA" (Vista)
+	   ================================================================ */
+	DEFINE OPERATOR MAT_UBICACION_AGREGADA 
+	TYPE EXPORT                   
+	SCHEMA P0035_14            
+	ATTRIBUTES                    
+	(                          
+	  VARCHAR UserName     = @UserName      
+	 ,VARCHAR UserPassword = @UserPassword  
+	 ,VARCHAR TdpId        = @TdpId         
+	 ,INTEGER MaxSessions                   
+	 ,INTEGER MinSessions                   
+	 ,VARCHAR AccountID                                    
+	 ,VARCHAR PrivateLogName                               
+	 ,VARCHAR TraceLevel                                   
+	 ,VARCHAR WorkingDatabase                              
+	 ,VARCHAR ErrorTable   = @BDTEMPO||'.'||@LogTable
+	 ,INTEGER TenacityHours = @TenacityHours
+	 ,INTEGER TenacitySleep = @TenacitySleep
+	 ,VARCHAR SelectStmt    = 'SELECT * FROM  '||@BDSTAGE||'.Vstg_Reconocer_Info_Ubic_Agrupa WHERE Severidad <> -1;'
+	);
+	
+    /* ================================================================
+       Definicion de (Tabla(s) Destino)  MAT_INFO_UBICACION
+       ================================================================  */
+    
+    DEFINE OPERATOR OPERATOR_130
+    DESCRIPTION 'TERADATA WAREHOUSE BUILDER UPDATE OPERATOR'
+    TYPE UPDATE 
+	 SCHEMA P0035_8   
+    ATTRIBUTES  
+    (                             /* Si son varias: VARCHAR ARRAY TargetTable = ['Trans','Accounts','Customer'] */ 
+      VARCHAR UserName          = @UserName     
+     ,VARCHAR UserPassword      = @UserPassword 
+     ,VARCHAR TdpId             = @TdpId        
+     ,VARCHAR AccountId                         
+     	 
+                                                              
+     ,VARCHAR ARRAY TargetTable = [@BDDATOS ||'.'||@TablaDestino1 ]  		 							
+     ,VARCHAR ARRAY ErrorTable1 = [@BDTEMPO ||'.'||@Wktb 		  ]  
+     ,VARCHAR ARRAY ErrorTable2 = [@BDTEMPO ||'.'||@Err1 		  ]  
+     ,VARCHAR ARRAY WorkTable   = [@BDTEMPO ||'.'||@Err2 		  ]  
+	 
+	 
+	 
+	 ,VARCHAR LogTable          =  @BDTEMPO ||'.'||@LogTable 
+     ,INTEGER TenacityHours = @TenacityHours
+     ,INTEGER TenacitySleep = @TenacitySleep 
+    );
+    
+	/* ================================================================
+       Definicion de (Tabla(s) Destino) MAT_INFO_ACTIVIDAD_ECONOMICA
+       ================================================================  */
+    
+    DEFINE OPERATOR OPERATOR_131
+    DESCRIPTION 'TERADATA WAREHOUSE BUILDER UPDATE OPERATOR'
+    TYPE UPDATE 
+	 SCHEMA P0035_9   
+    ATTRIBUTES  
+    (                             /* Si son varias: VARCHAR ARRAY TargetTable = ['Trans','Accounts','Customer'] */ 
+      VARCHAR UserName          = @UserName     
+     ,VARCHAR UserPassword      = @UserPassword 
+     ,VARCHAR TdpId             = @TdpId        
+     ,VARCHAR AccountId                         
+     	 
+                                                              
+     ,VARCHAR ARRAY TargetTable = [@BDDATOS ||'.'||@TablaDestino2 ]  		 							
+     ,VARCHAR ARRAY ErrorTable1 = [@BDTEMPO ||'.'||@Wktb1 		  ]  
+     ,VARCHAR ARRAY ErrorTable2 = [@BDTEMPO ||'.'||@Err11 		  ]  
+     ,VARCHAR ARRAY WorkTable   = [@BDTEMPO ||'.'||@Err12 		  ]  
+	 
+	 
+	 
+	 ,VARCHAR LogTable          =  @BDTEMPO ||'.'||@LogTable11 
+     ,INTEGER TenacityHours = @TenacityHours
+     ,INTEGER TenacitySleep = @TenacitySleep 
+    );
+	
+	/* ================================================================
+	   Definicion de (Tabla(s) Destino) MAT_INFO_BASICA
+	   ================================================================  */
+    
+    DEFINE OPERATOR OPERATOR_132
+    DESCRIPTION 'TERADATA WAREHOUSE BUILDER UPDATE OPERATOR'
+    TYPE UPDATE 
+	 SCHEMA P0035_10   
+    ATTRIBUTES  
+    (                             /* Si son varias: VARCHAR ARRAY TargetTable = ['Trans','Accounts','Customer'] */ 
+      VARCHAR UserName          = @UserName     
+     ,VARCHAR UserPassword      = @UserPassword 
+     ,VARCHAR TdpId             = @TdpId        
+     ,VARCHAR AccountId                         
+     	 
+                                                              
+     ,VARCHAR ARRAY TargetTable = [@BDDATOS ||'.'||@TablaDestino3 ]  		 							
+     ,VARCHAR ARRAY ErrorTable1 = [@BDTEMPO ||'.'||@Wktb2 		  ]  
+     ,VARCHAR ARRAY ErrorTable2 = [@BDTEMPO ||'.'||@Err13 		  ]  
+     ,VARCHAR ARRAY WorkTable   = [@BDTEMPO ||'.'||@Err14 		  ]   
+	 
+	 
+	 ,VARCHAR LogTable          =  @BDTEMPO ||'.'||@LogTable12 
+     ,INTEGER TenacityHours = @TenacityHours
+     ,INTEGER TenacitySleep = @TenacitySleep 
+    );
+    
+	/* ================================================================
+	   Definicion de (Tabla(s) Destino) MAT_INFO_CONTACTABILIDAD
+	   ================================================================  */
+    
+    DEFINE OPERATOR OPERATOR_133
+    DESCRIPTION 'TERADATA WAREHOUSE BUILDER UPDATE OPERATOR'
+    TYPE UPDATE 
+	 SCHEMA P0035_11   
+    ATTRIBUTES  
+    (                             /* Si son varias: VARCHAR ARRAY TargetTable = ['Trans','Accounts','Customer'] */ 
+      VARCHAR UserName          = @UserName     
+     ,VARCHAR UserPassword      = @UserPassword 
+     ,VARCHAR TdpId             = @TdpId        
+     ,VARCHAR AccountId                         
+     	 
+                                                              
+     ,VARCHAR ARRAY TargetTable = [@BDDATOS ||'.'||@TablaDestino4 ]  		 							
+     ,VARCHAR ARRAY ErrorTable1 = [@BDTEMPO ||'.'||@Wktb3 		  ]  
+     ,VARCHAR ARRAY ErrorTable2 = [@BDTEMPO ||'.'||@Err15 		  ]  
+     ,VARCHAR ARRAY WorkTable   = [@BDTEMPO ||'.'||@Err16 		  ]   
+	 
+	 
+	 ,VARCHAR LogTable          =  @BDTEMPO ||'.'||@LogTable13 
+     ,INTEGER TenacityHours = @TenacityHours
+     ,INTEGER TenacitySleep = @TenacitySleep 
+    );
+    
+      /* ================================================================
+	   Definicion de (Tabla(s) Destino) MAT_INFO_MOVILIDAD
+	   ================================================================  */
+    
+    DEFINE OPERATOR OPERATOR_134
+    DESCRIPTION 'TERADATA WAREHOUSE BUILDER UPDATE OPERATOR'
+    TYPE UPDATE 
+	 SCHEMA P0035_12
+    ATTRIBUTES  
+    (                             /* Si son varias: VARCHAR ARRAY TargetTable = ['Trans','Accounts','Customer'] */ 
+      VARCHAR UserName          = @UserName     
+     ,VARCHAR UserPassword      = @UserPassword 
+     ,VARCHAR TdpId             = @TdpId        
+     ,VARCHAR AccountId                         
+     	 
+                                                              
+     ,VARCHAR ARRAY TargetTable = [@BDDATOS ||'.'||@TablaDestino5 ]  		 							
+     ,VARCHAR ARRAY ErrorTable1 = [@BDTEMPO ||'.'||@Wktb4 		  ]  
+     ,VARCHAR ARRAY ErrorTable2 = [@BDTEMPO ||'.'||@Err17 		  ]  
+     ,VARCHAR ARRAY WorkTable   = [@BDTEMPO ||'.'||@Err18 		  ]   
+	 
+	 
+	 ,VARCHAR LogTable          =  @BDTEMPO ||'.'||@LogTable14 
+     ,INTEGER TenacityHours = @TenacityHours
+     ,INTEGER TenacitySleep = @TenacitySleep 
+    );
+    
+  /* ================================================================
+	   Definicion de (Tabla(s) Destino) MAT_INFO_PUNTO_INTERES
+	   ================================================================  */
+    
+    DEFINE OPERATOR OPERATOR_135
+    DESCRIPTION 'TERADATA WAREHOUSE BUILDER UPDATE OPERATOR'
+    TYPE UPDATE 
+	SCHEMA P0035_13
+    ATTRIBUTES  
+    (                             /* Si son varias: VARCHAR ARRAY TargetTable = ['Trans','Accounts','Customer'] */ 
+      VARCHAR UserName          = @UserName     
+     ,VARCHAR UserPassword      = @UserPassword 
+     ,VARCHAR TdpId             = @TdpId        
+     ,VARCHAR AccountId                         
+     	 
+                                                              
+     ,VARCHAR ARRAY TargetTable = [@BDDATOS ||'.'||@TablaDestino6 ]  		 							
+     ,VARCHAR ARRAY ErrorTable1 = [@BDTEMPO ||'.'||@Wktb5 		  ]  
+     ,VARCHAR ARRAY ErrorTable2 = [@BDTEMPO ||'.'||@Err19 		  ]  
+     ,VARCHAR ARRAY WorkTable   = [@BDTEMPO ||'.'||@Err110 		  ]   
+	 
+	 
+	 ,VARCHAR LogTable          =  @BDTEMPO ||'.'||@LogTable15 
+     ,INTEGER TenacityHours = @TenacityHours
+     ,INTEGER TenacitySleep = @TenacitySleep 
+    );
+    
+	/* ================================================================
+	   Definicion de (Tabla(s) Destino) MAT_UBICACION_AGREGADA
+	   ================================================================  */
+
+    DEFINE OPERATOR OPERATOR_136
+    DESCRIPTION 'TERADATA WAREHOUSE BUILDER UPDATE OPERATOR'
+    TYPE UPDATE 
+	SCHEMA P0035_14
+    ATTRIBUTES  
+    (                             /* Si son varias: VARCHAR ARRAY TargetTable = ['Trans','Accounts','Customer'] */ 
+      VARCHAR UserName          = @UserName     
+     ,VARCHAR UserPassword      = @UserPassword 
+     ,VARCHAR TdpId             = @TdpId        
+     ,VARCHAR AccountId                         
+     	 
+                                                              
+     ,VARCHAR ARRAY TargetTable = [@BDDATOS ||'.'||@TablaDestino7 ]  		 							
+     ,VARCHAR ARRAY ErrorTable1 = [@BDTEMPO ||'.'||@Wktb6 		  ]  
+     ,VARCHAR ARRAY ErrorTable2 = [@BDTEMPO ||'.'||@Err111 		  ]  
+     ,VARCHAR ARRAY WorkTable   = [@BDTEMPO ||'.'||@Err112 		  ]   
+	 
+	 
+	 ,VARCHAR LogTable          =  @BDTEMPO ||'.'||@LogTable16 
+     ,INTEGER TenacityHours = @TenacityHours
+     ,INTEGER TenacitySleep = @TenacitySleep 
+    );
+    
+	/* ================================================================
+	   Definicion de (Tabla(s) Destino) MAT_INFO_BASICA_DELTA
+	   ================================================================  */
+	DEFINE OPERATOR DDL_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR'
+    TYPE DDL
+    ATTRIBUTES
+    (
+      VARCHAR UserName        = @UserName,      
+      VARCHAR UserPassword    = @UserPassword,   
+      VARCHAR TdpId           = @TdpId,          
+      VARCHAR ARRAY ErrorList = ['3803','3807','2574','9686'] 
+    );
+	
+    /* ====================================================================
+        Apply Upsert Usando Mload Desde lo que entrega la vstg
+       ====================================================================  */
+    
+	STEP Load_MAT_INFO_UBICA_OPERATOR
+    (             
+		APPLY        
+		CASE 
+			WHEN ( IN_Severidad = 1  ) /*  Upsert  */
+			THEN 				 
+			(	
+				'UPDATE '||@BDDATOS ||'.'||@TablaDestino1||'
+				SET     
+				ORDEN = :IN_ORDEN
+				,INDICATIVO = :IN_INDICATIVO
+				,DATO = :IN_DATO
+				,ESTRATO = :IN_ESTRATO
+				,TIPO = :IN_TIPO
+				,ZONA = :IN_ZONA
+				,CIUDAD = :IN_CIUDAD
+				,DEPARTAMENTO = :IN_DEPARTAMENTO							
+				,REPORTADO_DESDE = :IN_REPORTADO_DESDE
+				,ULTIMO_REPORTE = :IN_ULTIMO_REPORTE
+				,FUENTE = :IN_FUENTE
+				,NUMERO_REPORTES = :IN_NUMERO_REPORTES
+				,NUMERO_ENTIDADES = :IN_NUMERO_ENTIDADES
+				,BARRIO = :IN_BARRIO
+				,LOCALIDAD = :IN_LOCALIDAD
+				,CODIGO_POSTAL = :IN_CODIGO_POSTAL
+				,CLASE = :IN_CLASE
+				,CODIGO_DANE = :IN_CODIGO_DANE
+				,ES_TIPO_CRR = :IN_ES_TIPO_CRR
+				,ES_TIPO_RES = :IN_ES_TIPO_RES
+				,ES_TIPO_PPL = :IN_ES_TIPO_PPL
+				,ES_TIPO_AGN = :IN_ES_TIPO_AGN
+				,ES_TIPO_SUC = :IN_ES_TIPO_SUC
+				,ES_TIPO_EST = :IN_ES_TIPO_EST
+				,ES_TIPO_CDI = :IN_ES_TIPO_CDI
+				,ES_TIPO_LAB = :IN_ES_TIPO_LAB
+				,TIPO_CUENTA = :IN_TIPO_CUENTA							
+				,Ind_Unificacion = :IN_Ind_Unificacion						                         
+				,LONGITUD = CAST(:IN_LONGITUD AS DECIMAL(38,8) )
+				,LATITUD = CAST(:IN_LATITUD AS DECIMAL(38,8) )
+				WHERE ID = :IN_ID;'	 
+				,'INSERT INTO ' || @BDDATOS || '.'||@TablaDestino1||' 
+				(
+				Cod_Tipo_Ident_Fte
+				,TIPO_IDENTIFICACION
+				,NUMERO_IDENTIFICACION 
+				,ID 
+				,ORDEN 
+				,INDICATIVO 
+				,DATO 
+				,ESTRATO 
+				,TIPO 
+				,ZONA 
+				,CIUDAD
+				,DEPARTAMENTO
+				,LONGITUD
+				,LATITUD									
+				,REPORTADO_DESDE 
+				,ULTIMO_REPORTE 
+				,FUENTE 
+				,NUMERO_REPORTES
+				,NUMERO_ENTIDADES
+				,BARRIO
+				,LOCALIDAD
+				,CODIGO_POSTAL 
+				,CLASE 
+				,INFO_BASICA 
+				,CODIGO_DANE
+				,ES_TIPO_CRR
+				,ES_TIPO_RES
+				,ES_TIPO_PPL 
+				,ES_TIPO_AGN 
+				,ES_TIPO_SUC 
+				,ES_TIPO_EST 
+				,ES_TIPO_CDI 
+				,ES_TIPO_LAB
+				,TIPO_CUENTA 
+				,Cod_DW_Ubic 
+				,Cod_DW_Direccion_Fisica 
+				,Cod_DW_Telefono 
+				,Cod_DW_Direccion_Electronica 
+				,Ind_Unificacion 
+				,Cod_DW_Tipo_Ubicacion_Dir 
+				,Cod_Pin_Persona 									
+				,FLAG_OP 
+				)  
+				VALUES     
+				( 
+				:IN_Cod_Tipo_Ident_Fte
+				,:IN_TIPO_IDENTIFICACION
+				,:IN_NUMERO_IDENTIFICACION 
+				,:IN_ID 
+				,:IN_ORDEN 
+				,:IN_INDICATIVO 
+				,:IN_DATO 
+				,:IN_ESTRATO 
+				,:IN_TIPO 
+				,:IN_ZONA 
+				,:IN_CIUDAD
+				,:IN_DEPARTAMENTO	
+				,CAST(:IN_LONGITUD AS DECIMAL(38,8) )
+				,CAST(:IN_LATITUD AS DECIMAL(38,8) )							
+				,:IN_REPORTADO_DESDE 
+				,:IN_ULTIMO_REPORTE 
+				,:IN_FUENTE 
+				,:IN_NUMERO_REPORTES
+				,:IN_NUMERO_ENTIDADES
+				,:IN_BARRIO
+				,:IN_LOCALIDAD
+				,:IN_CODIGO_POSTAL 
+				,:IN_CLASE 
+				,:IN_INFO_BASICA 
+				,:IN_CODIGO_DANE
+				,:IN_ES_TIPO_CRR
+				,:IN_ES_TIPO_RES
+				,:IN_ES_TIPO_PPL 
+				,:IN_ES_TIPO_AGN 
+				,:IN_ES_TIPO_SUC 
+				,:IN_ES_TIPO_EST 
+				,:IN_ES_TIPO_CDI 
+				,:IN_ES_TIPO_LAB
+				,:IN_TIPO_CUENTA 
+				,:IN_Cod_DW_Ubic 
+				,:IN_Cod_DW_Direccion_Fisica 
+				,:IN_Cod_DW_Telefono 
+				,:IN_Cod_DW_Direccion_Electronica 
+				,:IN_Ind_Unificacion 
+				,:IN_Cod_DW_Tipo_Ubicacion_Dir 
+				,:IN_Cod_Pin_Persona 								
+				,:IN_FLAG_OP 
+				);'
+			)  
+			  
+		INSERT FOR MISSING UPDATE ROWS
+		END,
+		
+		CASE 
+			WHEN ( IN_Severidad = 2  ) /*  Borrar registros que no este en Reporte  */
+			THEN ('DELETE FROM ' || @BDDATOS || '.'||@TablaDestino1||' WHERE ID = :IN_ID;')
+		END		
+
+		TO OPERATOR (OPERATOR_130 [1])
+		SELECT * FROM OPERATOR (MAT_INFO_UBICA_OPERATOR);      
+    );
+      
+	/* ===========================================================================================
+        Apply Upsert Usando Mload Desde lo que entrega la vstg a MAT_INFO_ACTIVIDAD_ECONOMICA
+       =========================================================================================== */
+    
+	STEP Load_MAT_INFO_ACTIVIDAD_ECONOMICA
+    (             
+		APPLY        
+		CASE 
+			WHEN ( IN_Severidad = 1  ) /*  Upsert  */
+			THEN 				 
+			(	
+				'UPDATE '||@BDDATOS ||'.'||@TablaDestino2||'
+				SET CIIU = :IN_CIIU                          
+				   ,ACTIVIDAD_ECONOMICA = :IN_ACTIVIDAD_ECONOMICA           
+				   ,VERSION             = :IN_VERSION                       
+				   ,FECHA_REPORTE       =    CAST(:IN_FECHA_REPORTE AS DATE FORMAT ''YYYYMMDD'')
+				WHERE ID = :IN_ID;'	 
+				,'INSERT INTO ' || @BDDATOS || '.'||@TablaDestino2||' 
+				( 
+				ID
+				,CIIU
+				,ACTIVIDAD_ECONOMICA
+				,VERSION								
+				,FECHA_REPORTE
+				,INFO_BASICA_ID	
+				,TIPO_IDENTIFICACION
+				,NUMERO_IDENTIFICACION
+				)  
+				VALUES     
+				(
+				:IN_ID
+				,:IN_CIIU
+				,:IN_ACTIVIDAD_ECONOMICA
+				,:IN_VERSION
+				,CAST(:IN_FECHA_REPORTE AS DATE FORMAT ''YYYYMMDD'') 
+				,:IN_INFO_BASICA_ID
+				,:IN_TIPO_IDENTIFICACION
+				,:IN_NUMERO_IDENTIFICACION
+				);'
+			)
+			INSERT FOR MISSING UPDATE ROWS
+		END,
+		
+		CASE 
+			WHEN ( IN_Severidad = 2  ) /*  Borrar registros que no este en Reporte  */
+			THEN ('DELETE FROM ' || @BDDATOS || '.'||@TablaDestino2||' WHERE ID = :IN_ID;')
+		END		
+
+		TO OPERATOR (OPERATOR_131 [1])
+		SELECT * FROM OPERATOR (MAT_INFO_ACTIVIDAD_ECONOMICA);      
+    );
+	
+	STEP Load_MAT_INFO_BASICA
+	(
+		APPLY        
+		CASE 
+			WHEN ( IN_Severidad = 1  ) /*  Upsert  */
+			THEN 				 
+			(	
+				'UPDATE '||@BDDATOS ||'.'||@TablaDestino3||'
+				SET  PRIMER_NOMBRE = :IN_PRIMER_NOMBRE
+				, SEGUNDO_NOMBRE = :IN_SEGUNDO_NOMBRE
+				, PRIMER_APELLIDO = :IN_PRIMER_APELLIDO
+				, SEGUNDO_APELLIDO = :IN_SEGUNDO_APELLIDO
+				, NOMBRE_COMPLETO  = :IN_NOMBRE_COMPLETO 
+				, COD_TIPO_IDENT_FTE  = :IN_COD_TIPO_IDENT_FTE 
+				, TIPO_IDENTIFICACION  = :IN_TIPO_IDENTIFICACION 
+				, NUMERO_IDENTIFICACION = :IN_NUMERO_IDENTIFICACION
+				, ESTADO_DOCUMENTO  = :IN_ESTADO_DOCUMENTO 
+				, RANGO_EDAD  = :IN_RANGO_EDAD 
+				, LUGAR_EXPEDICION = :IN_LUGAR_EXPEDICION
+				, FECHA_EXPEDICION  = CAST(:IN_FECHA_EXPEDICION AS DATE FORMAT ''YYYYMMDD'')
+				, GENERO  = :IN_GENERO 
+				, CIIU  = :IN_CIIU 
+				, ACTIVIDAD_ECONOMICA  = :IN_ACTIVIDAD_ECONOMICA 
+				, RAZON_SOCIAL  = :IN_RAZON_SOCIAL 
+				, PAGINA_WEB = :IN_PAGINA_WEB
+				, MOSAIC_ID = :IN_MOSAIC_ID
+				, DEPARTAMENTO_EXPEDICION = :IN_DEPARTAMENTO_EXPEDICION
+				, RUT  = :IN_RUT
+				WHERE ID = :IN_ID;'	 
+				,'INSERT INTO ' || @BDDATOS || '.'||@TablaDestino3||' 
+				(
+				COD_PIN_PERSONA /*#3*/		
+				,ID 
+				,PRIMER_NOMBRE
+				,SEGUNDO_NOMBRE
+				,PRIMER_APELLIDO
+				,SEGUNDO_APELLIDO
+				,NOMBRE_COMPLETO 
+				,COD_TIPO_IDENT_FTE 
+				,TIPO_IDENTIFICACION 
+				,NUMERO_IDENTIFICACION
+				,ESTADO_DOCUMENTO 
+				,RANGO_EDAD 
+				,LUGAR_EXPEDICION
+				,FECHA_EXPEDICION 
+				,GENERO 
+				,CIIU 
+				,ACTIVIDAD_ECONOMICA 
+				,RAZON_SOCIAL 
+				,PAGINA_WEB
+				,MOSAIC_ID
+				,DEPARTAMENTO_EXPEDICION					                      
+				,RUT
+				)  
+				VALUES     
+				( :IN_COD_PIN_PERSONA /*#3*/
+				,:IN_ID 
+				,:IN_PRIMER_NOMBRE
+				,:IN_SEGUNDO_NOMBRE
+				,:IN_PRIMER_APELLIDO
+				,:IN_SEGUNDO_APELLIDO
+				,:IN_NOMBRE_COMPLETO 
+				,:IN_COD_TIPO_IDENT_FTE 
+				,:IN_TIPO_IDENTIFICACION 
+				,:IN_NUMERO_IDENTIFICACION
+				,:IN_ESTADO_DOCUMENTO 
+				,:IN_RANGO_EDAD 
+				,:IN_LUGAR_EXPEDICION
+				,CAST(:IN_FECHA_EXPEDICION AS DATE FORMAT ''YYYYMMDD'') 
+				,:IN_GENERO 
+				,:IN_CIIU 
+				,:IN_ACTIVIDAD_ECONOMICA 
+				,:IN_RAZON_SOCIAL 
+				,:IN_PAGINA_WEB
+				,:IN_MOSAIC_ID
+				,:IN_DEPARTAMENTO_EXPEDICION
+				,:IN_RUT
+				);'
+			)  
+
+		INSERT FOR MISSING UPDATE ROWS
+		END,
+		
+		CASE 
+			WHEN ( IN_Severidad = 2  ) /*  Borrar registros que no este en Reporte  */
+			THEN ('DELETE FROM ' || @BDDATOS || '.'||@TablaDestino3||' WHERE ID = :IN_ID;')
+		END		
+
+		TO OPERATOR (OPERATOR_132 [1])
+		SELECT * FROM OPERATOR (MAT_INFO_BASICA);      
+	);
+   
+	STEP Load_MAT_INFO_CONTACTABILIDAD
+    (             
+		APPLY        
+		CASE 
+			WHEN ( IN_Severidad = 1  ) /*  Upsert  */
+			THEN 				 
+			( 
+				'UPDATE '||@BDDATOS ||'.'||@TablaDestino4||'
+				SET CONTACTABILIDAD= :IN_CONTACTABILIDAD
+				,FECHA_ULTIMO_CONTACTO = CAST(:IN_FECHA_ULTIMO_CONTACTO AS TIMESTAMP(6))
+				,Fecha_Gestion = CAST(:IN_Fecha_Gestion AS TIMESTAMP(6))
+				,MEJOR_DIA_GESTION= :IN_MEJOR_DIA_GESTION
+				,MEJOR_HORA_GESTION= :IN_MEJOR_HORA_GESTION
+				,REPORTADO_POR= :IN_REPORTADO_POR												
+				,PESO= :IN_PESO
+				,MEJOR_RESULTADO_3MESES= :IN_MEJOR_RESULTADO_3MESES
+				,MEJOR_RESULTADO_6MESES= :IN_MEJOR_RESULTADO_6MESES
+				WHERE ID = :IN_ID
+				AND SECTOR = :IN_SECTOR
+				AND UBICACION_ID  = :IN_UBICACION_ID '
+
+				,'INSERT INTO ' || @BDDATOS || '.'||@TablaDestino4||' 
+				( 
+				ID
+				,CONTACTABILIDAD 	
+				,FECHA_ULTIMO_CONTACTO
+				,Fecha_Gestion								
+				,MEJOR_DIA_GESTION
+				,MEJOR_HORA_GESTION
+				,REPORTADO_POR
+				,SECTOR 
+				,UBICACION_ID 
+				,PESO
+				,MEJOR_RESULTADO_3MESES
+				,MEJOR_RESULTADO_6MESES					                      
+				)  
+				VALUES     
+				(
+				:IN_ID
+				,:IN_CONTACTABILIDAD 	
+				,CAST(:IN_FECHA_ULTIMO_CONTACTO AS TIMESTAMP(6))
+				,CAST(:IN_Fecha_Gestion AS TIMESTAMP(6))
+				,:IN_MEJOR_DIA_GESTION
+				,:IN_MEJOR_HORA_GESTION
+				,:IN_REPORTADO_POR
+				,:IN_SECTOR 
+				,:IN_UBICACION_ID 
+				,:IN_PESO
+				,:IN_MEJOR_RESULTADO_3MESES
+				,:IN_MEJOR_RESULTADO_6MESES
+				);'  
+			)                   
+		INSERT FOR MISSING UPDATE ROWS
+		END,
+		CASE 
+			WHEN ( IN_Severidad = 2  ) /*  Borrar registros que no este en Reporte  */
+			THEN 				 
+			(
+			  'DELETE FROM ' || @BDDATOS || '.'||@TablaDestino4||' 
+			   WHERE ID = :IN_ID
+			   AND SECTOR = :IN_SECTOR
+			   AND UBICACION_ID  = :IN_UBICACION_ID'	 
+			)
+		END		
+
+		TO OPERATOR (OPERATOR_133 [1])
+		SELECT * FROM OPERATOR (MAT_INFO_CONTACTABILIDAD);      
+    ); 
+	
+	
+	STEP Load_MAT_INFO_MOVILIDAD
+    (             
+		APPLY        
+		CASE 
+			WHEN ( IN_Severidad = 1  ) /*  Upsert  */
+			THEN 				 
+			( 
+				'UPDATE '||@BDDATOS ||'.'||@TablaDestino5||'
+				SET  FECHA= CAST(:IN_FECHA AS DATE FORMAT ''YYYYMMDD'')
+				,DESCRIPCION= :IN_DESCRIPCION
+				,NOVEDAD= :IN_NOVEDAD
+				,NOVEDAD_2= :IN_NOVEDAD_2
+				WHERE ID = :IN_ID'
+				
+				,'INSERT INTO ' || @BDDATOS || '.'||@TablaDestino5||' 
+				( ID
+				,FECHA
+				,DESCRIPCION
+				,NOVEDAD
+				,INFO_BASICA_ID
+				,NOVEDAD_2	
+				,TIPO_IDENTIFICACION
+				,NUMERO_IDENTIFICACION
+				)  
+				VALUES     
+				(:IN_ID
+				,CAST(:IN_FECHA AS DATE FORMAT ''YYYYMMDD'')
+				,:IN_DESCRIPCION
+				,:IN_NOVEDAD
+				,:IN_INFO_BASICA_ID
+				,:IN_NOVEDAD_2
+				,:IN_TIPO_IDENTIFICACION
+				,:IN_NUMERO_IDENTIFICACION
+				);'
+			)                   
+		INSERT FOR MISSING UPDATE ROWS
+		END,
+		CASE 
+			WHEN ( IN_Severidad = 2  ) /*  Borrar registros que no este en Reporte  */
+			THEN 				 
+			(
+			  'DELETE FROM ' || @BDDATOS || '.'||@TablaDestino5||' 
+			   WHERE ID = :IN_ID'	 
+			)
+		END
+			
+		TO OPERATOR (OPERATOR_134 [1])
+		SELECT * FROM OPERATOR (MAT_INFO_MOVILIDAD);      
+    );
+	
+	STEP Load_MAT_INFO_PUNTO_INTERES
+    (             
+		APPLY        
+		CASE 
+			WHEN ( IN_Severidad = 1  ) /*  Upsert  */
+            THEN 				 
+			( 
+				'UPDATE '||@BDDATOS ||'.'||@TablaDestino6||'
+				SET   NOMBRE                        = :IN_NOMBRE                        
+				,DISTANCIA                     = :IN_DISTANCIA                     
+				,Descripcion_Tipo_Punto_Interes= :IN_Descripcion_Tipo_Punto_Interes							
+				,NOMBRE_ENTIDAD                = :IN_NOMBRE_ENTIDAD                
+				,NIT_ENTIDAD                   = :IN_NIT_ENTIDAD                   
+				,LONGITUD = CAST(:IN_LONGITUD AS DECIMAL(38,8) )
+				,LATITUD = CAST(:IN_LATITUD AS DECIMAL(38,8) )
+				,TIPO = :IN_TIPO 
+				WHERE ID = :IN_ID
+				AND UBICACION_ID = :IN_UBICACION_ID'
+				,'INSERT INTO ' || @BDDATOS || '.'||@TablaDestino6||' 
+				( ID                            
+				,NOMBRE                        
+				,DISTANCIA                     
+				,Descripcion_Tipo_Punto_Interes
+				,UBICACION_ID                  
+				,NOMBRE_ENTIDAD                
+				,NIT_ENTIDAD                   
+				,LATITUD                       
+				,LONGITUD                      
+				,TIPO 																  
+				)  
+				VALUES     
+				(:IN_ID                            
+				,:IN_NOMBRE                        
+				,:IN_DISTANCIA                     
+				,:IN_Descripcion_Tipo_Punto_Interes
+				,:IN_UBICACION_ID                  
+				,:IN_NOMBRE_ENTIDAD                
+				,:IN_NIT_ENTIDAD                   
+				,CAST(:IN_LATITUD AS DECIMAL(38,8) )                     
+				,CAST(:IN_LONGITUD AS DECIMAL(38,8) )                   
+				,:IN_TIPO 
+				);'
+			)                   
+		INSERT FOR MISSING UPDATE ROWS
+		END,
+
+		CASE 
+			WHEN ( IN_Severidad = 2  ) /*  Borrar registros que no este en Reporte  */
+			THEN ('DELETE FROM ' || @BDDATOS || '.'||@TablaDestino6||' WHERE ID = :IN_ID AND UBICACION_ID = :IN_UBICACION_ID')
+		END		
+
+		TO OPERATOR (OPERATOR_135 [1])
+		SELECT * FROM OPERATOR (MAT_INFO_PUNTO_INTERES);      
+    );
+	
+	STEP Load_MAT_UBICACION_AGREGADA
+	(             
+		APPLY        
+		CASE 
+			WHEN ( IN_Severidad = 1  ) /*  Upsert  */
+			THEN 				 
+			( 
+				'UPDATE '||@BDDATOS ||'.'||@TablaDestino7||'
+				SET CODIGO_DANE= :IN_CODIGO_DANE
+				,CIUDAD= :IN_CIUDAD
+				,DEPARTAMENTO= :IN_DEPARTAMENTO							
+				,UBICACION_REPORTDESDE= CAST(:IN_UBICACION_REPORTDESDE AS DATE FORMAT ''YYYYMMDD'')
+				,UBICACION_ULTREPORTE= CAST(:IN_UBICACION_ULTREPORTE AS DATE FORMAT ''YYYYMMDD'') 
+				,UBICACION_NUMENTIDADES= :IN_UBICACION_NUMENTIDADES
+				,UBICACION_NUMREPORTES= :IN_UBICACION_NUMREPORTES
+				,UBICACION_CLASE= :IN_UBICACION_CLASE
+				,UBICACION_TIPOCUENTA= :IN_UBICACION_TIPOCUENTA
+				,UBICACION_ORDEN= :IN_UBICACION_ORDEN
+				,UBICACCION_INDICATIVO= :IN_UBICACCION_INDICATIVO
+				,UBICACION_ESTRATO= :IN_UBICACION_ESTRATO
+				,UBICACION_ZONA= :IN_UBICACION_ZONA
+				,UBICACION_BARRIO= :IN_UBICACION_BARRIO
+				,UBICACION_LOCALIDAD= :IN_UBICACION_LOCALIDAD
+				,UBICACION_CODIGOPOSTAL= :IN_UBICACION_CODIGOPOSTAL
+				,UBICACION_LONGITUD = CAST( :IN_UBICACION_LONGITUD AS DECIMAL(38,8))
+				,UBICACION_LATITUD = CAST( :IN_UBICACION_LATITUD AS DECIMAL(38,8))
+				,TIPO= :IN_TIPO
+				,FUENTE = :IN_FUENTE  
+				,ID = :IN_ID
+				,COD_PAIS = :IN_COD_PAIS
+				WHERE INFO_BASICA =   :IN_INFO_BASICA
+				AND TIPO_IDENTIFICACION	= :IN_TIPO_IDENTIFICACION
+				AND NUMERO_IDENTIFICACION = :IN_NUMERO_IDENTIFICACION
+				AND UBICACION_DATO = :IN_UBICACION_DATO
+				AND UBICACION_CODIGODANE = :IN_UBICACION_CODIGODANE
+				AND UBICACION_CIUDAD = :IN_UBICACION_CIUDAD
+				AND UBICACION_DEPARTAMENTO = :IN_UBICACION_DEPARTAMENTO'
+				,'INSERT INTO ' || @BDDATOS || '.'||@TablaDestino7||' 
+				( 
+				TIPO_IDENTIFICACION
+				,NUMERO_IDENTIFICACION
+				,INFO_BASICA
+				,CODIGO_DANE
+				,CIUDAD
+				,DEPARTAMENTO
+				,UBICACION_DATO
+				,UBICACION_REPORTDESDE
+				,UBICACION_ULTREPORTE
+				,UBICACION_NUMENTIDADES
+				,UBICACION_NUMREPORTES
+				,UBICACION_CLASE
+				,UBICACION_TIPOCUENTA
+				,UBICACION_ORDEN
+				,UBICACCION_INDICATIVO
+				,UBICACION_ESTRATO
+				,UBICACION_ZONA
+				,UBICACION_CIUDAD
+				,UBICACION_DEPARTAMENTO
+				,UBICACION_CODIGODANE
+				,UBICACION_BARRIO
+				,UBICACION_LOCALIDAD
+				,UBICACION_CODIGOPOSTAL
+				,UBICACION_LONGITUD 
+				,UBICACION_LATITUD
+				,TIPO
+				,FUENTE 
+				,ID 
+				,COD_PAIS								   
+				)  
+				VALUES     
+				(
+				:IN_TIPO_IDENTIFICACION
+				,:IN_NUMERO_IDENTIFICACION
+				,:IN_INFO_BASICA
+				,:IN_CODIGO_DANE
+				,:IN_CIUDAD
+				,:IN_DEPARTAMENTO
+				,:IN_UBICACION_DATO
+				,CAST(:IN_UBICACION_REPORTDESDE AS DATE FORMAT ''YYYYMMDD'')
+				,CAST(:IN_UBICACION_ULTREPORTE AS DATE FORMAT ''YYYYMMDD'') 
+				,:IN_UBICACION_NUMENTIDADES
+				,:IN_UBICACION_NUMREPORTES
+				,:IN_UBICACION_CLASE
+				,:IN_UBICACION_TIPOCUENTA
+				,:IN_UBICACION_ORDEN
+				,:IN_UBICACCION_INDICATIVO
+				,:IN_UBICACION_ESTRATO
+				,:IN_UBICACION_ZONA
+				,:IN_UBICACION_CIUDAD
+				,:IN_UBICACION_DEPARTAMENTO
+				,:IN_UBICACION_CODIGODANE
+				,:IN_UBICACION_BARRIO
+				,:IN_UBICACION_LOCALIDAD
+				,:IN_UBICACION_CODIGOPOSTAL
+				,CAST( :IN_UBICACION_LONGITUD AS DECIMAL(38,8))
+				,CAST( :IN_UBICACION_LATITUD AS DeCIMAL(38,8))
+				,:IN_TIPO
+				,:IN_FUENTE 
+				,:IN_ID 
+				,:IN_COD_PAIS
+				);'
+			)                   
+		INSERT FOR MISSING UPDATE ROWS
+		END,
+		
+		CASE 
+			WHEN ( IN_Severidad = 2  ) /*  Borrar registros que no este en Reporte  */
+			THEN 				 
+			(
+				'DELETE FROM ' || @BDDATOS || '.'||@TablaDestino7||' 
+				WHERE INFO_BASICA =   :IN_INFO_BASICA
+				AND TIPO_IDENTIFICACION	= :IN_TIPO_IDENTIFICACION
+				AND NUMERO_IDENTIFICACION = :IN_NUMERO_IDENTIFICACION
+				AND UBICACION_DATO = :IN_UBICACION_DATO
+				AND UBICACION_CODIGODANE = :IN_UBICACION_CODIGODANE
+				AND UBICACION_CIUDAD = :IN_UBICACION_CIUDAD
+				AND UBICACION_DEPARTAMENTO = :IN_UBICACION_DEPARTAMENTO'
+			)
+		END
+		
+		TO OPERATOR (OPERATOR_136 [1])
+		SELECT * FROM OPERATOR (MAT_UBICACION_AGREGADA);      
+	);
+
+);     

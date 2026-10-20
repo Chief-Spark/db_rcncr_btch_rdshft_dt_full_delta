@@ -1,0 +1,110 @@
+/*♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠
+♠  
+♠  Objetivo: Recoleción de estadisticas y Borrado tablas temporales.
+♠  Fecha:	2017-08-15
+♠  Realizado por:	Capgemini Colombia
+♠  PARAMETROS:	
+♠  Proyecto: Experian Reconocer	
+♠  Script:		P0029_INDICADORES_MOVILIDAD_130.TPT
+♠  
+♠  BITACORA
+♠  ---------------------------------------------------------------------------
+♠  Fecha		Objetivo								Realizado por
+♠  
+♠  ---------------------------------------------------------------------------
+♠  
+♠  Copyright 2016 Equipo Teradata - Capgemini ♠
+♠  
+♠   Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+♠  		se encuentra protegido por las leyes de derechos de autor
+♠  
+♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠*/
+
+DEFINE JOB Job_CalcularIndicadorMovilidad                                                       
+DESCRIPTION 'Proceso P0029_INDICADORES_MOVILIDAD_140 - Recoleción de estadisticas y borrado tablas temporales' 
+(   
+    /* ================================================================     
+       Definición del Operador "Bteq"                                       
+       ================================================================  */ 
+    
+    DEFINE OPERATOR BTEQ_OPERATOR                            
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR' 
+    TYPE DDL                                                 
+    ATTRIBUTES                                               
+    ( 
+      VARCHAR UserName     = @UserName,      
+      VARCHAR UserPassword = @UserPassword,  
+      VARCHAR TdpId        = @TdpId,         
+      VARCHAR AccountID,                     
+      VARCHAR ErrorList    = '3807'            /* Ignore Error: Object VIEW not exist */
+    ); 
+          
+    /* ====================================================================     
+       Estadisticas de las Tablas Destino, estas se definen en el documento de requerimientos                                      
+       ====================================================================  */ 
+    
+    STEP Bteq_Stats 
+    (
+      APPLY    
+            ('COLLECT STATS ON ' || @BDDATOS ||'.'||@TablaDestino1||' INDEX ( Cod_DW_Persona_Ind_Movil );')
+		   ,('DROP VIEW '||@BDSTAGE||'.VstgCargaIndicadorMovilidad;')
+           ,('DROP TABLE '||@BDTEMPO||'.'||@Wktb||';')
+           ,('DROP TABLE '||@BDTEMPO||'.'||@Err1||';')
+           ,('DROP TABLE '||@BDTEMPO||'.'||@Err2||';')
+		   ,('DROP TABLE '||@BDTEMPO||'.'||@Wktb||'_IN;')
+		   ,('DROP TABLE '||@BDTEMPO||'.'||@Err1||'_IN;')
+		   ,('DROP TABLE '||@BDTEMPO||'.'||@Err2||'_IN;')
+		   ,('DROP TABLE '||@BDTEMPO||'.'||@Wktb||'_DUP;')
+		   ,('DROP TABLE '||@BDTEMPO||'.'||@Err1||'_DUP;')
+		   ,('DROP TABLE '||@BDTEMPO||'.'||@Err2||'_DUP;')
+           ,('DROP TABLE '||@BDTEMPO||'.'||@LogTable||';')
+		   
+		   
+		/*proceso que mantiene los ultimos 3 lotes en rechazados */
+		   ,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'_IN_Q;')
+		   ,('CREATE TABLE  '||@BDSTAGE||'.'||@LAYOUT||'_IN_Q
+				AS (
+				SELECT LOTE AS LOTE1,  ''Y'' AS Borrado  
+				FROM  '||@BDSTAGE||'.'||@LAYOUT||'_IN
+				GROUP BY LOTE
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ''A'' ORDER BY LOTE DESC) )<4
+				)
+				WITH DATA
+				;')
+
+			,('DELETE '||@BDSTAGE||'.'||@LAYOUT||'_IN 
+				WHERE LOTE NOT IN (SELECT LOTE1 FROM  '||@BDSTAGE||'.'||@LAYOUT||'_IN_Q  WHERE BORRADO='''||@U3REJ||''' )
+				AND CASE WHEN (SELECT max(LOTE1) FROM  '||@BDSTAGE||'.'||@LAYOUT||'_IN_Q  WHERE BORRADO='''||@U3REJ||''' )  IS NULL THEN 0
+					ELSE 1 END = 1
+				;')
+
+
+
+			,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'_IN_Q;')
+
+			
+		/*proceso que mantiene los ultimos 3 lotes en Duplicados */
+			
+			,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'_DUP_Q;')
+			,('CREATE TABLE  '||@BDSTAGE||'.'||@LAYOUT||'_DUP_Q
+				AS (
+				SELECT LOTE AS LOTE1,  ''Y'' AS Borrado  
+				FROM  '||@BDSTAGE||'.'||@LAYOUT||'_DUP
+				GROUP BY LOTE
+				QUALIFY (ROW_NUMBER() OVER(PARTITION BY ''A'' ORDER BY LOTE DESC) )<4
+				)
+				WITH DATA
+				;')
+
+			,('DELETE '||@BDSTAGE||'.'||@LAYOUT||'_DUP
+				WHERE LOTE NOT IN (SELECT LOTE1 FROM  '||@BDSTAGE||'.'||@LAYOUT||'_DUP_Q  WHERE BORRADO='''||@U3REJ||''' )
+				AND CASE WHEN (SELECT max(LOTE1) FROM  '||@BDSTAGE||'.'||@LAYOUT||'_DUP_Q  WHERE BORRADO='''||@U3REJ||''' )  IS NULL THEN 0
+					ELSE 1 END = 1;')
+					
+			,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'_DUP_Q;')
+			
+			
+			
+      TO OPERATOR ( BTEQ_OPERATOR );
+    );        
+);

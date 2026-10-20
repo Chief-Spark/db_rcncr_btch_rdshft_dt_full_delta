@@ -1,0 +1,311 @@
+set -x
+# ################################################################################
+# 
+# Objetivo:		Ejecutar el SP PRO_CARGA_INSUMO_STANDARD
+# Fecha:		2017/11/24
+# Realizado por:	Equipo Capgemini
+# Parametros:		N/A
+# Proyecto:		Nuevo Recnocer
+# Script:		P0033_BATCH2_ESTADISTICAS_131.BTQ
+# 
+# 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		Objetivo			Realizado por
+# 
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2016 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+LOGFILE=${vLog}
+export LOGFILE
+touch ${LOGFILE}
+
+exec </dev/null
+exec >${LOGFILE} 2>&1
+
+
+IDPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_ESTADISTICAS.par|awk -F"=" '{print $2}'`
+IDSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_ESTADISTICAS.par|awk -F"=" '{print $2}'`
+SALIDAS1=`grep SALIDAS1 ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+grep -v SALIDAS1 ${PARAMETROS}/P0033_BATCH2_ESTADISTICAS.par >${PARAMETROS}/P0033_BATCH2_ESTADISTICAS.partmp
+echo "SALIDAS1 = '"$SALIDAS1"'" >>${PARAMETROS}/P0033_BATCH2_ESTADISTICAS.partmp
+mv -f ${PARAMETROS}/P0033_BATCH2_ESTADISTICAS.partmp ${PARAMETROS}/P0033_BATCH2_ESTADISTICAS.par 
+
+
+FUENTEDIR=`grep SALIDAS1 ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+ARCHIVO_ALERTA=`grep ARCHIVO_ALERTAS ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+
+
+
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+export REPORTE=${LOGS}/${BTQ}.log
+
+rm -r ${REPORTE} 2>/dev/null
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_ESTADISTICAS
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BDDATOS}'
+		,${IDPLANTILLA}
+		,${IDSOLICITUD}
+		,P_ERROR
+	) ;
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+
+
+
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_A Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+	
+	
+	.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+
+  
+#####################################################################################
+#
+# Validacion vista  BATCH_IDENTIFICACIONES_VALIDAS,  BATCH_IDENTIFICACIONES_INCONS
+# vs  la tabla de proceso BATCH_ESTADISTICAS_PRO
+# se : valida cantidades
+#   
+#####################################################################################3   
+   
+
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+     
+	
+
+	REPLACE VIEW  ${BDSTAGE}.V_Stg_Data_cliente
+	AS
+	(
+	SEL SUM(VALOR) TOTAL
+	FROM
+	(
+		SEL COALESCE(count(*),0) VALOR
+		FROM ${BDSTAGE}.BATCH_IDENTIFICACIONES_INCONS 
+		WHERE ID_SOLICITUD = ${IDSOLICITUD}
+		AND ID_PLANTILLA = ${IDPLANTILLA}
+		UNION ALL
+		SEL COALESCE(count(*),0) VALOR
+		FROM ${BDSTAGE}.BATCH_IDENTIFICACIONES_VALIDAS 
+		WHERE ID_SOLICITUD = ${IDSOLICITUD}
+		AND ID_PLANTILLA = ${IDPLANTILLA}
+	) X
+	);
+
+
+	REPLACE VIEW  ${BDSTAGE}.V_Stg_Estadisticas_Pro
+	AS
+	(
+	SEL SUM(CONTEO) TOTAL
+	FROM ${BDDATOS}.BATCH_ESTADISTICAS_PRO 
+	WHERE IDENTIFICADOR = 'GENERALES'
+	AND ID_SOLICITUD = ${IDSOLICITUD}
+	AND ID_PLANTILLA = ${IDPLANTILLA}
+	AND VALOR1 IN('INCO','SIN_UBI','CON_UBI') 
+	) ;
+
+	
+
+	.EXPORT reset
+	
+	.EXPORT FILE = '${FUENTEDIR}/Validacion_Datos_Archivos.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 100
+	.SET SEPARATOR ','
+    
+    SELECT CAST(VALOR1 AS VARCHAR(10)) NOMBRE_DEL_VALOR,CAST(CONTEO AS FORMAT 'ZZZZZZZZ9') CANTIDAD
+	FROM ${BDDATOS}.BATCH_ESTADISTICAS_PRO 
+	WHERE IDENTIFICADOR = 'GENERALES'
+	AND ID_SOLICITUD = ${IDSOLICITUD}
+	AND ID_PLANTILLA = ${IDPLANTILLA}
+	AND VALOR1 IN('INCO','SIN_UBI','CON_UBI'); 
+	
+	.EXPORT RESET	
+	
+   
+	.LOGOFF
+	.EXIT
+BTEQ
+cat  ${FUENTEDIR}/Validacion_Datos_Archivos.txt >> ${FUENTEDIR}/${ARCHIVO_ALERTA}
+
+
+
+#####################################################################################
+# CREACION TABLAS DE TRABAJO
+#####################################################################################
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+
+    SELECT TABLENAME
+	FROM dbc.tables
+	WHERE TRIM(databasename) = '${BDSTAGE}'
+	AND TRIM(TABLENAME) = 'PRO_BATCH2_INCONSISTENCIAS_TMP';
+		
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREAR
+   	DROP TABLE ${BDSTAGE}.PRO_BATCH2_INCONSISTENCIAS_TMP;
+	
+	
+	.LABEL CREAR
+	CREATE TABLE  ${BDSTAGE}.PRO_BATCH2_INCONSISTENCIAS_TMP AS
+	(
+	SELECT * 
+	FROM 
+	(SEL  1 AS ID ,CAST('6,A' AS CHAR(3)) TIPO,CAST('CONSISTENCIA IDENTIFICACIONES' AS VARCHAR(100)) CAMPO) A
+	UNION  ALL
+	SELECT * 
+	FROM 
+	(
+	SELECT 2 AS ID, CAST('6,E' AS CHAR(3)) TIPO,CAST('TEXTO,CANTIDAD' AS VARCHAR(100))  CAMPO) B
+	) WITH DATA;
+	
+	
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en creacion de la Tabla...'
+	.EXIT ERRORCODE
+
+	.LOGOFF;
+	.QUIT;
+BTEQ
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+
+	
+
+#####################################################################################
+#
+# Validacion consistencia de datos 
+#
+#####################################################################################
+
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+
+	.EXPORT FILE = '${FUENTEDIR}/Estado_ejecucion_INC.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 100
+	.SET SEPARATOR ','
+     
+	 CALL ${BDDATOS}.PRO_BATCH2_ESTADISTICAS_CFG(${lote},CAST(DATE AS TIMESTAMP(6) FORMAT 'yyyy-mm-ddhh:mi:ss'),'P0033_BATCH2_VALIDAR_ARCHIVOS','${BDVISTA}','${BDSTAGE}','${BDDATOS}','${IDPLANTILLA}','${IDSOLICITUD}' ,'SQL-INCONSIS',V_ERROR);
+	
+	.EXPORT RESET
+	.LOGOFF
+	.EXIT
+BTEQ
+
+CHECKARCH=`wc -c ${FUENTEDIR}/Estado_ejecucion_INC.txt`
+export CHECKARCH
+echo $CHECKARCH 
+VALOR=`echo $CHECKARCH | awk {'print $1'}`
+
+
+if [ ${VALOR} -ne 9 ]
+then
+   echo "error: de sintaxis o de completitud.."
+   exit 3
+fi
+
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	
+	.EXPORT FILE = '${FUENTEDIR}/Validacion_identificaciones.txt'
+	.SET RECORDMODE OFF;
+	.set heading '';
+	.set titledashes off;
+	.SET WIDTH 100
+	.SET SEPARATOR ','
+	
+	SELECT TRIM(TIPO)||','||TRIM(CAMPO) CAMPO
+	FROM ${BDSTAGE}.PRO_BATCH2_INCONSISTENCIAS_TMP 
+	ORDER BY ID;
+	
+	
+	.EXPORT RESET
+	.LOGOFF
+	.EXIT
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Ejecutado Satisfactoriamente"
+fi
+
+cat ${FUENTEDIR}/Validacion_identificaciones.txt >> ${FUENTEDIR}/${ARCHIVO_ALERTA}
+
+rm -f ${FUENTEDIR}/Validacion_Datos_Archivos.txt
+rm -f ${FUENTEDIR}/Estado_ejecucion_INC.txt
+rm -f ${FUENTEDIR}/Validacion_identificaciones.txt
+
+exit 0
+

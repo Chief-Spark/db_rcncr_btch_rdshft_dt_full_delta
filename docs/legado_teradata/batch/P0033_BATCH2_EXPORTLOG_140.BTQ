@@ -1,0 +1,28 @@
+# ################################################################################
+# 
+# Objetivo:			Extrae Log batch2
+# Fecha:			2018-02-02
+# Realizado por:	Luis Carlos Rojas G.
+# Parametros:		reconocer/desarrollo/.tdenv P0033_BATCH2_EXPORTLOG.par
+# Proyecto:			Nuevo Reconocer
+# Script:			P0033_BATCH2_EXPORTLOG_140.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha				Objetivo						Realizado por
+#
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+SALIDAS1=`grep SALIDAS1 ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+FileName=`grep FileName ${PARAMETROS}/P0033_BATCH2_EXPORTLOG.par|awk -F"'" '{print $2}'`
+
+echo -e "\n" | cat - $SALIDAS1/$FileName"_W" >> $SALIDAS1/$FileName
+rm -f $SALIDAS1/$FileName"_W"

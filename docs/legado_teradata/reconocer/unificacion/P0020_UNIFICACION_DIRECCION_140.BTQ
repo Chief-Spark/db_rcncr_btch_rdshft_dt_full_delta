@@ -1,0 +1,74 @@
+# ################################################################################
+# 
+# Objetivo:		Paso 140, para borrar tablas temporales.
+# Fecha:		2017-23-03
+# Realizado por:	Luis Eduardo Ramirez
+# Parametros:		/reconocer/desarrollo/.tdenv
+# Proyecto:		Nuevo Recnocer
+# Script:		P0020_UNIFICACION_DIRECCION_140.BTQ 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		Objetivo			Realizado por
+# Fecha: 2018-09-14  Objetivo: #1 Ajuste indices			Realizado por: Carlos Castillo 
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+
+	COLLECT STATS  INDEX ( Cod_DW_Persona_Ubic  ) ,COLUMN (Cod_DW_Direccion_Unificada) ON REC_DATOS.UNIFICACION_DIRECCION;  
+    COLLECT STATS  INDEX ( Cod_DW_Persona_Ubic,Cod_DW_Direccion_Unificada,Fecha_Inicio_Dato ) /*#1*/ ,COLUMN (Cod_DW_Persona_Ubic) ON REC_DATOS.REPORTE_UNIFICACION_DIRECCION;
+
+
+	
+/*Borra tablas temporales */
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_WT;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR1;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR2;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_LOG1;
+
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_WT_4;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR1_5;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR2_6;
+	
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_WT_7;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR1_8;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR2_9;
+	
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_WT_10;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR1_11;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR2_12;
+	
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_WT_MI;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR1_MI;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR2_MI;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_LOG1_MI;
+	
+	.LABEL SALIR
+	.exit 0
+	
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la creacion de la vista VstgCargaUnificacionDir'
+	.EXIT ERRORCODE
+
+	.LOGOFF;
+	.QUIT;
+BTEQ
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+
+exit 0

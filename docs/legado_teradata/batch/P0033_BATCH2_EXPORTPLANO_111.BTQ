@@ -1,0 +1,1316 @@
+# ################################################################################
+# 
+# Objetivo:			Extrae Datos de Cubos
+# Fecha:			2017-12-15
+# Realizado por:	Holmer Alfonso H
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:			P0033_BATCH2_EXPORTPLANO_111.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha				Objetivo						Realizado por
+#
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+
+varSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varARCHIVOS_PN_PJ=`grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varTIPO_SALIDA=`grep TIPO_SALIDA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varSALIDAS1=`grep SALIDAS1 ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+varNOMBRE_SECCION=`grep NOMBRE_SECCION ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+
+
+
+#############################################################
+#     SQUEMA DINAMICO FORMATO FIJO
+#############################################################
+##  INICIO EXPORT 
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_PN_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_PJ_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PN_PJ_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PN_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PJ_W.txt
+
+
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_Fin.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sql_Sentencia.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sql_Sentencia_PN.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sql_Sentencia_PJ.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sql_Vista_PN_PJ.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sql_Vista_PN.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sql_Vista_PJ.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_Inconsis_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_Inconsis.txt
+
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_Borrar_001' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA
+	
+	DROP TABLE ${BDSTAGE}.w_Borrar_001 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+
+   .LABEL CREA
+	CREATE SET TABLE ${BDSTAGE}.w_Borrar_001
+(
+	Secuencia	INTEGER
+	,Linea		VARCHAR(5000)
+	,Nada		INTEGER
+	,Tipo		VARCHAR(100)
+	,SubTipo	VARCHAR(100)
+)
+	PRIMARY INDEX (Secuencia) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	-- CREATE SQUEMA DINAMIC
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+		SELECT
+			 ROW_NUMBER() OVER(order by A.Ordenamiento, A.CampoNuevo) Contador
+			,CASE
+				WHEN	BDG.FORMATO_SALIDA = 'FE_TXT' THEN
+					COMA || 
+					Case 
+						WHEN A.XALIAS='CBPER' then A.Valor_Ini 
+					Else
+						A.CAMPONUEVO
+					End 
+					|| '  ' || 'CHAR(' || TRIM(A.AF_ANCHO_CAMPO) || ')'
+				WHEN	BDG.FORMATO_SALIDA in ('FE_CSV','') or BDG.FORMATO_SALIDA is null THEN
+					COMA || 
+					Case 
+						WHEN A.XALIAS='CBPER' then A.Valor_Ini 
+					Else
+						A.CAMPONUEVO
+					End 
+					|| '  ' || 'VARCHAR(' || TRIM(A.AF_ANCHO_CAMPO) || ')'
+			END
+			,0
+			,'SQUEMA'
+			,''
+		FROM	 ${BDSTAGE}.v_ba2_Campos_Salida A 
+		INNER JOIN ${BDSTAGE}.BATCH_DATOS_GENERALES BDG on BDG.id_solicitud = ${varSOLICITUD} and BDG.id_plantilla = ${varPLANTILLA} ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+/*  HAH 20180227
+	--	Squema - Campos Obligatorios Batch Validacion
+	-- CREATE SQUEMA FIJO 1
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,CASE
+			WHEN	BDG.FORMATO_SALIDA = 'FE_TXT' THEN 
+				' ,CIUDAD_DIR_INSUMO_STD  CHAR(100) 
+				,DIR_INSUMO_STD  CHAR(100) 
+				,CIUDAD_TEL_INSUMO_STD  CHAR(100) 
+				,TEL_INSUMO_STD  CHAR(100) 
+				,CEL_INSUMO_STD  CHAR(100) 
+				,EMAIL_INSUMO_STD  CHAR(100) '
+			WHEN	BDG.FORMATO_SALIDA IN ('FE_CSV','')  OR  BDG.FORMATO_SALIDA IS NULL	THEN 
+				' ,CIUDAD_DIR_INSUMO_STD  VARCHAR(100) 
+				,DIR_INSUMO_STD  VARCHAR(100) 
+				,CIUDAD_TEL_INSUMO_STD  VARCHAR(100) 
+				,TEL_INSUMO_STD  VARCHAR(100) 
+				,CEL_INSUMO_STD  VARCHAR(100) 
+				,EMAIL_INSUMO_STD  VARCHAR(100) '
+		END	
+		,0
+		,'SQUEMA'
+		,'SQUEMA_FIJO_BATCHVALIDACION_1'
+	FROM  ${BDSTAGE}.BATCH_DATOS_GENERALES BDG ,
+			(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B
+	WHERE	BDG.id_solicitud = ${varSOLICITUD} and BDG.id_plantilla = ${varPLANTILLA} ; 
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	-- CREATE SQUEMA FIJO 2
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,CASE
+			WHEN	BDG.FORMATO_SALIDA = 'FE_TXT' THEN
+				CASE 
+					When A.xalias = 'CBTEL' then ' ,POR_SIM_TEL  CHAR(30) '
+					When A.xalias = 'CBDIR' then ' ,POR_SIM_DIR  CHAR(30) '
+					When A.xalias = 'CBCEL' then ' ,POR_SIM_CEL  CHAR(30) '
+					When A.xalias = 'CBCOR' then ' ,POR_SIM_MAIL  CHAR(30) '
+				Else
+					' ' 
+				END
+			WHEN	BDG.FORMATO_SALIDA IN ('FE_CSV','')  OR  BDG.FORMATO_SALIDA IS NULL	THEN 
+				CASE 
+					When A.xalias = 'CBTEL' then ' ,POR_SIM_TEL  VARCHAR(30) '
+					When A.xalias = 'CBDIR' then ' ,POR_SIM_DIR  VARCHAR(30) '
+					When A.xalias = 'CBCEL' then ' ,POR_SIM_CEL  VARCHAR(30) '
+					When A.xalias = 'CBCOR' then ' ,POR_SIM_MAIL  VARCHAR(30) '
+				Else
+					' ' 
+				END
+		ELSE
+			' '
+		END
+		,0
+		,'SQUEMA'
+		,'SQUEMA_FIJO_BATCHVALIDACION_2'
+	FROM	(select xalias from ${BDSTAGE}.v_ba2_Campos_Salida group by 1) AS A
+			,(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B
+			,${BDSTAGE}.BATCH_DATOS_GENERALES BDG 
+	WHERE	BDG.id_solicitud = ${varSOLICITUD} and BDG.id_plantilla = ${varPLANTILLA} and A.xalias <> 'CBPER' ; 
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+*/
+
+
+	--  CREATE SENTENCIA DINAMICA
+	--	HEADER VISTA x 3 ----------------------------------------------- INI
+	INSERT INTO ${BDSTAGE}.w_Borrar_001	
+	SELECT
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' '' REPLACE VIEW ' || '${BDSTAGE}' || '.Vstg_Batch2_PNPJ AS LOCK ROW FOR ACCESS '
+		,0
+		,'SQL_CONSULTA'
+		,'HEADER_VISTA_PNPJ'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	INSERT INTO ${BDSTAGE}.w_Borrar_001	
+	SELECT
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' '' REPLACE VIEW ' || '${BDSTAGE}' || '.Vstg_Batch2_PN AS LOCK ROW FOR ACCESS '
+		,0
+		,'SQL_CONSULTA'
+		,'HEADER_VISTA_PN'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	INSERT INTO ${BDSTAGE}.w_Borrar_001	
+	SELECT
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' '' REPLACE VIEW ' || '${BDSTAGE}' || '.Vstg_Batch2_PJ AS LOCK ROW FOR ACCESS '
+		,0
+		,'SQL_CONSULTA'
+		,'HEADER_VISTA_PJ'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	--	HEADER VISTA x 3 ----------------------------------------------- INI
+
+
+	-- Sentencia SELECT
+	--  Select Sencillo
+	INSERT INTO ${BDSTAGE}.w_Borrar_001	
+	SELECT
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' '' Select  /* */ '
+		,0
+		,'SQL_CONSULTA'
+		,'HEADER_SELECT_SIMPLE'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	
+	-- Select con Secuencia Para Vista
+	INSERT INTO ${BDSTAGE}.w_Borrar_001	
+	SELECT
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' (Select /* */ SUM(1) OVER (ROWS UNBOUNDED PRECEDING) AS ID, '
+		,0
+		,'SQL_CONSULTA'
+		,'HEADER_SELECT_SECUENCIA'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	INSERT INTO ${BDSTAGE}.w_Borrar_001	
+	SELECT
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' CBPER.Tipo_Id,  '
+		,0
+		,'SQL_CONSULTA'
+		,'HEADER_SELECT_SECUENCIA'
+	FROM	(Select count(*) Contador from REC_STAGE.w_Borrar_001) as B
+	WHERE ( Select Count(*) Cont from ${BDSTAGE}.v_ba2_Campos_Salida where Codigo_Campo in ('DB_TIP_ID')) < 1 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	INSERT INTO ${BDSTAGE}.w_Borrar_001	
+	SELECT
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' CBPER.Numero_Id, '
+		,0
+		,'SQL_CONSULTA'
+		,'HEADER_SELECT_SECUENCIA'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B
+	WHERE ( Select Count(*) Cont from ${BDSTAGE}.v_ba2_Campos_Salida where Codigo_Campo in ('DB_NUM_ID')) < 1 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	--	Cuerpo de Consulta
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,CASE
+			--  Caso de Ancho Fijo
+			WHEN	BDG.FORMATO_SALIDA = 'FE_TXT' THEN
+				CASE
+					--Izquierda=0
+					WHEN TRIM(A.AF_ORIENTACION_CAMPO)='0' OR A.AF_ORIENTACION_CAMPO IS NULL OR TRIM(A.AF_ORIENTACION_CAMPO)='' THEN
+						A.coma || 'CAST(LPAD(COALESCE(TRIM(' || A.xalias || '.' || 
+						Case 
+							WHEN A.XALIAS='CBPER' then A.Valor_Ini 
+						Else
+							A.CAMPONUEVO
+						End	
+						|| '),''''''''),' || TRIM(A.AF_ANCHO_CAMPO) || ',''''' || 
+						CASE 
+							When COALESCE(A.AF_RELLENO_CAMPO,'') = '' then ' '
+						Else
+							COALESCE(A.AF_RELLENO_CAMPO,'')
+						END 
+						|| ''''' ) AS CHAR(' || TRIM(A.AF_ANCHO_CAMPO) || ')) AS ' || 
+						Case 
+							WHEN A.XALIAS='CBPER' then A.Valor_Ini 
+						Else
+							A.CAMPONUEVO
+						End	
+					--Derecha=1
+					WHEN TRIM(A.AF_ORIENTACION_CAMPO)='1' THEN
+						A.coma || 'CAST(RPAD(COALESCE(TRIM(' || A.xalias || '.' || 
+						Case 
+							WHEN A.XALIAS='CBPER' then A.Valor_Ini 
+						Else
+							A.CAMPONUEVO
+						End	
+						|| '),''''''''),' || TRIM(A.AF_ANCHO_CAMPO) || ',''''' || 
+						CASE 
+							When COALESCE(A.AF_RELLENO_CAMPO,'') = '' then ' '
+						Else
+							COALESCE(A.AF_RELLENO_CAMPO,'')
+						END 
+						|| ''''' ) AS CHAR(' || TRIM(A.AF_ANCHO_CAMPO) || ')) AS ' || 
+						Case 
+							WHEN A.XALIAS='CBPER' then A.Valor_Ini 
+						Else
+							A.CAMPONUEVO
+						End	
+				END
+			--  Caso de Ancho Variable
+			WHEN	BDG.FORMATO_SALIDA IN ('FE_CSV','')  OR  BDG.FORMATO_SALIDA IS NULL	THEN
+			--  Caso de Ancho Variable
+				A.coma || 'CAST(' || A.xalias || '.' || 
+				Case 
+					WHEN A.XALIAS='CBPER' then A.Valor_Ini 
+				Else
+					A.CAMPONUEVO
+				End 
+				|| ' AS VARCHAR(' || TRIM(A.AF_ANCHO_CAMPO) || ')) AS ' || 
+				Case 
+					WHEN A.XALIAS='CBPER' then A.Valor_Ini 
+				Else
+					A.CAMPONUEVO
+				End 
+		END A
+		,row_number() over(order by A.Ordenamiento, A.CampoNuevo) 
+		,'SQL_CONSULTA'
+		,'CUERPO'
+	FROM	${BDSTAGE}.v_ba2_Campos_Salida A 
+	INNER JOIN ${BDSTAGE}.BATCH_DATOS_GENERALES BDG on BDG.id_solicitud = ${varSOLICITUD} and BDG.id_plantilla = ${varPLANTILLA} 
+	,
+	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+	
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	/*		HAH 20180227
+	--	Cuerpo de Consulta - Campos Obligatorios Batch Validacion
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,CASE
+			WHEN	BDG.FORMATO_SALIDA = 'FE_TXT' THEN 
+				' ,CAST(SIBV.CIUDAD_DIR_INSUMO_STD AS CHAR(100)) AS CIUDAD_DIR_INSUMO_STD 
+				,CAST(SIBV.DIR_INSUMO_STD AS CHAR(100)) AS DIR_INSUMO_STD 
+				,CAST(SIBV.CIUDAD_TEL_INSUMO_STD AS CHAR(100)) AS CIUDAD_TEL_INSUMO_STD 
+				,CAST(SIBV.TEL_INSUMO_STD AS CHAR(100)) AS TEL_INSUMO_STD 
+				,CAST(SIBV.CEL_INSUMO_STD AS CHAR(100)) AS CEL_INSUMO_STD 
+				,CAST(SIBV.EMAIL_INSUMO_STD AS CHAR(100)) AS EMAIL_INSUMO_STD '
+			WHEN	BDG.FORMATO_SALIDA IN ('FE_CSV','')  OR  BDG.FORMATO_SALIDA IS NULL	THEN 
+				' ,CAST(SIBV.CIUDAD_DIR_INSUMO_STD AS VARCHAR(100)) AS CIUDAD_DIR_INSUMO_STD 
+				,CAST(SIBV.DIR_INSUMO_STD AS VARCHAR(100)) AS DIR_INSUMO_STD 
+				,CAST(SIBV.CIUDAD_TEL_INSUMO_STD AS VARCHAR(100)) AS CIUDAD_TEL_INSUMO_STD 
+				,CAST(SIBV.TEL_INSUMO_STD AS VARCHAR(100)) AS TEL_INSUMO_STD 
+				,CAST(SIBV.CEL_INSUMO_STD AS VARCHAR(100)) AS CEL_INSUMO_STD 
+				,CAST(SIBV.EMAIL_INSUMO_STD AS VARCHAR(100)) AS EMAIL_INSUMO_STD '
+		END	
+		,0
+		,'SQL_CONSULTA'
+		,'CUERPO_FIJO_BATCHVALIDACION_1'
+		
+	FROM  ${BDSTAGE}.BATCH_DATOS_GENERALES BDG ,
+			(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B
+	WHERE	BDG.id_solicitud = ${varSOLICITUD} and BDG.id_plantilla = ${varPLANTILLA} ; 
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	--	Cuerpo de Consulta - Campos Obligatorios Batch Validacion Porcentajes de Similitud 
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,CASE
+			WHEN	BDG.FORMATO_SALIDA = 'FE_TXT' THEN
+				CASE 
+					When A.xalias = 'CBTEL' then ' ,CAST(CBTEL.POR_SIM_TEL AS CHAR(30)) AS POR_SIM_TEL '
+					When A.xalias = 'CBDIR' then ' ,CAST(CBDIR.POR_SIM_DIR AS CHAR(30)) AS POR_SIM_DIR '
+					When A.xalias = 'CBCEL' then ' ,CAST(CBCEL.POR_SIM_CEL AS CHAR(30)) AS POR_SIM_CEL '
+					When A.xalias = 'CBCOR' then ' ,CAST(CBCOR.POR_SIM_MAIL AS CHAR(30)) AS POR_SIM_MAIL '
+				Else
+					' ' 
+				END
+			WHEN	BDG.FORMATO_SALIDA IN ('FE_CSV','')  OR  BDG.FORMATO_SALIDA IS NULL	THEN 
+				CASE 
+					When A.xalias = 'CBTEL' then ' ,CAST(CBTEL.POR_SIM_TEL AS VARCHAR(30)) AS POR_SIM_TEL '
+					When A.xalias = 'CBDIR' then ' ,CAST(CBDIR.POR_SIM_DIR AS VARCHAR(30)) AS POR_SIM_DIR '
+					When A.xalias = 'CBCEL' then ' ,CAST(CBCEL.POR_SIM_CEL AS VARCHAR(30)) AS POR_SIM_CEL '
+					When A.xalias = 'CBCOR' then ' ,CAST(CBCOR.POR_SIM_MAIL AS VARCHAR(30)) AS POR_SIM_MAIL '
+				Else
+					' ' 
+				END
+		ELSE
+			' '
+		END
+		,0
+		,'SQL_CONSULTA'
+		,'CUERPO_FIJO_BATCHVALIDACION_2'
+	FROM	(select xalias from ${BDSTAGE}.v_ba2_Campos_Salida group by 1) AS A
+			,(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B
+			,${BDSTAGE}.BATCH_DATOS_GENERALES BDG 
+	WHERE	BDG.id_solicitud = ${varSOLICITUD} and BDG.id_plantilla = ${varPLANTILLA} ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+*/
+
+
+	--	Sentencia FROM
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	SELECT
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' /* */  FROM ' || '${BDSTAGE}' || '.BATCH_CUBO_PERSONA  CBPER  /*  */'
+		,0
+		,'SQL_CONSULTA'
+		,'FROM'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	-- Sentencias JOINs
+	-- Join Persona Natural & Persona Juridica
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' INNER JOIN
+		(	Select a.Cod_Tipo_Ident_Fte, UPPER(b.Nombre_Tipo_Persona) as Nombre_Tipo_Persona
+			From ' || '${BTTPRUVI}' || '.vu_persona a 
+				Left Join ' || '${BTTPRUVI}' || '.v_tipo_persona b on a.Cod_DW_Tipo_Persona=b.Cod_DW_Tipo_Persona
+			Group by 1,2
+		) as PNPJ ON CBPER.Tipo_Id=PNPJ.Cod_Tipo_Ident_Fte '
+		,0
+		,'SQL_CONSULTA'
+		,'JOINS' 
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+	
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	-- Joins Dinamicos
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,CASE
+			When A.xalias = 'CBTEL' then ' LEFT JOIN ' || ' ${BDSTAGE}' || '.w_Cubo_Telefono  CBTEL  ON  CBPER.Id_Buro_Persona=CBTEL.Id_Buro_Persona AND CBTEL.Filtro_H ' || C.Filtro
+			When A.xalias = 'CBDIR' then ' LEFT JOIN ' || ' ${BDSTAGE}' || '.w_Cubo_Direccion  CBDIR  ON  CBPER.Id_Buro_Persona=CBDIR.Id_Buro_Persona AND CBDIR.Filtro_H ' || C.Filtro
+			When A.xalias = 'CBCEL' then ' LEFT JOIN ' || ' ${BDSTAGE}' || '.w_Cubo_Celular  CBCEL  ON  CBPER.Id_Buro_Persona=CBCEL.Id_Buro_Persona AND CBCEL.Filtro_H ' || C.Filtro
+			When A.xalias = 'CBCOR' then ' LEFT JOIN ' || ' ${BDSTAGE}' || '.w_Cubo_Correo  CBCOR  ON  CBPER.Id_Buro_Persona=CBCOR.Id_Buro_Persona AND CBCOR.Filtro_H ' || C.Filtro
+			When A.xalias = 'CBCII' then ' LEFT JOIN ' || ' ${BDSTAGE}' || '.w_Cubo_Ciiu  CBCII  ON  CBPER.Id_Buro_Persona=CBCII.Id_Buro_Persona AND CBCII.Filtro_H ' || C.Filtro
+			When A.xalias = 'CBPIC' then ' LEFT JOIN ' || ' ${BDSTAGE}' || '.batch_expl_de_puntos_de_int  CBPIC  ON  CBPER.Id_Buro_Persona=CBPIC.Id_Buro_Persona '
+			When A.xalias = 'CBBAT' then ' LEFT JOIN ' || ' ${BDSTAGE}' || '.Stg_Insumo_Batch_Validacion  CBBAT  ON  CBPER.Id_Buro_Persona=CBBAT.Id_Buro_Persona '
+			ELSE
+			' '
+		END
+		,0
+		,'SQL_CONSULTA'
+		,'JOINS'
+	FROM	(select xalias from ${BDSTAGE}.v_ba2_Campos_Salida group by 1) AS A
+			,(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B 
+			,
+			(select Nombre_Seccion
+				,CASE
+					WHEN TRIM(Nombre_Seccion) IN ('CON DATOS DE UBICACION','CON DATOS DE UBICACION PERSONALIZADO') then ' = 0 ' 
+					WHEN TRIM(Nombre_Seccion) IN ('SIN DATOS DE UBICACION','SIN DATOS DE UBICACION PERSONALIZADO') then ' > 0 ' 
+				END Filtro
+				
+				,row_number() over(order by Nombre_Seccion) Cont
+			from ${BDSTAGE}.BATCH_SALIDAS_CAMPOS
+			--where ID_SOLICITUD = ${varSOLICITUD} AND ID_PLANTILLA = ${varPLANTILLA} qualify cont=1
+			where ID_SOLICITUD = ${varSOLICITUD} AND ID_PLANTILLA = ${varPLANTILLA} AND NOMBRE_SECCION = '${varNOMBRE_SECCION}' qualify cont=1
+			) as C 
+			;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	/*  HAH 20180227
+	-- Join Fijo a STG_INSUMO_BATCH_VALIDACION - Salida Batch4
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' LEFT JOIN ' || '${BDSTAGE}' || '.STG_INSUMO_BATCH_VALIDACION SIBV ON CBPER.Id_Buro_Persona=SIBV.Id_Buro_Persona and CBPER.TIPO_ID=SIBV.TIPO_ID and CBPER.NUMERO_ID=SIBV.NUMERO_ID ' 
+		,0
+		,'SQL_CONSULTA'
+		,'JOINS' 
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+*/
+
+
+	-- Sentencia Where ....
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' WHERE '
+		,0
+		,'SQL_CONSULTA'
+		,'WHERE'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	-- Where de Filtros = Persona
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' (Coalesce(CBPER.Filtro_H,0)) ' || C.Filtro
+		,0
+		,'SQL_CONSULTA'
+		,'WHERE'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B 
+			,
+			(select Nombre_Seccion
+
+				,CASE
+					WHEN TRIM(Nombre_Seccion) IN ('CON DATOS DE UBICACION','CON DATOS DE UBICACION PERSONALIZADO') then ' = 0 ' 
+					WHEN TRIM(Nombre_Seccion) IN ('SIN DATOS DE UBICACION','SIN DATOS DE UBICACION PERSONALIZADO') then ' > 0 ' 
+				END Filtro
+				
+				,row_number() over(order by Nombre_Seccion) Cont
+			from ${BDSTAGE}.BATCH_SALIDAS_CAMPOS
+			--where ID_SOLICITUD = ${varSOLICITUD} AND ID_PLANTILLA = ${varPLANTILLA} qualify cont=1
+			where ID_SOLICITUD = ${varSOLICITUD} AND ID_PLANTILLA = ${varPLANTILLA} AND NOMBRE_SECCION = '${varNOMBRE_SECCION}' qualify cont=1
+			) as C ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+/*
+	-- Where de Filtros = Resto de Cubos
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,CASE
+			When A.xalias = 'CBTEL' then ' and (Coalesce(CBTEL.Filtro_H,0) ' || C.Filtro
+			When A.xalias = 'CBDIR' then ' and (Coalesce(CBDIR.Filtro_H,0) ' || C.Filtro
+			When A.xalias = 'CBCEL' then ' and (Coalesce(CBCEL.Filtro_H,0) ' || C.Filtro
+			When A.xalias = 'CBCOR' then ' and (Coalesce(CBCOR.Filtro_H,0) ' || C.Filtro
+			When A.xalias = 'CBCII' then ' and (Coalesce(CBCII.Filtro_H,0) ' || C.Filtro
+			ELSE
+			' '
+		END
+		,0
+		,'SQL_CONSULTA'
+		,'WHERE'
+	FROM	(select xalias from ${BDSTAGE}.v_ba2_Campos_Salida group by 1) as A
+			,(select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B
+			,(select Nombre_Seccion
+				
+				,CASE
+					WHEN TRIM(Nombre_Seccion) IN ('CON DATOS DE UBICACION','CON DATOS DE UBICACION PERSONALIZADO') then ' = 0 ' 
+					WHEN TRIM(Nombre_Seccion) IN ('SIN DATOS DE UBICACION','SIN DATOS DE UBICACION PERSONALIZADO') then ' > 0 ' 
+				END Filtro
+				
+				,row_number() over(order by Nombre_Seccion) Cont 
+				from ${BDSTAGE}.BATCH_SALIDAS_CAMPOS 
+				--where ID_SOLICITUD = ${varSOLICITUD} AND ID_PLANTILLA = ${varPLANTILLA}
+				where ID_SOLICITUD = ${varSOLICITUD} AND ID_PLANTILLA = ${varPLANTILLA} AND NOMBRE_SECCION = '${varNOMBRE_SECCION}'
+			) as C
+	GROUP BY 2,3,4,5
+		;
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		-- Condicion de PNPJ
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,CASE
+			when TRIM(COALESCE(C.archivos_pn_pj,0)) <> '1' then ' '
+		else
+			' AND PNPJ.Cod_Tipo_Ident_Fte = -9 '
+		END
+		,0
+		,'SQL_CONSULTA'
+		,'WHERE_PNPJ'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B,
+			REC_STAGE.BATCH_DATOS_GENERALES as C
+	WHERE ID_SOLICITUD = ${varSOLICITUD} AND ID_PLANTILLA = ${varPLANTILLA} ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	-- Condicion de PJ
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,CASE
+			when TRIM(COALESCE(C.archivos_pn_pj,0)) = '1' then ' AND PNPJ.Cod_Tipo_Ident_Fte in (2,3) '
+		else
+			' AND PNPJ.Cod_Tipo_Ident_Fte = -9 '
+		END
+		,0
+		,'SQL_CONSULTA'
+		,'WHERE_PJ'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B,
+			REC_STAGE.BATCH_DATOS_GENERALES as C
+	WHERE ID_SOLICITUD = ${varSOLICITUD} AND ID_PLANTILLA = ${varPLANTILLA} ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	-- Condicion de PN
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,CASE
+			when TRIM(COALESCE(C.archivos_pn_pj,0)) = '1' then ' AND PNPJ.Cod_Tipo_Ident_Fte in (1,4) '
+		else
+			' AND PNPJ.Cod_Tipo_Ident_Fte = -9 '
+		END
+		,0
+		,'SQL_CONSULTA'
+		,'WHERE_PN'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B,
+			REC_STAGE.BATCH_DATOS_GENERALES as C
+	WHERE ID_SOLICITUD = ${varSOLICITUD} AND ID_PLANTILLA = ${varPLANTILLA} ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	-- Agrupamientos
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' Group By '
+		,0
+		,'SQL_CONSULTA'
+		,'GROUP_BY'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	-- Agrupamiento Fijos Vista
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' CBPER.Tipo_Id, CBPER.Numero_Id, '
+		,0
+		,'SQL_CONSULTA'
+		,'GROUP_BY_VISTA'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	-- Agrupamiento Campos
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+		SELECT
+			 SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+			,COMA || A.XALIAS || '.' || 
+			Case 
+				WHEN A.XALIAS='CBPER' then A.Valor_Ini 
+			Else
+				A.CAMPONUEVO
+			End	
+			|| ' ' 
+			,row_number() over(order by A.Ordenamiento, A.CampoNuevo)
+			,'SQL_CONSULTA'
+			,'GROUP_BY'
+		FROM	 ${BDSTAGE}.v_ba2_Campos_Salida A
+			INNER JOIN ${BDSTAGE}.BATCH_DATOS_GENERALES BDG on BDG.id_solicitud = ${varSOLICITUD} and BDG.id_plantilla = ${varPLANTILLA},
+			(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	/*  HAH 20180227
+	--	Group By - Campos Fijos Obligatorios Batch Validacion
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' ,SIBV.CIUDAD_DIR_INSUMO_STD ,SIBV.DIR_INSUMO_STD ,SIBV.CIUDAD_TEL_INSUMO_STD ,SIBV.TEL_INSUMO_STD ,SIBV.CEL_INSUMO_STD ,SIBV.EMAIL_INSUMO_STD '
+		,0
+		,'SQL_CONSULTA'
+		,'GROUP_BY_BATCHVALIDACION_1'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	--	Group By - Campos Obligatorios Variable Batch Validacion
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,CASE 
+			When A.xalias = 'CBTEL' then ' ,CBTEL.POR_SIM_TEL '
+			When A.xalias = 'CBDIR' then ' ,CBDIR.POR_SIM_DIR '
+			When A.xalias = 'CBCEL' then ' ,CBCEL.POR_SIM_CEL '
+			When A.xalias = 'CBCOR' then ' ,CBCOR.POR_SIM_MAIL '
+		Else
+			' ' 
+		END
+		,0
+		,'SQL_CONSULTA'
+		,'GROUP_BY_BATCHVALIDACION_2'
+	FROM	(select xalias from ${BDSTAGE}.v_ba2_Campos_Salida group by 1) AS A
+			,(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	-- Qualify Obligado SIN DATOS
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+ 	SELECT
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' qualify (row_number() over(partition by CBPER.id_auto order by CBPER.id_auto)) = 1 '
+		,0
+		,'SQL_CONSULTA'
+		,'QUALIFY_SIN_DATOS'
+	FROM  (Select count(*) Contador from REC_STAGE.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+*/
+
+
+	-- Footer Final Sencillo
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	SELECT
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,' ''  '
+		,0
+		,'SQL_CONSULTA'
+		,'CIERRE_SENCILLO'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	SELECT
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,') ''  '
+		,0
+		,'SQL_CONSULTA'
+		,'CIERRE_VISTA'
+	FROM	(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	-- Squema Inconsistencia
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	SELECT
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + COALESCE(B.Contador,1)
+		,CASE
+			WHEN	BDG.FORMATO_SALIDA = 'FE_TXT' THEN
+			' ID_SOLICITUD	CHAR(15) 
+			,ID_PLANTILLA	CHAR(15) 
+			,TIPO_ID	CHAR(5) 
+			,NUMERO_ID	CHAR(15) 
+			,NOMBRE_COMPLETO	CHAR(100) 
+			,NOMBRE_ENTIDAD	CHAR(100) 
+			,FECHA_EXPEDICION	CHAR(20) 
+			,CIUDAD_EXPEDICION	CHAR(100) 
+			,DEPARTAMENTO_EXPEDICION	CHAR(100) 
+			,ESTADO	CHAR(100) 
+			,CAUSAL	CHAR(100) '
+			WHEN	BDG.FORMATO_SALIDA in ('FE_CSV','') or BDG.FORMATO_SALIDA is null THEN
+			' ID_SOLICITUD	VARCHAR(15) 
+			,ID_PLANTILLA	VARCHAR(15) 
+			,TIPO_ID	VARCHAR(5) 
+			,NUMERO_ID	VARCHAR(15) 
+			,NOMBRE_COMPLETO	VARCHAR(100) 
+			,NOMBRE_ENTIDAD	VARCHAR(100) 
+			,FECHA_EXPEDICION	VARCHAR(20) 
+			,CIUDAD_EXPEDICION	VARCHAR(100) 
+			,DEPARTAMENTO_EXPEDICION	VARCHAR(100) 
+			,ESTADO	VARCHAR(100) 
+			,CAUSAL	VARCHAR(100) '
+		End 
+		,0
+		,'VISTA_INCONSISTENCIA'
+		,'SQUEMA_VISTA'
+	FROM  ${BDSTAGE}.BATCH_DATOS_GENERALES BDG,
+		(Select count(*) Contador from ${BDSTAGE}.w_Borrar_001) as B 
+	WHERE	BDG.id_solicitud = ${varSOLICITUD} and BDG.id_plantilla = ${varPLANTILLA} ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creación del Squema/Sentencia.'
+	.EXIT ERRORCODE
+
+
+	.LOGOFF
+	.EXIT
+BTEQ
+
+
+
+
+
+	# INICIA BTEQ
+	bteq<<BTEQ
+	.logon ${Logon};
+
+
+	----------------  EXPORTs  CON  DATOS
+
+---------------  Materializacion
+	-- Materializar la SQUEMA Dinamico en Plano
+	--  EXPORTANDO
+	--	SQUEMA
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select linea from ${BDSTAGE}.w_borrar_001 where Tipo = 'SQUEMA'	order by secuencia ;
+	--	
+	.EXPORT RESET
+
+
+	-- Sentecia Completa PJPN
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select Linea From ${BDSTAGE}.w_Borrar_001
+	Where tipo = 'SQL_CONSULTA'
+		and subtipo in (
+		'HEADER_SELECT_SIMPLE'
+		,'CUERPO'
+		,'CUERPO_FIJO_BATCHVALIDACION_1'
+		,'CUERPO_FIJO_BATCHVALIDACION_2'
+		,'FROM'
+		,'JOINS'
+		,'WHERE'
+		,'WHERE_PNPJ'
+		,'GROUP_BY'
+		,'GROUP_BY_BATCHVALIDACION_1'
+		,'GROUP_BY_BATCHVALIDACION_2'
+		,'CIERRE_SENCILLO'
+		)
+	Order By secuencia ;
+
+	.EXPORT RESET
+
+
+	-- Sentecia Completa PN
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_PN_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select Linea From ${BDSTAGE}.w_Borrar_001
+	Where tipo = 'SQL_CONSULTA'
+		and subtipo in (
+		'HEADER_SELECT_SIMPLE'
+		,'CUERPO'
+		,'CUERPO_FIJO_BATCHVALIDACION_1'
+		,'CUERPO_FIJO_BATCHVALIDACION_2'
+		,'FROM'
+		,'JOINS'
+		,'WHERE'
+		,'WHERE_PN'
+		,'GROUP_BY'
+		,'GROUP_BY_BATCHVALIDACION_1'
+		,'GROUP_BY_BATCHVALIDACION_2'
+		,'CIERRE_SENCILLO'
+		)
+	Order By secuencia ;
+
+	.EXPORT RESET
+
+
+	-- Sentecia Completa PJ
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_PJ_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select Linea From ${BDSTAGE}.w_Borrar_001
+	Where tipo = 'SQL_CONSULTA'
+		and subtipo in (
+		'HEADER_SELECT_SIMPLE'
+		,'CUERPO'
+		,'CUERPO_FIJO_BATCHVALIDACION_1'
+		,'CUERPO_FIJO_BATCHVALIDACION_2'
+		,'FROM'
+		,'JOINS'
+		,'WHERE'
+		,'WHERE_PJ'
+		,'GROUP_BY'
+		,'GROUP_BY_BATCHVALIDACION_1'
+		,'GROUP_BY_BATCHVALIDACION_2'
+		,'CIERRE_SENCILLO'
+		)
+	Order By secuencia ;
+
+	.EXPORT RESET
+
+
+	-- Vista Completa PJPN
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PN_PJ_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select Linea From ${BDSTAGE}.w_Borrar_001
+	Where tipo = 'SQL_CONSULTA'
+		and subtipo in (
+		'HEADER_VISTA_PNPJ'
+		,'HEADER_SELECT_SECUENCIA'
+		,'CUERPO'
+		,'CUERPO_FIJO_BATCHVALIDACION_1'
+		,'CUERPO_FIJO_BATCHVALIDACION_2'
+		,'FROM'
+		,'JOINS'
+		,'WHERE'
+		,'WHERE_PNPJ'
+		,'GROUP_BY'
+		,'GROUP_BY_VISTA'
+		,'GROUP_BY_BATCHVALIDACION_1'
+		,'GROUP_BY_BATCHVALIDACION_2'
+		,'CIERRE_VISTA'
+		)
+	Order By secuencia ;
+
+	.EXPORT RESET
+
+
+	-- Vista PN
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PN_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select Linea From ${BDSTAGE}.w_Borrar_001
+	Where tipo = 'SQL_CONSULTA'
+		and subtipo in (
+		'HEADER_VISTA_PN'
+		,'HEADER_SELECT_SECUENCIA'
+		,'CUERPO'
+		,'CUERPO_FIJO_BATCHVALIDACION_1'
+		,'CUERPO_FIJO_BATCHVALIDACION_2'
+		,'FROM'
+		,'JOINS'
+		,'WHERE'
+		,'WHERE_PN'
+		,'GROUP_BY'
+		,'GROUP_BY_VISTA'
+		,'GROUP_BY_BATCHVALIDACION_1'
+		,'GROUP_BY_BATCHVALIDACION_2'
+		,'CIERRE_VISTA'
+		)
+	Order By secuencia ;
+
+	.EXPORT RESET
+
+
+	-- Vista PJ
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PJ_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select Linea From ${BDSTAGE}.w_Borrar_001
+	Where tipo = 'SQL_CONSULTA'
+		and subtipo in (
+		'HEADER_VISTA_PJ'
+		,'HEADER_SELECT_SECUENCIA'
+		,'CUERPO'
+		,'CUERPO_FIJO_BATCHVALIDACION_1'
+		,'CUERPO_FIJO_BATCHVALIDACION_2'
+		,'FROM'
+		,'JOINS'
+		,'WHERE'
+		,'WHERE_PJ'
+		,'GROUP_BY'
+		,'GROUP_BY_VISTA'
+		,'GROUP_BY_BATCHVALIDACION_1'
+		,'GROUP_BY_BATCHVALIDACION_2'
+		,'CIERRE_VISTA'
+		)
+	Order By secuencia ;
+
+	.EXPORT RESET
+
+
+
+	--	SQUEMA VISTA Inconsistencia
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_Inconsis_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select linea from ${BDSTAGE}.w_borrar_001 Where tipo = 'VISTA_INCONSISTENCIA' and subtipo = 'SQUEMA_VISTA' ;
+
+	.EXPORT RESET
+
+	
+	
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en el Export del Sentencia CON DATOS...'
+	.EXIT ERRORCODE
+
+.LOGOFF
+.EXIT
+BTEQ
+
+
+
+# Recorte de la primera linea de titulos
+
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_W.txt          > ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_Fin.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_Inconsis_W.txt > ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_Inconsis.txt
+
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_W.txt  >  ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sql_Sentencia.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_PN_W.txt  >  ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sql_Sentencia_PN.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_PJ_W.txt  >  ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sql_Sentencia_PJ.txt
+
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PN_PJ_W.txt  >  ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PN_PJ.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PN_W.txt  >  ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PN.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PJ_W.txt  >  ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PJ.txt
+
+
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_PN_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Sentencia_PJ_W.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PN_PJ_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PN_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Vista_PJ_W.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO/Squema_Inconsis_W.txt
+
+
+
+##  Vistas Inconsistencias Parametrica
+
+if [ "${varTIPO_SALIDA}" == "'FE_TXT'" ]
+	then
+# INICIA BTEQ
+bteq<<BTEQ
+.logon ${Logon};
+
+--  Creacion Vistas Inconsistencias Formato Fijo
+-- PNPJ
+	REPLACE VIEW ${BDSTAGE}.vstg_INCONSIS_PNPJ AS 
+	LOCK ROW FOR ACCESS
+	Select 
+		 CAST(BII.ID_SOLICITUD as char(15)) AS ID_SOLICITUD 
+		,CAST(BII.ID_PLANTILLA as char(15)) AS ID_PLANTILLA 
+		,CAST(BII.TIPO_ID as char(5)) AS TIPO_ID 
+		,CAST(BII.NUMERO_ID as char(15)) AS NUMERO_ID 
+		,CAST(BII.NOMBRE_COMPLETO as char(100)) AS NOMBRE_COMPLETO 
+		,CAST(BII.NOMBRE_ENTIDAD as char(100)) AS NOMBRE_ENTIDAD 
+		,CAST(BII.FECHA_EXPEDICION as char(20)) AS FECHA_EXPEDICION 
+		,CAST(BII.CIUDAD_EXPEDICION as char(100)) AS CIUDAD_EXPEDICION 
+		,CAST(BII.DEPARTAMENTO_EXPEDICION as char(100)) AS DEPARTAMENTO_EXPEDICION 
+		,CAST(BII.ESTADO as char(100)) AS ESTADO 
+		,CAST(BII.CAUSAL as char(100)) AS CAUSAL 
+	From	${BDSTAGE}.BATCH_IDENTIFICACIONES_INCONS BII 
+	Where BII.ID_SOLICITUD = ${varSOLICITUD} and  BII.ID_PLANTILLA = ${varPLANTILLA} 
+	; 
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	REPLACE VIEW ${BDSTAGE}.vstg_INCONSIS_PN AS 
+	LOCK ROW FOR ACCESS
+	Select 
+		 CAST(BII.ID_SOLICITUD as char(15)) AS ID_SOLICITUD 
+		,CAST(BII.ID_PLANTILLA as char(15)) AS ID_PLANTILLA 
+		,CAST(BII.TIPO_ID as char(5)) AS TIPO_ID 
+		,CAST(BII.NUMERO_ID as char(15)) AS NUMERO_ID 
+		,CAST(BII.NOMBRE_COMPLETO as char(100)) AS NOMBRE_COMPLETO 
+		,CAST(BII.NOMBRE_ENTIDAD as char(100)) AS NOMBRE_ENTIDAD 
+		,CAST(BII.FECHA_EXPEDICION as char(20)) AS FECHA_EXPEDICION 
+		,CAST(BII.CIUDAD_EXPEDICION as char(100)) AS CIUDAD_EXPEDICION 
+		,CAST(BII.DEPARTAMENTO_EXPEDICION as char(100)) AS DEPARTAMENTO_EXPEDICION 
+		,CAST(BII.ESTADO as char(100)) AS ESTADO 
+		,CAST(BII.CAUSAL as char(100)) AS CAUSAL 
+	From	${BDSTAGE}.BATCH_IDENTIFICACIONES_INCONS BII 
+		INNER JOIN 
+		( Select a.Cod_Tipo_Ident_Fte, UPPER(TRIM(b.Nombre_Tipo_Persona)) as Nombre_Tipo_Persona From ${BTTPRUVI}.vu_persona a Left Join ${BTTPRUVI}.v_tipo_persona b on a.Cod_DW_Tipo_Persona=b.Cod_DW_Tipo_Persona Group by 1,2 )
+			as PNPJ ON BII.Tipo_Id=PNPJ.Cod_Tipo_Ident_Fte , 
+			${BDSTAGE}.BATCH_DATOS_GENERALES BDG
+	Where BII.ID_SOLICITUD = ${varSOLICITUD} and  BII.ID_PLANTILLA = ${varPLANTILLA} 
+		and BDG.id_solicitud = ${varSOLICITUD} and BDG.id_plantilla = ${varPLANTILLA} 
+		and PNPJ.Nombre_Tipo_Persona = 'NATURALES' ; 
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	REPLACE VIEW ${BDSTAGE}.vstg_INCONSIS_PJ AS 
+	LOCK ROW FOR ACCESS
+	Select 
+		 CAST(BII.ID_SOLICITUD as char(15)) AS ID_SOLICITUD 
+		,CAST(BII.ID_PLANTILLA as char(15)) AS ID_PLANTILLA 
+		,CAST(BII.TIPO_ID as char(5)) AS TIPO_ID 
+		,CAST(BII.NUMERO_ID as char(15)) AS NUMERO_ID 
+		,CAST(BII.NOMBRE_COMPLETO as char(100)) AS NOMBRE_COMPLETO 
+		,CAST(BII.NOMBRE_ENTIDAD as char(100)) AS NOMBRE_ENTIDAD 
+		,CAST(BII.FECHA_EXPEDICION as char(20)) AS FECHA_EXPEDICION 
+		,CAST(BII.CIUDAD_EXPEDICION as char(100)) AS CIUDAD_EXPEDICION 
+		,CAST(BII.DEPARTAMENTO_EXPEDICION as char(100)) AS DEPARTAMENTO_EXPEDICION 
+		,CAST(BII.ESTADO as char(100)) AS ESTADO 
+		,CAST(BII.CAUSAL as char(100)) AS CAUSAL 
+	From	${BDSTAGE}.BATCH_IDENTIFICACIONES_INCONS BII 
+		INNER JOIN 
+		( Select a.Cod_Tipo_Ident_Fte, UPPER(TRIM(b.Nombre_Tipo_Persona)) as Nombre_Tipo_Persona From ${BTTPRUVI}.vu_persona a Left Join ${BTTPRUVI}.v_tipo_persona b on a.Cod_DW_Tipo_Persona=b.Cod_DW_Tipo_Persona Group by 1,2 )
+			as PNPJ ON BII.Tipo_Id=PNPJ.Cod_Tipo_Ident_Fte , 
+			${BDSTAGE}.BATCH_DATOS_GENERALES BDG
+	Where BII.ID_SOLICITUD = ${varSOLICITUD} and  BII.ID_PLANTILLA = ${varPLANTILLA} 
+		and BDG.id_solicitud = ${varSOLICITUD} and BDG.id_plantilla = ${varPLANTILLA} 
+		and PNPJ.Nombre_Tipo_Persona = 'JURIDICAS' ; 
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creación del Sentencia No. 1.'
+	.EXIT ERRORCODE
+
+.LOGOFF
+.EXIT
+BTEQ
+
+
+else
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+.logon ${Logon};
+
+	--  Creacion Vistas Inconsistencias Formato Variable
+	-- PNPJ
+	REPLACE VIEW ${BDSTAGE}.vstg_INCONSIS_PNPJ AS 
+	LOCK ROW FOR ACCESS
+	Select 
+		 CAST(BII.ID_SOLICITUD as varchar(15)) AS ID_SOLICITUD 
+		,CAST(BII.ID_PLANTILLA as varchar(15)) AS ID_PLANTILLA 
+		,CAST(BII.TIPO_ID as varchar(5)) AS TIPO_ID 
+		,CAST(BII.NUMERO_ID as varchar(15)) AS NUMERO_ID 
+		,CAST(BII.NOMBRE_COMPLETO as varchar(100)) AS NOMBRE_COMPLETO 
+		,CAST(BII.NOMBRE_ENTIDAD as varchar(100)) AS NOMBRE_ENTIDAD 
+		,CAST(BII.FECHA_EXPEDICION as varchar(20)) AS FECHA_EXPEDICION 
+		,CAST(BII.CIUDAD_EXPEDICION as varchar(100)) AS CIUDAD_EXPEDICION 
+		,CAST(BII.DEPARTAMENTO_EXPEDICION as varchar(100)) AS DEPARTAMENTO_EXPEDICION 
+		,CAST(BII.ESTADO as varchar(100)) AS ESTADO 
+		,CAST(BII.CAUSAL as varchar(100)) AS CAUSAL 
+	From	${BDSTAGE}.BATCH_IDENTIFICACIONES_INCONS BII 
+	Where BII.ID_SOLICITUD = ${varSOLICITUD} and  BII.ID_PLANTILLA = ${varPLANTILLA} 
+	; 
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	REPLACE VIEW ${BDSTAGE}.vstg_INCONSIS_PN AS 
+	LOCK ROW FOR ACCESS
+	Select 
+		 CAST(BII.ID_SOLICITUD as varchar(15)) AS ID_SOLICITUD 
+		,CAST(BII.ID_PLANTILLA as varchar(15)) AS ID_PLANTILLA 
+		,CAST(BII.TIPO_ID as varchar(5)) AS TIPO_ID 
+		,CAST(BII.NUMERO_ID as varchar(15)) AS NUMERO_ID 
+		,CAST(BII.NOMBRE_COMPLETO as varchar(100)) AS NOMBRE_COMPLETO 
+		,CAST(BII.NOMBRE_ENTIDAD as varchar(100)) AS NOMBRE_ENTIDAD 
+		,CAST(BII.FECHA_EXPEDICION as varchar(20)) AS FECHA_EXPEDICION 
+		,CAST(BII.CIUDAD_EXPEDICION as varchar(100)) AS CIUDAD_EXPEDICION 
+		,CAST(BII.DEPARTAMENTO_EXPEDICION as varchar(100)) AS DEPARTAMENTO_EXPEDICION 
+		,CAST(BII.ESTADO as varchar(100)) AS ESTADO 
+		,CAST(BII.CAUSAL as varchar(100)) AS CAUSAL 
+	From	${BDSTAGE}.BATCH_IDENTIFICACIONES_INCONS BII 
+		INNER JOIN 
+		( Select a.Cod_Tipo_Ident_Fte, UPPER(TRIM(b.Nombre_Tipo_Persona)) as Nombre_Tipo_Persona From ${BTTPRUVI}.vu_persona a Left Join ${BTTPRUVI}.v_tipo_persona b on a.Cod_DW_Tipo_Persona=b.Cod_DW_Tipo_Persona Group by 1,2 )
+			as PNPJ ON BII.Tipo_Id=PNPJ.Cod_Tipo_Ident_Fte , 
+			${BDSTAGE}.BATCH_DATOS_GENERALES BDG
+	Where BII.ID_SOLICITUD = ${varSOLICITUD} and  BII.ID_PLANTILLA = ${varPLANTILLA} 
+		and BDG.id_solicitud = ${varSOLICITUD} and BDG.id_plantilla = ${varPLANTILLA} 
+		and PNPJ.Nombre_Tipo_Persona = 'NATURALES' ; 
+
+		.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	REPLACE VIEW ${BDSTAGE}.vstg_INCONSIS_PJ AS 
+	LOCK ROW FOR ACCESS
+	Select 
+		 CAST(BII.ID_SOLICITUD as varchar(15)) AS ID_SOLICITUD 
+		,CAST(BII.ID_PLANTILLA as varchar(15)) AS ID_PLANTILLA 
+		,CAST(BII.TIPO_ID as varchar(5)) AS TIPO_ID 
+		,CAST(BII.NUMERO_ID as varchar(15)) AS NUMERO_ID 
+		,CAST(BII.NOMBRE_COMPLETO as varchar(100)) AS NOMBRE_COMPLETO 
+		,CAST(BII.NOMBRE_ENTIDAD as varchar(100)) AS NOMBRE_ENTIDAD 
+		,CAST(BII.FECHA_EXPEDICION as varchar(20)) AS FECHA_EXPEDICION 
+		,CAST(BII.CIUDAD_EXPEDICION as varchar(100)) AS CIUDAD_EXPEDICION 
+		,CAST(BII.DEPARTAMENTO_EXPEDICION as varchar(100)) AS DEPARTAMENTO_EXPEDICION 
+		,CAST(BII.ESTADO as varchar(100)) AS ESTADO 
+		,CAST(BII.CAUSAL as varchar(100)) AS CAUSAL 
+	From	${BDSTAGE}.BATCH_IDENTIFICACIONES_INCONS BII 
+		INNER JOIN 
+		( Select a.Cod_Tipo_Ident_Fte, UPPER(TRIM(b.Nombre_Tipo_Persona)) as Nombre_Tipo_Persona From ${BTTPRUVI}.vu_persona a Left Join ${BTTPRUVI}.v_tipo_persona b on a.Cod_DW_Tipo_Persona=b.Cod_DW_Tipo_Persona Group by 1,2 )
+			as PNPJ ON BII.Tipo_Id=PNPJ.Cod_Tipo_Ident_Fte , 
+			${BDSTAGE}.BATCH_DATOS_GENERALES BDG
+	Where BII.ID_SOLICITUD = ${varSOLICITUD} and  BII.ID_PLANTILLA = ${varPLANTILLA} 
+		and BDG.id_solicitud = ${varSOLICITUD} and BDG.id_plantilla = ${varPLANTILLA} 
+		and PNPJ.Nombre_Tipo_Persona = 'JURIDICAS' ; 
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creación de la Sentencia No. 2	.'
+	.EXIT ERRORCODE
+
+.LOGOFF
+.EXIT
+BTEQ
+
+fi
+
+
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+exit 0
+

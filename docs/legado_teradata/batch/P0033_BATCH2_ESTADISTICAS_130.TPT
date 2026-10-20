@@ -1,0 +1,78 @@
+/* # ################################################################################
+# 
+# Objetivo:			Extrae Datos LOG BATCH2
+# Fecha:			2017-12-15
+# Realizado por:	Carlos Alberto Castillo Giraldo
+# Parametros:		reconocer/desarrollo/.tdenv P0033_BATCH2_EXPORTLOG.par
+# Proyecto:			Nuevo Reconocer
+# Script:		    P0033_BATCH2_EXPORTLOG_130.TPT 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		Objetivo			Realizado por
+# 
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################ */
+
+
+DEFINE JOB ExportarArchivo
+DESCRIPTION 'Exporta Registros LOG BATCH_ARCHIVO_LOG'
+( 
+ 
+ DEFINE SCHEMA Shema_Log
+	( 
+		 out_CAMPO 	VARCHAR(250) 
+	);
+
+
+	DEFINE OPERATOR Data_Connector_Log
+	TYPE DATACONNECTOR CONSUMER
+	SCHEMA Shema_Log
+	ATTRIBUTES
+	( VARCHAR 	
+				DirectoryPath 	  = @SALIDAS1, 
+				FileName 		  = @ARCHIVO, 
+				Format 			  = @FORMATO, 
+				TextDelimiter	  = @DELIMITADOR, 
+				IndicatorMode 	  = 'N', 
+				OpenMode 		  = 'Write' 
+		); 
+
+
+DEFINE OPERATOR Select_Log
+ TYPE SELECTOR
+ SCHEMA Shema_Log
+ ATTRIBUTES
+ (
+ VARCHAR UserName 	  = @UserName,
+ VARCHAR UserPassword = @UserPassword,
+ VARCHAR TdpId = @TdpId,
+ VARCHAR SelectStmt =  'SELECT CAMPO
+						FROM '||@BDSTAGE||'.VSTG_BATCH_ESTADISTICAS_EXP
+						ORDER BY ID' 
+ );
+
+ 
+ 
+	STEP Generacion_archivo_salida_Log
+	 (
+		APPLY
+			TO OPERATOR
+			(Data_Connector_Log[1])
+	 
+		SELECT  *
+		FROM OPERATOR (Select_Log[1]);
+	 ); 
+
+ 
+ ); 
+ 
+ 
+ 

@@ -1,0 +1,234 @@
+# ################################################################################
+# 
+# Objetivo:		Ejecutar los SPs PRO_StandardizationEmail, PRO_StandardizationTelFijo
+#			PRO_StandardizationTelMovil, PRO_StandardizationGeografica y
+#			PRO_Consolida_Estandarizacion
+# Fecha:		2017/03/24
+# Realizado por:	Capgemini Colombia
+# 
+# Proyecto:		Nuevo Recnocer
+# Script:		ORDENAMIENTO_242_131.BTQ
+# 
+# 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		Objetivo												Realizado por
+# 2018-10-05  se quita de la ejecución los procedimientos			Carlos Castillo
+#			  P PRO_ORD_FINAL_CTA_ATRIBUTOS			
+#			  S PRO_ORD_FINAL_UBIC_DIRECCIONES
+#2023-10-20	se coloca el proceso para borrar todas las tablas Temporales		John W Bueno	
+#				que crea la malla de ORDENAMIENTO
+
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+# Definicion nombre del proceso
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+
+# Definicion de Logs de ejecucion
+export REPORTE=${LOGS}/${BTQ}.log
+export vLogP=${LOGS}/${BTQ}.error
+> ${vLogP}
+
+# Se calcula la variable P_VARQUERY para ser enviada los SP PRO_ORD_MATERIALIZA_REC, PRO_ORD_MATERIALIZA_BTT
+# Tomando la información de la variable ELOTE
+
+
+
+
+export Cal_fecha=`grep ELOTE $PARAMETROS/ORDENAMIENTO_242.par | awk -F"'" '{print $2}'`
+export fecha1=`echo $Cal_fecha | awk -F"," '{print $1}'|sed 's/ //g'`
+export fecha2=`echo $Cal_fecha | awk -F"," '{print $2}'|sed 's/ //g'`
+
+
+P_VARQUERY=''
+
+if [ -z $fecha1$fecha2 ] || [ $fecha1 == "N" ]
+        then P_VARQUERY=''
+        elif [ -z $fecha2  ]
+            then P_VARQUERY=" = CAST(''$fecha1'' AS DATE)  "
+        else P_VARQUERY=" BETWEEN CAST(''$fecha1'' as DATE) AND CAST(''$fecha2'' AS DATE) "
+fi
+P_VARQUERYDROP=" PROC_FIN <>''TODO''"
+
+echo "Capturafecha"
+echo $P_VARQUERY
+echo P_VARQUERYDROP
+
+# Definicion de SP, cada SP debe ir separa por : seguido de una P o S
+#       que indica P=Paralelo   S=Secuencial
+export vListSPs="PRO_ORD_MATERIALIZA_BTT:P PRO_ORD_MATERIALIZA_REC:P PRO_ORD_UNIF_BTT_REC:S PRO_ORD_CTA_ATRIBUTOS:P PRO_ORD_UBIC_DIRECCIONES:P PRO_ORD_CTA_TOTALES_PERSONAS:S PRO_ORD_CTA_TOTALES_PERSONAS_1:P PRO_ORD_CALC_UBICACIONES:P PRO_ORD_CALC_UBICACIONES_1:P PRO_ORD_UNIF_BTT_REC_2:S PRO_ORD_CTA_TOTALES_PERSONAS_2:P PRO_ORD_CALC_UBICACIONES_2:P"
+
+
+#Funcion para ejecutar SP's
+execSP () {
+        rm -r ${REPORTE}$1 2>/dev/null
+        bteq <<BTQ
+                .logon ${Logon};
+                DATABASE ${BDDATOS};
+
+                .SET DEFAULTS
+                .SET TITLEDASHES OFF
+                .SET WIDTH 254
+                .SET SEPARATOR '|'
+
+                .EXPORT REPORT FILE=${REPORTE}$1
+
+
+                -- Ejecuta el SP $1
+				
+                CALL $1(${lote}
+                        ,'${dateTimeStartPro}'
+                        ,'${process}'
+                        ,'${BDDATOS}'
+                        ,'${BDVISTA}'
+                        ,'${BDSTAGE}'
+                        ,'${BTTDATOS}'
+                        ,'${BTTVISTA}'
+                        ,'${BDMTDAT}'
+            ,'${BTTMTDAT}'
+                        ,'${P_VARQUERY}'
+                        ,P_ERROR
+                ) ;
+
+                .IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+                .EXPORT reset
+
+                .LABEL SALIR
+                .exit 0
+
+                .LABEL ERRORFOUND
+                .REMARK '#### ERROR ejecutando el SP $1'
+                .EXIT ERRORCODE
+
+                .LOGOFF;
+                .QUIT;
+BTQ
+
+        if [ $? -ne 0 ]
+                then
+                echo '3' >>$vLogP
+        else
+                IdProceso=`cat ${REPORTE}$1 |tail -1`
+                echo $IdProceso >${REPORTE}$1
+                vError=`cat ${REPORTE}$1 | awk -F"|" '{print $1}'`
+                vError=`echo ${vError}`
+                vCantError=`echo ${#vError}`
+
+                rm -r ${REPORTE}$1 2>/dev/null
+
+                if [ $vCantError -gt 0 ]
+                        then
+                        echo '3' >>$vLogP
+                fi
+
+                echo '0' >>$vLogP
+        fi
+
+}
+#Funcion para ejecutar Borrado
+execDrop () {
+rm -r ${REPORTE}PRO_Cursor_Drop_TblaOrdenamiento 2>/dev/null
+bteq <<BTQ2
+.logon ${Logon};
+                DATABASE ${BDDATOS};
+
+                .SET DEFAULTS
+                .SET TITLEDASHES OFF
+                .SET WIDTH 254
+                .SET SEPARATOR '|'
+
+                .EXPORT REPORT FILE=${REPORTE}PRO_Cursor_Drop_TblaOrdenamiento
+                -- Ejecuta el SP REC_DATOS.PRO_Cursor_Drop_TblaOrdenamiento
+	
+                CALL REC_DATOS.PRO_Cursor_Drop_TblaOrdenamiento
+						(${lote}
+                        ,'${dateTimeStartPro}'
+                        ,'${process}'
+                        ,'${BDDATOS}'
+                        ,'${BDVISTA}'
+                        ,'${BDSTAGE}'
+                        ,'${P_VARQUERYDROP}'
+                        ,P_ERROR
+                ) ;
+
+                .IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+                .EXPORT reset
+
+                .LABEL SALIR
+                .exit 0
+
+                .LABEL ERRORFOUND
+                .REMARK '#### ERROR ejecutando el SP PRO_Cursor_Drop_TblaOrdenamiento'
+                .EXIT ERRORCODE
+
+                .LOGOFF;
+                .QUIT;
+BTQ2
+        if [ $? -ne 0 ]
+                then
+                echo '3' >>$vLogP
+        else
+                IdProceso=`cat ${REPORTE}PRO_Cursor_Drop_TblaOrdenamiento |tail -1`
+                echo $IdProceso >${REPORTE}PRO_Cursor_Drop_TblaOrdenamiento
+                vError=`cat ${REPORTE}PRO_Cursor_Drop_TblaOrdenamiento | awk -F"|" '{print $1}'`
+                vError=`echo ${vError}`
+                vCantError=`echo ${#vError}`
+
+                rm -r ${REPORTE}PRO_Cursor_Drop_TblaOrdenamiento 2>/dev/null
+
+                if [ $vCantError -gt 0 ]
+                        then
+                        echo '3' >>$vLogP
+                fi
+
+                echo '0' >>$vLogP
+        fi
+}
+# Recorre uno a uno la lista de SP's mediante un loop
+# y ejecuta SP por SP
+
+execDrop
+for sp in ${vListSPs}
+do
+        vStoredPro=`echo $sp|awk -F":" '{print $1}'`
+        vParallel=`echo $sp|awk -F":" '{print $2}'`
+
+        if [ "$vParallel" = "P" ]
+                then
+                execSP $vStoredPro &
+                vWait=$vWait" "$!
+                vWait=`echo $vWait`
+        else
+                if [ "$vWait" != "" ]
+                then
+                        wait $vWait
+                fi
+
+                execSP $vStoredPro
+        fi
+
+        sleep 5
+
+done
+
+wait $vWait
+
+err=`grep -c '3' $vLogP`
+
+if [ $err -ne 0 ]
+        then
+        exit 3
+fi
+
+exit 0

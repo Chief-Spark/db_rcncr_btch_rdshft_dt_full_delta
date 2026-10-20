@@ -1,0 +1,14 @@
+Datos de identificacion;AGSB_DI;DB_TIP_ID;Tipo id 001;VARCHAR;10
+Datos de identificacion;AGSB_DI;DB_NUM_ID;Numero id 001;VARCHAR;20
+Datos de identificacion;AGSB_DI;DP_PRI_APE;Primer apellido 001;VARCHAR;50
+Datos de identificacion;AGSB_DI;DP_SEG_APE;Segundo apellido 001;VARCHAR;50
+Datos de identificacion;AGSB_DI;DP_PRI_NOM;Primer nombre 001;VARCHAR;50
+Datos de identificacion;AGSB_DI;DP_SEG_NOM;Segundo nombre 001;VARCHAR;50
+Datos de identificacion;AGSB_DI;DB_NOM_COM;Nombre Completo 001;VARCHAR;100
+Datos de identificacion;AGSB_DI;DP_FEC_EXP;Fecha expedicion 001;VARCHAR;10
+Datos de identificacion;AGSB_DI;DP_CIU_EXP;Ciudad expedicion 001;VARCHAR;100
+Datos de identificacion;AGSB_DI;DP_DEP_EXP;Departamento expedicion 001;VARCHAR;100
+Datos de identificacion;AGSB_DI;DP_GENERO;Genero 001;VARCHAR;20
+Datos de identificacion;AGSB_DI;DP_RAN_EDA;Rango edad 001;VARCHAR;20
+Datos de identificacion;AGSB_DI;DB_CIIU;CIIU 001;VARCHAR;20
+Datos de identificacion;AGSB_DI;DB_ACT_ECO;Actividad economica 001;VARCHAR;500

@@ -1,0 +1,124 @@
+/*♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠
+♠  
+♠  Objetivo: Creación vista vs
+♠  Fecha:	2016-12-12	
+♠  Realizado por:	Yeimy Chavarro
+♠  PARAMETROS:	
+♠  Proyecto: Experian Reconocer	
+♠  Script:		Paso 110 Creacion vista VS0007
+♠  
+♠  BITACORA
+♠  ---------------------------------------------------------------------------
+♠  Fecha		Objetivo			Realizado por
+♠  2018-08-21	#1 Ajuste calculo max_id	Carlos Castillo
+♠  ---------------------------------------------------------------------------
+♠  
+♠  Copyright 2016 Equipo Teradata - Capgemini ♠
+♠  
+♠   Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+♠  		se encuentra protegido por las leyes de derechos de autor
+♠  
+♠ ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠*/
+
+
+ 
+DEFINE JOB PUNTO_DE_INTERES_GEO
+DESCRIPTION 'CREACION VISTA VS0007 MEDIANTE OPERADOR DDL'
+(
+    DEFINE OPERATOR DDL_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR'
+    TYPE DDL
+    ATTRIBUTES
+    (
+      VARCHAR UserName        = @UserName,      
+      VARCHAR UserPassword    = @UserPassword,   
+      VARCHAR TdpId           = @TdpId,          
+      VARCHAR ARRAY ErrorList = ['3803','3807','2574','2743'] 
+    );
+
+STEP CREA_VS0007
+	( APPLY	
+							
+		 ('REPLACE VIEW ' ||@BDSTAGE||'.VS0007 AS 
+			  LOCK ROW FOR ACCESS  
+              ( SELECT STG.*,(ROW_NUMBER() OVER(PARTITION BY POI_ID ORDER BY POI_ID)) AS REP /*#1*/
+			  FROM '||@BDSTAGE||'.'||@TABLESTAGE||' AS STG);'
+		   )
+		   
+		   
+	TO OPERATOR (DDL_OPERATOR );
+	);
+	
+STEP CREA_VSTG
+
+(
+ APPLY
+
+	('REPLACE VIEW '||@BDSTAGE||'.VSTGCargaPuntoInteresGEO AS
+		LOCK ROW FOR ACCESS 	
+		
+		(SELECT
+			CAST(CASE WHEN PDIG.Cod_DW_Punto_Interes  IS NULL AND SEVERIDAD=1
+			THEN (MAX_ID.ID + SUM (CASE WHEN PDIG.Cod_DW_Punto_Interes  IS NULL AND SEVERIDAD=1 THEN 1 ELSE 0 END) OVER (ORDER BY STG.POI_ID ROWS UNBOUNDED PRECEDING)) /*#1*/
+			ELSE PDIG.Cod_DW_Punto_Interes
+			END AS INTEGER)AS Cod_DW_Punto_Interes
+			
+		,STG.POI_ID AS  Cod_Punto_Interes_Host 
+		,STG.POI_Name AS Nombre 
+		,STG.POINT_Y  AS Latitud 
+		,STG.POINT_X  AS Longitud 
+		,VTPI.Cod_DW_Tipo_Punto_Interes
+		,STG.Departamento AS Departamento_Esri
+		,STG.Municipio AS Municipio_Esri
+		,CASE WHEN (
+			(STG.POI_ID IS NULL OR STG.POI_ID='''') 
+			OR  (STG.POI_Name IS NULL OR STG.POI_Name='''') 
+			OR (STG.POINT_Y  IS NULL OR STG.POINT_Y='''') 
+			OR (STG.POINT_X IS NULL OR STG.POINT_X='''') 
+			 ) 
+		THEN 3
+		WHEN ( VTPI.Cod_DW_Tipo_Punto_Interes IS NULL OR VTPI.Cod_DW_Tipo_Punto_Interes='''') THEN 2
+		WHEN STG.REP > 1 THEN 5 /*#1*/
+		ELSE 1 
+		END AS SEVERIDAD
+		
+		/*CODIGO SEVERIDADES*/
+		
+		,CASE WHEN (STG.POI_ID IS NULL OR STG.POI_ID='''') THEN ''000701'' ELSE '''' END
+        || CASE WHEN (STG.POI_Name IS NULL OR STG.POI_Name='''')THEN ''000702'' ELSE '''' END
+		|| CASE WHEN (STG.POINT_Y IS NULL OR STG.POINT_Y='''')THEN ''000703'' ELSE '''' END
+		|| CASE WHEN (STG.POINT_X IS NULL OR STG.POINT_X='''')THEN ''000704'' ELSE '''' END 
+		|| CASE WHEN (VTPI.Cod_DW_Tipo_Punto_Interes IS NULL OR VTPI.Cod_DW_Tipo_Punto_Interes='''') THEN ''000705'' ELSE '''' END  as COD_RECHAZO
+		
+		,CURRENT_DATE AS Fecha_Actualizacion
+		,CAST(USER AS VARCHAR(30)) AS Usuario_BD
+		
+		/*campos layout original  */
+		
+		,STG.OBJECTID 
+		,STG.POI_ID
+		,STG.CAT_ID
+		,STG.POI_NAME
+		,STG.Descripcion_CAT_ID
+		,STG.Municipio
+		,STG.Departamento
+		,STG. POINT_X
+		,STG. POINT_Y
+
+
+	from '||@BDSTAGE||'.VS0007 AS STG
+		LEFT JOIN '||@BDDATOS||'.PUNTO_DE_INTERES_GEO AS PDIG
+			ON STG.POI_ID = PDIG.Cod_Punto_Interes_Host
+			JOIN '||@BDMTDAT||'.MAX_ID 
+			ON Nombre_Tabla= ''PUNTO_DE_INTERES_GEO''
+		LEFT JOIN '||@BDVISTA||'.V_Tipo_Punto_Interes VTPI
+			ON VTPI.Cod_Tipo_Punto_Interes_Host = STG.CAT_ID
+			
+		
+		);
+	')
+
+			TO OPERATOR (DDL_OPERATOR );
+);
+);
+				

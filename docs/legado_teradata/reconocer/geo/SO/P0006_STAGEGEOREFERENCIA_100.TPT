@@ -1,0 +1,214 @@
+/* ♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠
+♠  
+♠  Objetivo: Cargar a Stage archivo plano CONTACTABILIDAD
+♠  Fecha:	2017-08-02	
+♠  Realizado por:	Max Morales
+♠  PARAMETROS:	
+♠  Proyecto: Experian Reconocer	
+♠  Script:		P0006_STAGEGEOREFERENCIA_100.TPT
+♠  
+♠  BITACORA
+♠  ---------------------------------------------------------------------------
+♠  Fecha		Objetivo								Realizado por
+♠  ---------------------------------------------------------------------------
+♠  
+♠  Copyright 2016 Equipo Teradata - Capgemini ♠
+♠  
+♠   Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+♠  		se encuentra protegido por las leyes de derechos de autor
+♠  
+♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠ */
+
+
+DEFINE JOB CARGAR_STAGE_GEOREFERENCIA
+DESCRIPTION 'CARGA STAGE GEOREFERENCIA A PARTIR DE ARCHIVOS PLANOS'
+(
+    DEFINE SCHEMA GEOREFERENCIA_SCHEMA
+    DESCRIPTION 'GEOREFERENCIA SCHEMA' 
+    (
+		Cod_DW_Ubic VARCHAR(100)
+		,Lote VARCHAR(100)
+		,Texto_Ubicacion VARCHAR(100)
+		,Cod_Dane_Ciudad VARCHAR(20)
+		,Descripcion_Proceso VARCHAR(20) 
+		,Zona VARCHAR(50)
+		,Barrio VARCHAR(100)
+		,Localidad_Comuna VARCHAR(100)
+		,Estrato VARCHAR(20)
+		,Score VARCHAR(100) 
+		,Side VARCHAR(20)
+		,Latitud VARCHAR(100) 
+		,Longitud VARCHAR(100) 
+		,Segmento_Numerico VARCHAR(50)
+		,Tipo_Via VARCHAR(20)
+		,Prefijo_Direccion VARCHAR(20)
+		,Distancia_Via VARCHAR(20)
+		,Marca_Geo VARCHAR(20)
+		,Sector VARCHAR(20)
+		,Manzana VARCHAR(30)
+		,Numero_Lote VARCHAR(20)
+		,Cod_Postal VARCHAR(20)
+		,Cod_Postal_Ampliado VARCHAR(20)
+		,Cod_Manzana VARCHAR(30)
+		,Cod_Manzana_Ext VARCHAR(20)
+		,Grupo_Mosaic VARCHAR(20)
+		,Tipo_Grupo_Mosaic VARCHAR(20)
+		,Status VARCHAR(20)
+		,Match_Addr VARCHAR(400)
+		,Cod_Dane_Dpto VARCHAR(20)
+    );
+
+    DEFINE OPERATOR DDL_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR'
+    TYPE DDL
+    ATTRIBUTES
+    (
+      VARCHAR UserName        = @UserName,
+      VARCHAR UserPassword    = @UserPassword,
+      VARCHAR TdpId           = @TdpId, 
+      VARCHAR ARRAY ErrorList = ['3803','3807']
+    );
+
+    DEFINE OPERATOR LOAD_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER LOAD OPERATOR'
+    TYPE UPDATE 
+    SCHEMA GEOREFERENCIA_SCHEMA
+    ATTRIBUTES
+    (
+      INTEGER MaxSessions  = 64,                     
+      INTEGER MinSessions  = 1,                      
+      INTEGER ErrorLimit   = 1,                      
+      VARCHAR TargetTable  = @BDSTAGE||'.'||@LAYOUT,  
+      VARCHAR UserName     = @UserName,              
+      VARCHAR UserPassword = @UserPassword,          
+      VARCHAR TdpId        = @TdpId,                 
+      VARCHAR WorkTable    = @BDTEMPO||'.'||@Wktb,     
+      VARCHAR ErrorTable1  = @BDTEMPO||'.'||@Err1,     
+      VARCHAR ErrorTable2  = @BDTEMPO||'.'||@Err2,     
+      VARCHAR LogTable     = @BDTEMPO||'.'||@LogTable,
+	  INTEGER TenacityHours = @TenacityHours,
+	  INTEGER TenacitySleep = @TenacitySleep
+    );  
+
+    DEFINE OPERATOR FILE_READER
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DATA CONNECTOR OPERATOR'
+    TYPE DATACONNECTOR PRODUCER
+    SCHEMA GEOREFERENCIA_SCHEMA
+    ATTRIBUTES
+    (
+      VARCHAR DirectoryPath   = @ENTRADAS,         
+      VARCHAR FileName        = @DATAFILE,    
+      VARCHAR IndicatorMode   = 'N',               
+      VARCHAR OpenMode        = 'Read',            
+      VARCHAR Format          = 'Delimited',       
+      VARCHAR TextDelimiter   = @TextDelimiter               
+    );
+
+    STEP setup_tables  
+    ( 
+      APPLY  
+           ('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||';'),	   
+           ('DROP TABLE '||@BDTEMPO||'.'||@Wktb||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err1||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err2||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@LogTable||';') 
+      TO OPERATOR (DDL_OPERATOR );
+    );
+
+    STEP create_Stg
+    (      
+      APPLY 
+            ('CREATE MULTISET TABLE '||@BDSTAGE||'.'||@LAYOUT||',
+                     
+              NO BEFORE JOURNAL,  
+              NO AFTER JOURNAL,   
+              CHECKSUM = DEFAULT 
+              (
+				Cod_DW_Ubic INTEGER
+				,Lote VARCHAR(100)
+				,Texto_Ubicacion VARCHAR(100)
+				,Cod_Dane_Ciudad VARCHAR(20)
+				,Descripcion_Proceso VARCHAR(20) 
+				,Zona VARCHAR(50)
+				,Barrio VARCHAR(100)
+				,Localidad_Comuna VARCHAR(100)
+				,Estrato VARCHAR(20)
+				,Score VARCHAR(100) 
+				,Side VARCHAR(20)
+				,Latitud VARCHAR(100) 
+				,Longitud VARCHAR(100) 
+				,Segmento_Numerico VARCHAR(50)
+				,Tipo_Via VARCHAR(20)
+				,Prefijo_Direccion VARCHAR(20)
+				,Distancia_Via VARCHAR(20)
+				,Marca_Geo VARCHAR(20)
+				,Sector VARCHAR(20)
+				,Manzana VARCHAR(30)
+				,Numero_Lote VARCHAR(20)
+				,Cod_Postal VARCHAR(20)
+				,Cod_Postal_Ampliado VARCHAR(20)
+				,Cod_Manzana VARCHAR(30)
+				,Cod_Manzana_Ext VARCHAR(20)
+				,Grupo_Mosaic VARCHAR(20)
+				,Tipo_Grupo_Mosaic VARCHAR(20)
+				,Status VARCHAR(20)
+				,Match_Addr VARCHAR(400)
+				,Cod_Dane_Dpto VARCHAR(20)
+
+				,ArcStreet VARCHAR(200)
+				,ArcZone VARCHAR(200)
+				,Numero_Etapa VARCHAR(20)
+				,Numero_Casa VARCHAR(20)
+              )
+              PRIMARY INDEX ( Cod_DW_Ubic );
+           ')		   
+		   
+      TO OPERATOR (DDL_OPERATOR);
+    );
+
+	   
+    STEP load_data_from_file
+    (
+      APPLY  
+           ('INSERT INTO  '||@BDSTAGE||'.'||@LAYOUT||' 
+             VALUES 
+                   ( :Cod_DW_Ubic
+					,:Lote
+					,:Texto_Ubicacion
+					,:Cod_Dane_Ciudad
+					,:Descripcion_Proceso 
+					,:Zona
+					,:Barrio
+					,:Localidad_Comuna
+					,:Estrato
+					,:Score 
+					,:Side
+					,:Latitud 
+					,:Longitud 
+					,:Segmento_Numerico
+					,:Tipo_Via
+					,:Prefijo_Direccion
+					,:Distancia_Via
+					,:Marca_Geo
+					,:Sector
+					,:Manzana
+					,:Numero_Lote
+					,:Cod_Postal
+					,:Cod_Postal_Ampliado
+					,:Cod_Manzana
+					,:Cod_Manzana_Ext
+					,:Grupo_Mosaic
+					,:Tipo_Grupo_Mosaic
+					,:Status
+					,:Match_Addr
+					,:Cod_Dane_Dpto
+					,null
+					,null
+					,null
+					,null
+                   );
+           ')
+      TO OPERATOR ( LOAD_OPERATOR [1] )
+      SELECT * FROM OPERATOR ( FILE_READER [1] );
+    );
+);

@@ -1,0 +1,93 @@
+/* # ################################################################################
+# 
+# Objetivo:			Extrae Datos de VALIDA NOVEDAD
+# Fecha:			2024-01-19
+# Realizado por:	Omar Delgado
+# Parametros:		reconocer/pruebas/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:		    P0021_UNIFICACION_141.TPT
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		  Objetivo			Realizado por
+# 2024-01-19  Version Inicial   Omar Delgado
+# ---------------------------------------------------------------------------
+# 
+# ################################################################################ */
+
+ 
+DEFINE JOB ExportarDataModelo
+DESCRIPTION 'Exportar_RM'
+( 
+ 
+  DEFINE SCHEMA MODELO_MATERIALIZADAS
+  DESCRIPTION 'Exportar_RM SCHEMA' 
+	(
+		ID_BIZAGI INTEGER
+		,TIPO_ID INTEGER
+		,NUM_ID VARCHAR(20)
+		,COD_CTA VARCHAR(40)
+		,NUM_CTA VARCHAR(18)
+		,COD_SUSC VARCHAR(20)
+		,DATO_ORIGINAL VARCHAR(100)
+		,DATO_ESTANDAR VARCHAR(100)
+		,TIPO_NOVEDAD VARCHAR(2)
+		,VALIDO VARCHAR(2)
+		,TIPO_EXCLUSION VARCHAR(2)
+		,CAUSAL_EXCLUSION VARCHAR(100)
+		,NOMBRE_ARCHIVO_PLANO VARCHAR(100)
+		,CAMPO_ACTUALIZADO VARCHAR(50)
+	);
+
+ 
+  DEFINE OPERATOR DDL_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR'
+    TYPE DDL
+    ATTRIBUTES
+    (
+      VARCHAR UserName     = @UserName
+     ,VARCHAR UserPassword = @UserPassword
+     ,VARCHAR TdpId        = @TdpId
+     ,VARCHAR AccountID
+     ,VARCHAR ARRAY ErrorList = ['3803','3807']
+    );
+
+
+ DEFINE OPERATOR FILE_EXPORT
+	DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DATA CONNECTOR OPERATOR'
+	TYPE DATACONNECTOR CONSUMER
+	SCHEMA MODELO_MATERIALIZADAS
+	ATTRIBUTES
+	(
+	VARCHAR DirectoryPath   = @HOMER||@SALIDAS,
+	VARCHAR FileName        = @Archivo_Nov||'_'||@HOY||'.txt',
+	VARCHAR IndicatorMode   = 'N',
+	VARCHAR OpenMode        = 'Write',
+	VARCHAR Format          = 'Delimited',
+	VARCHAR TextDelimiter   = @TextDelimiter
+	);
+
+
+DEFINE OPERATOR Select_Mat
+ TYPE SELECTOR
+ SCHEMA MODELO_MATERIALIZADAS
+ ATTRIBUTES
+ (
+ VARCHAR UserName 	  = @UserName,
+ VARCHAR UserPassword = @UserPassword,
+ VARCHAR TdpId = @TdpId,
+ VARCHAR SelectStmt = 'SELECT ID_BIZAGI,TIPO_ID,NUM_ID,COD_CTA,NUM_CTA,COD_SUSC,DATO_ORIGINAL,DATO_ESTANDAR,TIPO_NOVEDAD,VALIDO,TIPO_EXCLUSION,CAUSAL_EXCLUSION,NOMBRE_ARCHIVO_PLANO, CAMPO_ACTUALIZADO FROM '||@BDSTAGE||'.VALIDA_CARGA_NOVEDAD'
+ );
+ 
+	STEP Generacion_File
+	 (
+		APPLY
+			TO OPERATOR
+			(FILE_EXPORT[1])	 
+		SELECT  *
+		FROM OPERATOR (Select_Mat[1]);
+	 ); 
+	
+ 
+ ); 
+ 

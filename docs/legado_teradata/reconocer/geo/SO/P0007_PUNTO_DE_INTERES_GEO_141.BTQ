@@ -1,0 +1,163 @@
+#!/bin/sh
+#*-----------------------------------------------------------------------------*
+#BTQ:          P0007_PUNTO_DE_INTERES_GEO_141.BTQ
+#ENTIDAD:      EXPERIAN DATACREDITO
+#DATE-WRITTEN: SEP 06/2018
+#AUTHOR:       FERNANDO GARRIDO MOLINA
+#FUNCION:      EJE SP PRO_HOMOLOGACION_GEO
+#*-----------------------------------------------------------------------------*
+BDSTAGE=`cat $HOMER/parametros/P0007_PUNTO_DE_INTERES_GEO.par|grep BDSTAGE|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+BDTEMPO=`cat $HOMER/parametros/P0007_PUNTO_DE_INTERES_GEO.par|grep BDTEMPO|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+BDVISTA=`cat $HOMER/parametros/P0007_PUNTO_DE_INTERES_GEO.par|grep BDVISTA|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+BDDATOS=`cat $HOMER/parametros/P0007_PUNTO_DE_INTERES_GEO.par|grep BDDATOS|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+BDMTDAT=`cat $HOMER/parametros/P0007_PUNTO_DE_INTERES_GEO.par|grep BDMTDAT|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+BDMVISTA=`cat $HOMER/parametros/P0007_PUNTO_DE_INTERES_GEO.par|grep BTTPRUVI|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+UserName=`cat $HOMER/parametros/P0007_PUNTO_DE_INTERES_GEO.par|grep UserName|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+UserPassword=`cat $HOMER/parametros/P0007_PUNTO_DE_INTERES_GEO.par|grep UserPassword|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+TdpId=`cat $HOMER/parametros/P0007_PUNTO_DE_INTERES_GEO.par|grep TdpId|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+LOGS=`cat $HOMER/parametros/P0007_PUNTO_DE_INTERES_GEO.par|grep LOGS|awk -F"=" '{print "echo "$2}'|sh`
+Lote=`cat $HOMER/parametros/P0007_PUNTO_DE_INTERES_GEO.par|grep LOTE|head -1|awk -F"=" '{print $2}'|awk -F"'" '{print $2}'`
+Logon="$TdpId/$UserName,$UserPassword"
+PROCESO='PRO_HOMOLOGACION_GEO';
+FECDAY=`date +%Y%m%d_%H%M%S`
+LOGFILE=$LOGS/"Puntos_Interes_x_Persona_"$FECDAY.log
+re='^[0-9]+$'
+
+#------------------------------------------------------------------------------------------- 
+# PASO: 0  
+# FUNCION: Actualizar log Detalle
+#-------------------------------------------------------------------------------------------
+ActualizaLogDetalle(){
+bteq << EOF
+.logon ${Logon};
+.SET WIDTH 254
+CALL ${BDDATOS}.SP_EXECSTRING_DES($Lote
+								,CAST(CAST(CAST(CURRENT_DATE AS DATE FORMAT 'YYYY-MM-DD')AS VARCHAR(10))||''||CAST(current_Time AS VARCHAR(8) ) as timestamp(6) format 'yyyy-mm-ddhh:mi:ss')
+								,'$PROCESO'
+								,${V_CADENA}
+								,${PASO}
+								,P_ERROR); 
+.QUIT
+EOF
+}
+
+#------------------------------------------------------------------------------------------- 
+# PASO: 1  
+# FUNCION: Ejecutar proceso Snapshot con los parametros de la tabla Progamar_Snapshot
+#-------------------------------------------------------------------------------------------
+
+execPunto_Interes_Geo()
+{
+#Consultado parametros del proceso
+set -x
+export LOGFILE
+touch ${LOGFILE}
+exec </dev/null
+exec >${LOGFILE} 2>&1
+
+#Seleccionando lote para registrar en el log.
+LoteFile=$LOGS/"Lote_Programacion_"$FECDAY".txt"
+
+bteq << EOF
+.logon ${Logon};
+.SET WIDTH 254
+INSERT INTO $BDMTDAT.log_td(Lote, Fecha_Hora_Inicio, Nombre_Proceso, Tabla_Origen_Stage, Tabla_Destino_Prod, USuario_BD, Estado_Ejecucion)
+SELECT $Lote Lote
+	   ,CURRENT_TIMESTAMP(6) Fecha_Inicio
+	   ,'$PROCESO' Nombre_Proceso
+	   ,'PUNTO_DE_INTERES_GEO' Tabla_Origen_Stage
+	   ,'RELACION_PUNTO_INTERES_X_PERS' Tabla_Destino_Prod
+	   ,User Usuario_BD
+	   ,'Inicio..' Estado_Ejecucion       
+FROM $BDMTDAT.log_td;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+.QUIT 0;
+.Label ERRORFOUND
+/*Se presento un fallo al insertar el lote*/
+.LOGOFF
+.EXIT 13
+EOF
+
+RETURNCODE=$?     ;export RETURNCODE
+
+if [ $RETURNCODE -gt 0 ]
+	  then 
+			echo "#########################################################################################"
+			echo "#####"
+			echo "#####  Error Insertando el lote para el proceso"
+			echo "#####  Codigo de retorno: $RETURNCODE     "
+			echo "#####"
+			echo "#########################################################################################"
+			exit 12						
+    		V_CADENA="'Update $BDMTDAT.log_td
+						 Set Estado_Ejecucion = ''Finalizo con Error''   
+					 WHERE Lote = $Lote;'"
+		   PASO="'PIG_X_P(1). Creando Lote ${Lote} para la ejecucion del SP'";
+		   ActualizaLogDetalle
+	   else   
+	
+	V_CADENA="'Update $BDMTDAT.log_td
+				 Set Estado_Ejecucion = ''Iniciando Proceso''   
+			 WHERE Lote = ${Lote}
+			 AND Tabla_Destino_Prod = ''RELACION_PUNTO_INTERES_X_PERS'';'"
+	PASO="'PIG_X_P(1). Creando Lote ${Lote} para la ejecucion del SP'";
+	ActualizaLogDetalle
+   
+fi
+#Ejecutando Procedimiento PRO_HOMOLOGACION_GEO
+bteq << EOF
+.logon ${Logon};
+.SET WIDTH 254
+Update $BDMTDAT.log_td
+   Set Estado_Ejecucion = 'Ejec..PRO_HOMOLOGACION'   
+WHERE Lote = $Lote
+AND Tabla_Destino_Prod = 'RELACION_PUNTO_INTERES_X_PERS';
+
+CALL $BDDATOS.PRO_HOMOLOGACION_GEO($Lote				 
+									 ,CAST(CAST(CURRENT_DATE AS DATE FORMAT 'YYYY-MM-DD')AS VARCHAR(10))||''||CAST(current_Time AS VARCHAR(8) )
+									 ,'PRO_HOMOLOGACION_GEO'
+									 ,'$BDDATOS'
+									 ,'$BDVISTA'
+									 ,'$BDSTAGE'
+									 ,'$BDMVISTA'
+									 ,P_ERROR );				 
+.if Errorcode <> 0 Then .Goto ERRORFOUND 
+Select Count(1) cnt
+From rec_mtdat.log_td_detalle  
+WHere lote = $Lote
+And Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+Having cnt> 0;
+
+.if activitycount <> 0 Then .Goto ERRORFOUND
+				 
+Update $BDMTDAT.log_td
+   Set Estado_Ejecucion = 'Finalizo Exitosamente'   
+WHERE Lote = $Lote
+AND Tabla_Destino_Prod = 'RELACION_PUNTO_INTERES_X_PERS';
+
+.QUIT 0;
+.Label ERRORFOUND
+/*Se presento un fallo al ejecutar el $SP*/
+.LOGOFF
+.EXIT 13
+EOF
+RETURNCODE=$?     
+validaPrgmcn=0
+if [ $RETURNCODE -gt 0 ]
+	  then 
+			echo "#########################################################################################"
+			echo "#####"
+			echo "#####  Error ejecutando el procso PRO_HOMOLOGACION_GEO                                   "
+			echo "#####  Codigo de retorno: $RETURNCODE     "
+			echo "#####"
+			echo "#########################################################################################"
+			exit 13			
+	   else
+    V_CADENA="'COLLECT STAT $BDSTAGE.RELACION_PUNTO_INTERES_X_PERS INDEX(Cod_DW_Punto_Interes ,Id_Buro_Persona);'"
+    PASO="'PIG_X_P(1). Finalizo ejecucion del SP PRO_HOMOLOGACION_GEO de forma exitosa'";
+    ActualizaLogDetalle	    
+    exit 0   
+fi
+}
+execPunto_Interes_Geo

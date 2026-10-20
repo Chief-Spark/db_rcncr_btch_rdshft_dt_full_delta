@@ -1,0 +1,621 @@
+/*♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠
+♠  
+♠  Objetivo: Borrado y Release para tablas de trabajo y create vstg Novedades
+♠  Fecha:	2018-10-29	
+♠  Realizado por:	Fernando Garrido.
+♠  PARAMETROS: P0035_Extractor_Novedades.par	
+♠  Proyecto: Reconocer Master.
+♠  Script: P0035_Extractor_Novedades
+♠  
+♠  BITACORA
+♠  -------------------------------------------------------------------------------------------------------
+♠  Fecha		Objetivo																Realizado por
+♠  2018-10-29	#1 Version Inicial														Fernando Garrido
+♠  2018-11-19   #2 Inclusion campos TIPO_IDEBTIFICAION y NUMERO_IDENTIFICACION 			Jeimmy Chavez 
+♠  2018-04-12 	#3 Incluir campo Cod_Pin_Persona en Vstg_Reconocer_Info_Basica			Andy Garcia
+♠  2023-10-20 	#4 Se agregan las vistas delta para carga solo lo modificado			Omar Delgado
+♠  2023-12-29 	#5 Se agregan las vistas delta para TOPONIMOS y Acepciones				John Bueno
+
+♠  ---------------------------------------------------------------------------------------------------------
+♠  
+♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠*/
+
+DEFINE JOB RELEASE_TABLE_AND_CREATE_VSTG
+DESCRIPTION 'BORRADO TABLAS DE TRABAJO'
+(
+    DEFINE OPERATOR DDL_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR'
+    TYPE DDL
+    ATTRIBUTES
+    (
+      VARCHAR UserName        = @UserName,      
+      VARCHAR UserPassword    = @UserPassword,   
+      VARCHAR TdpId           = @TdpId,          
+      VARCHAR AccountID,                         
+      VARCHAR ARRAY ErrorList = ['3803','3807','2574','2580','2572'] 
+    );
+	
+	STEP DROP_RELEASE_TABLES  
+    (           
+      APPLY      
+           ('DROP TABLE '||@BDTEMPO||'.'||@Wktb||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err1||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err2||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@LogTable||';'),
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino1 ||';'),  
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino1 ||' in apply;'),
+		   ('DROP TABLE '||@BDTEMPO||'.'||@Wktb1||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err11||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err12||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@LogTable11||';'),
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino2 ||';'),  
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino2 ||' in apply;'),		   
+		   ('DROP TABLE '||@BDTEMPO||'.'||@Wktb2||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err13||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err14||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@LogTable12||';'),
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino3 ||';'),  
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino3 ||' in apply;'),		   
+		   ('DROP TABLE '||@BDTEMPO||'.'||@Wktb3||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err15||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err16||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@LogTable13||';'),
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino4 ||';'),  
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino4 ||' in apply;'),		   
+		   ('DROP TABLE '||@BDTEMPO||'.'||@Wktb4||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err17||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err18||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@LogTable14||';'),
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino5 ||';'),  
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino5 ||' in apply;'),		   
+		   ('DROP TABLE '||@BDTEMPO||'.'||@Wktb5||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err19||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err110||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@LogTable15||';'),
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino6 ||';'),  
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino6 ||' in apply;'),		   
+		   ('DROP TABLE '||@BDTEMPO||'.'||@Wktb6||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err111||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err112||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@LogTable16||';'),
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino7 ||';'),  
+		   ('RELEASE MLOAD '|| @BDDATOS || '.'||@TablaDestino7 ||' in apply;')		   
+      TO OPERATOR ( DDL_OPERATOR );                       
+    );
+
+	STEP CREATE_VIEW_STAGE_INFO_UBICA(
+    APPLY ('REPLACE VIEW '||@BDSTAGE||'.Vstg_Reconocer_Info_Ubica
+			 AS
+			 LOCKING ROW FOR ACCESS 
+			 SELECT STG.Cod_Tipo_Ident_Fte            
+					,STG.TIPO_IDENTIFICACION           
+					,STG.NUMERO_IDENTIFICACION         
+					,STG.ID                            
+					,STG.ORDEN                         
+					,STG.INDICATIVO                    
+					,STG.DATO                          
+					,STG.ESTRATO                       
+					,STG.TIPO                          
+					,STG.ZONA                          
+					,STG.CIUDAD                        
+					,STG.DEPARTAMENTO    
+					,CAST(STG.LONGITUD  AS VARCHAR(40)) LONGITUD                   
+					,CAST(STG.LATITUD   AS VARCHAR(40)) LATITUD                  					
+					,STG.REPORTADO_DESDE               
+					,STG.ULTIMO_REPORTE                
+					,STG.FUENTE                        
+					,STG.NUMERO_REPORTES               
+					,STG.NUMERO_ENTIDADES              
+					,STG.BARRIO                        
+					,STG.LOCALIDAD                     
+					,STG.CODIGO_POSTAL                 
+					,STG.CLASE                         
+					,STG.INFO_BASICA                   
+					,STG.CODIGO_DANE                   
+					,STG.ES_TIPO_CRR                   
+					,STG.ES_TIPO_RES                   
+					,STG.ES_TIPO_PPL                   
+					,STG.ES_TIPO_AGN                   
+					,STG.ES_TIPO_SUC                   
+					,STG.ES_TIPO_EST                   
+					,STG.ES_TIPO_CDI                   
+					,STG.ES_TIPO_LAB                   
+					,STG.TIPO_CUENTA                   
+					,STG.Cod_DW_Ubic                   
+					,STG.Cod_DW_Direccion_Fisica       
+					,STG.Cod_DW_Telefono               
+					,STG.Cod_DW_Direccion_Electronica  
+					,STG.Ind_Unificacion               
+					,STG.Cod_DW_Tipo_Ubicacion_Dir     					              
+					,STG.Cod_Pin_Persona                      
+					,CASE WHEN STG.FLAG_OP = ''I'' AND  B.ID IS NULL THEN  1
+								  WHEN (STG.FLAG_OP = ''A'' OR B.ID IS NOT NULL) 
+								               AND ( COALESCE(STG.ORDEN, -1) <> COALESCE(B.ORDEN,-1)
+ 											        OR COALESCE(STG.INDICATIVO, ''SV'') <> COALESCE(B.INDICATIVO, ''SV'')
+													OR COALESCE(STG.DATO, ''SV'') <> COALESCE(B.DATO, ''SV'')
+													OR COALESCE(STG.ESTRATO, ''SV'') <> COALESCE(B.ESTRATO, ''SV'')
+													OR COALESCE(STG.TIPO, ''SV'') <> COALESCE(B.TIPO, ''SV'')
+													OR COALESCE(STG.ZONA, ''SV'') <> COALESCE(B.ZONA, ''SV'')
+													OR COALESCE(STG.CIUDAD, ''SV'') <> COALESCE(B.CIUDAD, ''SV'')
+													OR COALESCE(STG.DEPARTAMENTO, ''SV'') <> COALESCE(B.DEPARTAMENTO, ''SV'')							
+													OR COALESCE(STG.REPORTADO_DESDE, -1) <> COALESCE(B.REPORTADO_DESDE, -1)
+													OR COALESCE(STG.ULTIMO_REPORTE, -1) <> COALESCE(B.ULTIMO_REPORTE, -1)
+													OR COALESCE(STG.FUENTE, -1)<> COALESCE(B.FUENTE,-1)
+													OR COALESCE(STG.NUMERO_REPORTES, -1) <> COALESCE(B.NUMERO_REPORTES, -1)
+													OR COALESCE(STG.NUMERO_ENTIDADES, -1) <> COALESCE(B.NUMERO_ENTIDADES,-1)
+													OR COALESCE(STG.BARRIO, ''SV'') <> COALESCE(B.BARRIO,''SV'')
+													OR COALESCE(STG.LOCALIDAD,''SV'') <> COALESCE(B.LOCALIDAD,''SV'')
+													OR COALESCE(STG.CODIGO_POSTAL,''SV'') <> COALESCE(B.CODIGO_POSTAL,''SV'')
+													OR COALESCE(STG.CLASE,''SV'') <> COALESCE(B.CLASE,''SV'')
+													OR COALESCE(STG.CODIGO_DANE,''SV'') <> COALESCE(B.CODIGO_DANE, ''SV'')
+													OR COALESCE(STG.ES_TIPO_CRR,''S'' )<> COALESCE(B.ES_TIPO_CRR,''S'')
+													OR COALESCE(STG.ES_TIPO_RES,''S'' )<> COALESCE(B.ES_TIPO_RES,''S'')
+													OR COALESCE(STG.ES_TIPO_PPL,''S'' )<> COALESCE(B.ES_TIPO_PPL,''S'')
+													OR COALESCE(STG.ES_TIPO_AGN,''S'' )<> COALESCE(B.ES_TIPO_AGN,''S'')
+													OR COALESCE(STG.ES_TIPO_SUC,''S'' )<> COALESCE(B.ES_TIPO_SUC,''S'')
+													OR COALESCE(STG.ES_TIPO_EST,''S'' )<> COALESCE(B.ES_TIPO_EST,''S'')
+													OR COALESCE(STG.ES_TIPO_CDI,''S'' )<> COALESCE(B.ES_TIPO_CDI,''S'')
+													OR COALESCE(STG.ES_TIPO_LAB,''S'' )<> COALESCE(B.ES_TIPO_LAB,''S'')
+													OR COALESCE(STG.TIPO_CUENTA,''S'' )<> COALESCE(B.TIPO_CUENTA,''S'')															
+													OR COALESCE(STG.Ind_Unificacion,-1) <> COALESCE(B.Ind_Unificacion, -1)											
+													)  
+								  THEN 1								  
+								  WHEN STG.FLAG_OP = ''E'' THEN 2		            		              								  
+								  WHEN B.ID IS NULL THEN 1	                                                                          
+                       ELSE -1										
+					END   AS Severidad
+					,CASE WHEN STG.FLAG_OP= ''I'' THEN 1  
+							WHEN STG.FLAG_OP= ''A'' THEN 2
+							WHEN STG.FLAG_OP= ''E'' THEN 3
+					END FLAG_OP
+			FROM  '||@BDSTAGE||'.TMP_UBICA_ETAPA_9 STG 
+			LEFT JOIN '||@BDDATOS||'.MAT_INFO_UBICACION B
+			ON STG.ID = B.ID;')
+	TO OPERATOR ( DDL_OPERATOR );
+  );
+
+	STEP CREATE_VIEW_STAGE_ACTIVIDAD_ECONO(
+    APPLY ('REPLACE VIEW '||@BDSTAGE||'.Vstg_Reconocer_Actividad_Econo
+	        AS
+			LOCKING ROW FOR ACCESS			
+			SELECT   Max_ID + CAST( SUM(1)  OVER ( ROWS UNBOUNDED PRECEDING ) AS INTEGER) ID                           
+					,STG.CIIU                          
+					,STG.ACTIVIDAD_ECONOMICA           
+					,STG.VERSION                       
+					,CAST( CAST( STG.FECHA_REPORTE AS DATE FORMAT ''YYYYMMDD'') AS VARCHAR(8) ) FECHA_REPORTE                 
+					,STG.INFO_BASICA_ID    
+					,STG.TIPO_IDENTIFICACION /*#2*/
+					,STG.NUMERO_IDENTIFICACION /*#2*/					
+					,CASE WHEN FLAG_OP = ''I'' AND B.INFO_BASICA_ID IS NULL THEN 1 
+						  WHEN (FLAG_OP = ''A'' OR B.INFO_BASICA_ID IS NOT NULL)
+												AND (COALESCE(STG.ACTIVIDAD_ECONOMICA,''SV'') <> COALESCE(B.ACTIVIDAD_ECONOMICA,''SV'')           
+													 OR COALESCE(STG.VERSION, -1)             <> COALESCE(B.VERSION, -1))
+									 THEN 1					  
+						  WHEN  B.INFO_BASICA_ID IS  NULL THEN 1            					             
+					  ELSE -1 					              
+					END   Severidad					
+			FROM  '||@BDSTAGE||'.TMP_PERS_ACTIVIDAD_ECONOMIC STG
+			CROSS JOIN (SELECT COALESCE( MAX(ID),0)  Max_ID FROM '||@BDDATOS||'.MAT_INFO_ACTIVIDAD_ECONOMICA) A
+			LEFT JOIN  '||@BDDATOS||'.MAT_INFO_ACTIVIDAD_ECONOMICA  B
+			ON STG.INFO_BASICA_ID = B.INFO_BASICA_ID
+            AND STG.CIIU = B.CIIU
+			AND	STG.FECHA_REPORTE = B.FECHA_REPORTE;')
+	TO OPERATOR ( DDL_OPERATOR );
+  );
+  
+	STEP CREATE_VIEW_STAGE_INFO_BASICA(
+    APPLY ('REPLACE VIEW '||@BDSTAGE||'.Vstg_Reconocer_Info_Basica
+			AS
+			LOCKING ROW FOR ACCESS
+			SELECT   STG.COD_PIN_PERSONA /*#3*/
+					,STG.ID                            
+					,STG.PRIMER_NOMBRE                 
+					,STG.SEGUNDO_NOMBRE                
+					,STG.PRIMER_APELLIDO               
+					,STG.SEGUNDO_APELLIDO              
+					,STG.NOMBRE_COMPLETO               
+					,STG.COD_TIPO_IDENT_FTE            
+					,STG.TIPO_IDENTIFICACION           
+					,STG.NUMERO_IDENTIFICACION         
+					,STG.ESTADO_DOCUMENTO              
+					,STG.RANGO_EDAD                    
+					,STG.LUGAR_EXPEDICION              
+					,CAST( CAST(STG.FECHA_EXPEDICION  AS DATE FORMAT ''YYYYMMDD'') AS VARCHAR(8) ) FECHA_EXPEDICION             
+					,STG.GENERO                        
+					,STG.CIIU                          
+					,STG.ACTIVIDAD_ECONOMICA           
+					,STG.RAZON_SOCIAL                  
+					,STG.PAGINA_WEB                    
+					,STG.MOSAIC_ID                     
+					,STG.DEPARTAMENTO_EXPEDICION 
+                    ,STG.RUT										
+					,CASE  WHEN STG.FLAG_OP  = ''I''  AND B.ID  IS NULL THEN 1    
+						   WHEN (STG.FLAG_OP  = ''A'' OR B.ID IS NOT NULL)
+						                 AND ( STG.PRIMER_NOMBRE            <> B.PRIMER_NOMBRE                 
+											    OR COALESCE(STG.SEGUNDO_NOMBRE,''SV'')   <> COALESCE(B.SEGUNDO_NOMBRE  ,''SV'')              
+											    OR COALESCE(STG.PRIMER_APELLIDO,''SV'')  <> COALESCE(B.PRIMER_APELLIDO ,''SV'')              
+											    OR COALESCE(STG.SEGUNDO_APELLIDO,''SV'') <> COALESCE(B.SEGUNDO_APELLIDO,''SV'')              
+											    OR COALESCE(STG.NOMBRE_COMPLETO,''SV'')  <> COALESCE(B.NOMBRE_COMPLETO ,''SV'')              
+											    OR COALESCE(STG.COD_TIPO_IDENT_FTE,''SV'')<> COALESCE(B.COD_TIPO_IDENT_FTE,''SV'')            
+											    OR COALESCE(STG.TIPO_IDENTIFICACION, ''SV'')  <> COALESCE(B.TIPO_IDENTIFICACION,''SV'')           
+											    OR COALESCE(STG.NUMERO_IDENTIFICACION, -1)    <> COALESCE(B.NUMERO_IDENTIFICACION,-1)         
+											    OR COALESCE(STG.ESTADO_DOCUMENTO       ,''SV'')  <> COALESCE(B.ESTADO_DOCUMENTO,''SV'')              
+											    OR COALESCE(STG.RANGO_EDAD             ,''SV'')  <> COALESCE(B.RANGO_EDAD      ,''SV'')              
+											    OR COALESCE(STG.LUGAR_EXPEDICION       ,''SV'')  <> COALESCE(B.LUGAR_EXPEDICION,''SV'')              
+											    OR COALESCE(STG.FECHA_EXPEDICION       ,CAST( ''2099-12-31'' AS DATE FORMAT ''YYYY-MM-DD''))  <> COALESCE(B.FECHA_EXPEDICION,CAST( ''2099-12-31'' AS DATE FORMAT ''YYYY-MM-DD''))              
+											    OR COALESCE(STG.GENERO                 ,''SV'')  <> COALESCE(B.GENERO             ,''SV'')           
+											    OR COALESCE(STG.CIIU                   ,''SV'')  <> COALESCE(B.CIIU               ,''SV'')           
+											    OR COALESCE(STG.ACTIVIDAD_ECONOMICA    ,''SV'')  <> COALESCE(B.ACTIVIDAD_ECONOMICA,''SV'')           
+											    OR COALESCE(STG.RAZON_SOCIAL           ,''SV'')  <> COALESCE(B.RAZON_SOCIAL       ,''SV'')           
+											    OR COALESCE(STG.PAGINA_WEB             ,''SV'')  <> COALESCE(B.PAGINA_WEB         ,''SV'')           
+											    OR COALESCE(STG.MOSAIC_ID              ,-1)  <> COALESCE(B.MOSAIC_ID, -1)                     
+												OR COALESCE(STG.DEPARTAMENTO_EXPEDICION,''SV'')  <> COALESCE(B.DEPARTAMENTO_EXPEDICION, ''SV'')
+                                                OR COALESCE(STG.RUT,''SV'')  <> COALESCE(B.RUT, ''SV'')
+												) 
+									THEN   1
+						   WHEN STG.FLAG_OP  = ''E''  THEN 2
+						   WHEN B.ID IS NULL THEN 1						   
+					   ELSE  -1 
+					END Severidad  
+			FROM  '||@BDSTAGE||'.TMP_INBAS_ETAPA_10 STG
+			LEFT JOIN '||@BDDATOS||'.MAT_INFO_BASICA B
+			ON STG.ID = B.ID;')
+	TO OPERATOR ( DDL_OPERATOR);  
+   );
+   
+	STEP CREATE_VIEW_STAGE_INFO_CONTACTABILIDAD(
+    APPLY ('REPLACE VIEW '||@BDSTAGE||'.Vstg_Reconocer_Info_Contacto
+			AS
+			LOCKING ROW FOR ACCESS
+			 SELECT STG.ID                            
+					,STG.CONTACTABILIDAD
+                    ,CAST(STG.FECHA_ULTIMO_CONTACTO AS VARCHAR(32) ) FECHA_ULTIMO_CONTACTO					
+					,CAST(STG.Fecha_Gestion AS VARCHAR(32) ) Fecha_Gestion
+					,STG.MEJOR_DIA_GESTION             
+					,STG.MEJOR_HORA_GESTION            
+					,STG.REPORTADO_POR                 
+					,STG.SECTOR                        
+					,STG.UBICACION_ID                  
+					,STG.PESO                          
+					,STG.MEJOR_RESULTADO_3MESES        
+					,STG.MEJOR_RESULTADO_6MESES        
+					,CASE WHEN FLAG_OP = ''I'' AND B.ID IS NOT NULL THEN 1 
+								  WHEN FLAG_OP = ''A'' AND B.ID IS NOT NULL THEN 1 
+								  WHEN FLAG_OP = ''E''  THEN 2
+								  WHEN B.ID IS  NULL THEN 1
+								  WHEN B.ID IS NOT NULL AND (  STG.CONTACTABILIDAD                 <> B.CONTACTABILIDAD               
+															 OR STG.FECHA_ULTIMO_CONTACTO          <> B.FECHA_ULTIMO_CONTACTO         
+															 OR STG.Fecha_Gestion                  <> B.Fecha_Gestion                 
+															 OR STG.MEJOR_DIA_GESTION              <> B.MEJOR_DIA_GESTION             
+															 OR STG.MEJOR_HORA_GESTION             <> B.MEJOR_HORA_GESTION            
+															 OR STG.REPORTADO_POR                  <> B.REPORTADO_POR                 							
+															 OR STG.UBICACION_ID                   <> B.UBICACION_ID                  
+															 OR STG.PESO                           <> B.PESO                          
+															 OR STG.MEJOR_RESULTADO_3MESES         <> B.MEJOR_RESULTADO_3MESES        
+															 OR STG.MEJOR_RESULTADO_6MESES <> B.MEJOR_RESULTADO_6MESES)																				 
+						THEN 1
+					 ELSE -1
+				   END Severidad		              	   
+			FROM '||@BDSTAGE||'.TMP_HIST_ETAPA_7 STG
+			LEFT JOIN '||@BDDATOS||'.MAT_INFO_CONTACTABILIDAD B
+			ON  STG.ID = B.ID
+			AND STG.SECTOR = B.SECTOR
+			AND STG.UBICACION_ID  = B.UBICACION_ID;')
+	TO OPERATOR ( DDL_OPERATOR);  
+   );  
+ 
+	STEP CREATE_VIEW_STAGE_INFO_MOVILIDAD(
+	APPLY ('REPLACE  VIEW '||@BDSTAGE||'.Vstg_Reconocer_Info_Movilidad
+		AS
+		LOCKING ROW FOR ACCESS 
+		SELECT STG.ID                            
+				,CAST( CAST(STG.FECHA AS DATE FORMAT ''YYYYMMDD'')  AS VARCHAR(8) ) FECHA                       
+				,STG.DESCRIPCION                   
+				,STG.NOVEDAD                       
+				,STG.INFO_BASICA_ID                
+				,STG.NOVEDAD_2  
+				,STG.TIPO_IDENTIFICACION /*#2*/
+				,STG.NUMERO_IDENTIFICACION /*#2*/		
+				,CASE WHEN FLAG_OP = ''I''  AND B.ID IS NULL THEN  1
+					  WHEN FLAG_OP =''A'' AND B.ID IS NOT NULL THEN  1
+					  WHEN FLAG_OP = ''E''  THEN 2
+					  WHEN B.ID IS NULL THEN 1
+					  WHEN B.ID IS NOT NULL AND  ( STG.FECHA           <> B.FECHA                         
+												OR STG.DESCRIPCION     <> B.DESCRIPCION                   
+												OR STG.NOVEDAD         <> B.NOVEDAD                       
+												OR STG.INFO_BASICA_ID  <> B.INFO_BASICA_ID                
+												OR STG.NOVEDAD_2       <> B.NOVEDAD_2  )
+							THEN 1
+				   ELSE  -1
+				END Severidad		
+		FROM '||@BDSTAGE||'.TMP_MOVIL_ETAPA_2 STG
+		LEFT JOIN '||@BDDATOS||'.MAT_INFO_MOVILIDAD B
+		ON STG.ID =  B.ID;')
+	TO OPERATOR ( DDL_OPERATOR);  
+   );   
+   
+	STEP CREATE_VIEW_STAGE_INFO_PUNTO_INTERES(
+	APPLY ('REPLACE VIEW '||@BDSTAGE||'.Vstg_Reconocer_Info_PuntoInter
+		AS 
+		LOCKING ROW FOR ACCESS
+		SELECT STG.ID                            
+			,STG.NOMBRE                        
+			,STG.DISTANCIA                     
+			,STG.Descripcion_Tipo_Punto_Interes
+			,STG.UBICACION_ID                  
+			,STG.NOMBRE_ENTIDAD                
+			,STG.NIT_ENTIDAD                   
+			,CAST(STG.LATITUD   AS VARCHAR(40)) LATITUD 			
+            ,CAST(STG.LONGITUD  AS VARCHAR(40)) LONGITUD                   								
+			,STG.TIPO                          
+			,CASE WHEN FLAG_OP = ''I'' AND B.ID IS NULL THEN 1
+						  WHEN (FLAG_OP = ''A'' OR (B.ID IS NOT NULL AND B.UBICACION_ID IS NOT NULL ) )
+									AND (COALESCE(STG.NOMBRE,''SV'')    <> COALESCE(B.NOMBRE,''SV'')                        
+										 OR COALESCE(STG.DISTANCIA,-1)  <> COALESCE(B.DISTANCIA,-1)                    
+										 OR COALESCE(STG.Descripcion_Tipo_Punto_Interes, ''SV'')  <> COALESCE(B.Descripcion_Tipo_Punto_Interes,''SV'')										 
+										 OR COALESCE(STG.NOMBRE_ENTIDAD ,''SV'') <> COALESCE(B.NOMBRE_ENTIDAD,''SV'')                
+										 OR COALESCE(STG.NIT_ENTIDAD,''SV'') <> COALESCE(B.NIT_ENTIDAD,''SV'')                   
+										 OR COALESCE(STG.LATITUD    ,-1) <> COALESCE(B.LATITUD ,-1)                     
+										 OR COALESCE(STG.LONGITUD   ,-1) <> COALESCE(B.LONGITUD,-1)                      
+										 OR COALESCE(STG.TIPO       ,''SV'') <> COALESCE(B.TIPO, ''SV'') )
+									THEN 1
+						  WHEN FLAG_OP =''E'' THEN 2
+						  WHEN  B.ID IS NULL THEN 1						   
+			   ELSE  -1
+			END Severidad				    
+		FROM '||@BDSTAGE||'.TMP_PINTER_ETAPA_2 STG
+		LEFT JOIN '||@BDDATOS||'.MAT_INFO_PUNTO_INTERES B
+		ON STG.ID =  B.ID
+		AND STG.UBICACION_ID = B.UBICACION_ID;')
+	TO OPERATOR ( DDL_OPERATOR);  
+	);   
+
+	STEP CREATE_VIEW_STAGE_INFO_UBICACION_AGREGADA(
+	APPLY ('REPLACE VIEW '||@BDSTAGE||'.Vstg_Reconocer_Info_Ubic_Agrupa
+		AS
+		LOCKING ROW FOR ACCESS
+		SEL STG.TIPO_IDENTIFICACION           
+			,STG.NUMERO_IDENTIFICACION         
+			,STG.INFO_BASICA                   
+			,STG.CODIGO_DANE                   
+			,STG.CIUDAD                        
+			,STG.DEPARTAMENTO                  
+			,STG.UBICACION_DATO                
+			,CAST( CAST( STG.UBICACION_REPORTDESDE AS DATE FORMAT ''YYYYMMDD'') AS VARCHAR(8) ) UBICACION_REPORTDESDE        
+			,CAST( CAST( STG.UBICACION_ULTREPORTE AS DATE FORMAT ''YYYYMMDD'') AS VARCHAR(8) ) UBICACION_ULTREPORTE          
+			,STG.UBICACION_NUMENTIDADES        
+			,STG.UBICACION_NUMREPORTES         
+			,STG.UBICACION_CLASE               
+			,STG.UBICACION_TIPOCUENTA          
+			,STG.UBICACION_ORDEN               
+			,STG.UBICACCION_INDICATIVO         
+			,STG.UBICACION_ESTRATO             
+			,STG.UBICACION_ZONA                
+			,STG.UBICACION_CIUDAD              
+			,STG.UBICACION_DEPARTAMENTO        
+			,STG.UBICACION_CODIGODANE          
+			,STG.UBICACION_BARRIO              
+			,STG.UBICACION_LOCALIDAD           
+			,STG.UBICACION_CODIGOPOSTAL        
+			,CAST( STG.UBICACION_LONGITUD AS VARCHAR(40) ) UBICACION_LONGITUD         
+			,CAST( STG.UBICACION_LATITUD AS VARCHAR(40) ) UBICACION_LATITUD             
+			,STG.TIPO                          
+			,STG.FUENTE                        
+			,STG.ID 
+			,STG.COD_PAIS
+			,CASE WHEN B.INFO_BASICA IS NULL 
+					AND B.TIPO_IDENTIFICACION IS NULL 
+					AND B.NUMERO_IDENTIFICACION IS NULL 
+					AND B.UBICACION_DATO IS NULL 
+					AND B.UBICACION_CODIGODANE IS NULL
+					AND B.UBICACION_CIUDAD IS NULL 
+					AND B.UBICACION_DEPARTAMENTO IS NULL					
+					THEN 1
+				  WHEN B.INFO_BASICA IS  NOT NULL 
+					AND B.TIPO_IDENTIFICACION IS NOT NULL 
+					AND B.NUMERO_IDENTIFICACION IS NOT NULL 
+					AND B.UBICACION_DATO IS  NOT NULL 
+					AND B.UBICACION_CODIGODANE IS NOT NULL
+					AND B.UBICACION_CIUDAD IS NOT NULL
+					AND B.UBICACION_DEPARTAMENTO IS NOT NULL
+					AND  (	COALESCE(STG.CODIGO_DANE,''SV'')       <> COALESCE(B.CODIGO_DANE,''SV'')                   							 								         
+							 OR COALESCE(STG.UBICACION_REPORTDESDE ,CAST( ''2099-12-31'' AS DATE FORMAT ''YYYY-MM-DD'')) <> COALESCE(B.UBICACION_REPORTDESDE  ,CAST( ''2099-12-31'' AS DATE FORMAT ''YYYY-MM-DD''))       
+							 OR COALESCE(STG.UBICACION_ULTREPORTE  ,CAST( ''2099-12-31'' AS DATE FORMAT ''YYYY-MM-DD'')) <> COALESCE(B.UBICACION_ULTREPORTE   ,CAST( ''2099-12-31'' AS DATE FORMAT ''YYYY-MM-DD''))       
+							 OR COALESCE(STG.UBICACION_NUMENTIDADES,-1)     <> COALESCE(B.UBICACION_NUMENTIDADES ,-1)       
+							 OR COALESCE(STG.UBICACION_NUMREPORTES ,-1)     <> COALESCE(B.UBICACION_NUMREPORTES  ,-1)       
+							 OR COALESCE(STG.UBICACION_CLASE       ,''SV'') <> COALESCE(B.UBICACION_CLASE        ,''SV'')       
+							 OR COALESCE(STG.UBICACION_TIPOCUENTA  ,''SV'') <> COALESCE(B.UBICACION_TIPOCUENTA   ,''SV'')       
+							 OR COALESCE(STG.UBICACION_ORDEN       ,-1)     <> COALESCE(B.UBICACION_ORDEN        ,-1)       
+							 OR COALESCE(STG.UBICACCION_INDICATIVO ,''SV'') <> COALESCE(B.UBICACCION_INDICATIVO  ,''SV'')       
+							 OR COALESCE(STG.UBICACION_ESTRATO     ,''SV'') <> COALESCE(B.UBICACION_ESTRATO      ,''SV'')       
+							 OR COALESCE(STG.UBICACION_ZONA        ,''SV'') <> COALESCE(B.UBICACION_ZONA         ,''SV'')       							 
+							 OR COALESCE(STG.UBICACION_BARRIO      ,''SV'') <> COALESCE(B.UBICACION_BARRIO       ,''SV'')       
+							 OR COALESCE(STG.UBICACION_LOCALIDAD   ,''SV'') <> COALESCE(B.UBICACION_LOCALIDAD    ,''SV'')       
+							 OR COALESCE(STG.UBICACION_CODIGOPOSTAL,''SV'') <> COALESCE(B.UBICACION_CODIGOPOSTAL ,''SV'')       
+							 OR COALESCE(STG.UBICACION_LONGITUD    ,-1)     <> COALESCE(B.UBICACION_LONGITUD     ,-1)       
+							 OR COALESCE(STG.UBICACION_LATITUD     ,-1)     <> COALESCE(B.UBICACION_LATITUD      ,-1)       
+							 OR COALESCE(STG.TIPO                  ,''SV'') <> COALESCE(B.TIPO                   ,''SV'')       
+							 OR COALESCE(STG.FUENTE                ,''SV'') <> COALESCE(B.FUENTE                 ,''SV'')       
+							 OR COALESCE(STG.ID                    ,''SV'') <> COALESCE(B.ID 		             ,''SV'') )  
+							THEN 1
+					ELSE -1
+				 END Severidad
+	FROM '||@BDSTAGE||'.TMP_AGR_ETAPA_FINAL STG
+	LEFT JOIN '||@BDDATOS||'.MAT_UBICACION_AGREGADA B
+	ON   STG.INFO_BASICA = B.INFO_BASICA
+	AND STG.TIPO_IDENTIFICACION	= B.TIPO_IDENTIFICACION
+	AND STG.NUMERO_IDENTIFICACION = B.NUMERO_IDENTIFICACION
+	AND STG.UBICACION_DATO = B.UBICACION_DATO
+	AND STG.UBICACION_CODIGODANE = B.UBICACION_CODIGODANE
+	AND STG.UBICACION_CIUDAD = B.UBICACION_CIUDAD
+	AND STG.UBICACION_DEPARTAMENTO = B.UBICACION_DEPARTAMENTO;')
+	TO OPERATOR ( DDL_OPERATOR);  
+	);   
+
+	STEP CREATE_VIEW_STAGE_INFO_BASICA_DELTA(
+    APPLY ('REPLACE VIEW '||@BDSTAGE||'.Vstg_Reconocer_Info_Basica_Delta
+			AS
+			LOCKING ROW FOR ACCESS
+			SELECT   STG.COD_PIN_PERSONA
+					,STG.ID                            
+					,STG.PRIMER_NOMBRE                 
+					,STG.SEGUNDO_NOMBRE                
+					,STG.PRIMER_APELLIDO               
+					,STG.SEGUNDO_APELLIDO              
+					,STG.NOMBRE_COMPLETO               
+					,STG.COD_TIPO_IDENT_FTE            
+					,STG.TIPO_IDENTIFICACION           
+					,STG.NUMERO_IDENTIFICACION         
+					,STG.ESTADO_DOCUMENTO              
+					,STG.RANGO_EDAD                    
+					,STG.LUGAR_EXPEDICION              
+					,CAST( CAST(STG.FECHA_EXPEDICION  AS DATE FORMAT ''YYYYMMDD'') AS VARCHAR(8) ) FECHA_EXPEDICION             
+					,STG.GENERO                        
+					,STG.CIIU                          
+					,STG.ACTIVIDAD_ECONOMICA           
+					,STG.RAZON_SOCIAL                  
+					,STG.PAGINA_WEB                    
+					,STG.DEPARTAMENTO_EXPEDICION 
+                    ,STG.RUT										
+					,CASE 
+						WHEN (STG.FLAG_OP = ''I'' AND B.ID IS NULL) OR (B.ID IS NULL) THEN 1
+						WHEN (STG.FLAG_OP  = ''A'' OR B.ID IS NOT NULL)
+							AND ( STG.PRIMER_NOMBRE            <> B.PRIMER_NOMBRE                 
+								OR COALESCE(STG.SEGUNDO_NOMBRE			,''SV'') <> COALESCE(B.SEGUNDO_NOMBRE  ,''SV'')              
+								OR COALESCE(STG.PRIMER_APELLIDO			,''SV'') <> COALESCE(B.PRIMER_APELLIDO ,''SV'')              
+								OR COALESCE(STG.SEGUNDO_APELLIDO		,''SV'') <> COALESCE(B.SEGUNDO_APELLIDO,''SV'')              
+								OR COALESCE(STG.NOMBRE_COMPLETO			,''SV'') <> COALESCE(B.NOMBRE_COMPLETO ,''SV'')              
+								OR COALESCE(STG.COD_TIPO_IDENT_FTE		,''SV'') <> COALESCE(B.COD_TIPO_IDENT_FTE,''SV'')            
+								OR COALESCE(STG.TIPO_IDENTIFICACION		,''SV'') <> COALESCE(B.TIPO_IDENTIFICACION,''SV'')           
+								OR COALESCE(STG.NUMERO_IDENTIFICACION	, -1)    <> COALESCE(B.NUMERO_IDENTIFICACION,-1)         
+								OR COALESCE(STG.ESTADO_DOCUMENTO        ,''SV'') <> COALESCE(B.ESTADO_DOCUMENTO,''SV'')              
+								OR COALESCE(STG.RANGO_EDAD              ,''SV'') <> COALESCE(B.RANGO_EDAD      ,''SV'')              
+								OR COALESCE(STG.LUGAR_EXPEDICION        ,''SV'') <> COALESCE(B.LUGAR_EXPEDICION,''SV'')              
+								OR COALESCE(STG.FECHA_EXPEDICION        ,CAST( ''2099-12-31'' AS DATE FORMAT ''YYYY-MM-DD''))  <> COALESCE(B.FECHA_EXPEDICION,CAST( ''2099-12-31'' AS DATE FORMAT ''YYYY-MM-DD''))              
+								OR COALESCE(STG.GENERO                  ,''SV'') <> COALESCE(B.GENERO             ,''SV'')           
+								OR COALESCE(STG.CIIU                    ,''SV'') <> COALESCE(B.CIIU               ,''SV'')           
+								OR COALESCE(STG.ACTIVIDAD_ECONOMICA     ,''SV'') <> COALESCE(B.ACTIVIDAD_ECONOMICA,''SV'')           
+								OR COALESCE(STG.RAZON_SOCIAL            ,''SV'') <> COALESCE(B.RAZON_SOCIAL       ,''SV'')           
+								OR COALESCE(STG.PAGINA_WEB              ,''SV'') <> COALESCE(B.PAGINA_WEB         ,''SV'')           
+								OR COALESCE(STG.MOSAIC_ID               ,-1) <> COALESCE(B.MOSAIC_ID, -1)                     
+								OR COALESCE(STG.DEPARTAMENTO_EXPEDICION,''SV'')  <> COALESCE(B.DEPARTAMENTO_EXPEDICION, ''SV'')
+								OR COALESCE(STG.RUT,''SV'')  <> COALESCE(B.RUT, ''SV'')
+								) 
+						THEN 2
+						WHEN STG.FLAG_OP  = ''E''  THEN 3
+					    ELSE  -1 
+					END Severidad  
+			FROM  '||@BDSTAGE||'.TMP_INBAS_ETAPA_10 STG
+			LEFT JOIN '||@BDDATOS||'.BK_MAT_INFO_BASICA B ON STG.ID = B.ID;')
+	
+		TO OPERATOR ( DDL_OPERATOR);  
+   );
+   
+	STEP CREATE_VIEW_STAGE_INFO_UBICACION_AGREGADA_DELTA (
+	APPLY ('REPLACE VIEW '||@BDSTAGE||'.Vstg_Reconocer_Info_Ubic_Agrupa_Delta
+		AS
+		LOCKING ROW FOR ACCESS
+		SEL STG.TIPO_IDENTIFICACION           
+			,STG.NUMERO_IDENTIFICACION         
+			,STG.INFO_BASICA                   
+			,STG.CODIGO_DANE                   
+			,STG.CIUDAD                        
+			,STG.DEPARTAMENTO                  
+			,STG.UBICACION_DATO                
+			,CAST( CAST( STG.UBICACION_REPORTDESDE AS DATE FORMAT ''YYYYMMDD'') AS VARCHAR(8) ) UBICACION_REPORTDESDE        
+			,CAST( CAST( STG.UBICACION_ULTREPORTE AS DATE FORMAT ''YYYYMMDD'') AS VARCHAR(8) ) UBICACION_ULTREPORTE          
+			,STG.UBICACION_NUMENTIDADES        
+			,STG.UBICACION_NUMREPORTES         
+			,STG.UBICACION_CLASE               
+			,STG.UBICACION_TIPOCUENTA          
+			,STG.UBICACION_ORDEN               
+			,STG.UBICACCION_INDICATIVO         
+			,STG.UBICACION_ESTRATO             
+			,STG.UBICACION_ZONA                
+			,STG.UBICACION_CIUDAD              
+			,STG.UBICACION_DEPARTAMENTO        
+			,STG.UBICACION_CODIGODANE          
+			,STG.UBICACION_BARRIO              
+			,STG.UBICACION_LOCALIDAD           
+			,STG.UBICACION_CODIGOPOSTAL        
+			,CAST( STG.UBICACION_LONGITUD AS VARCHAR(40) ) UBICACION_LONGITUD         
+			,CAST( STG.UBICACION_LATITUD AS VARCHAR(40) ) UBICACION_LATITUD             
+			,STG.TIPO                          
+			,STG.FUENTE                        
+			,STG.ID 
+			,STG.COD_PAIS
+      ,COALESCE(STG.Descripcion_Tipo_Via,''SV'') Descripcion_Tipo_Via
+      ,COALESCE(STG.Tipo_Via_Principal,''-1'') Tipo_Via_Principal
+      ,COALESCE(STG.Via_Principal,''-1'') Via_Principal
+      ,COALESCE(STG.Via_Generadora,''-1'') Via_Generadora
+      ,COALESCE(STG.Numero_Puerta,''-1'') Numero_Puerta
+			,CASE WHEN B.INFO_BASICA IS NULL 
+					AND B.TIPO_IDENTIFICACION IS NULL 
+					AND B.NUMERO_IDENTIFICACION IS NULL 
+					AND B.UBICACION_DATO IS NULL 
+					AND B.UBICACION_CODIGODANE IS NULL
+					AND B.UBICACION_CIUDAD IS NULL 
+					AND B.UBICACION_DEPARTAMENTO IS NULL					
+					THEN 1
+				  WHEN B.INFO_BASICA IS  NOT NULL 
+					AND B.TIPO_IDENTIFICACION IS NOT NULL 
+					AND B.NUMERO_IDENTIFICACION IS NOT NULL 
+					AND B.UBICACION_DATO IS  NOT NULL 
+					AND B.UBICACION_CODIGODANE IS NOT NULL
+					AND B.UBICACION_CIUDAD IS NOT NULL
+					AND B.UBICACION_DEPARTAMENTO IS NOT NULL
+					AND  (	COALESCE(STG.CODIGO_DANE,''SV'')       <> COALESCE(B.CODIGO_DANE,''SV'')                   							 								         
+							 OR COALESCE(STG.UBICACION_REPORTDESDE ,CAST( ''2099-12-31'' AS DATE FORMAT ''YYYY-MM-DD'')) <> COALESCE(B.UBICACION_REPORTDESDE  ,CAST( ''2099-12-31'' AS DATE FORMAT ''YYYY-MM-DD''))       
+							 OR COALESCE(STG.UBICACION_ULTREPORTE  ,CAST( ''2099-12-31'' AS DATE FORMAT ''YYYY-MM-DD'')) <> COALESCE(B.UBICACION_ULTREPORTE   ,CAST( ''2099-12-31'' AS DATE FORMAT ''YYYY-MM-DD''))       
+							 OR COALESCE(STG.UBICACION_NUMENTIDADES,-1)     <> COALESCE(B.UBICACION_NUMENTIDADES ,-1)       
+							 OR COALESCE(STG.UBICACION_NUMREPORTES ,-1)     <> COALESCE(B.UBICACION_NUMREPORTES  ,-1)       
+							 OR COALESCE(STG.UBICACION_CLASE       ,''SV'') <> COALESCE(B.UBICACION_CLASE        ,''SV'')       
+							 OR COALESCE(STG.UBICACION_TIPOCUENTA  ,''SV'') <> COALESCE(B.UBICACION_TIPOCUENTA   ,''SV'')       
+							 OR COALESCE(STG.UBICACION_ORDEN       ,-1)     <> COALESCE(B.UBICACION_ORDEN        ,-1)       
+							 OR COALESCE(STG.UBICACCION_INDICATIVO ,''SV'') <> COALESCE(B.UBICACCION_INDICATIVO  ,''SV'')       
+							 OR COALESCE(STG.UBICACION_ESTRATO     ,''SV'') <> COALESCE(B.UBICACION_ESTRATO      ,''SV'')       
+							 OR COALESCE(STG.UBICACION_ZONA        ,''SV'') <> COALESCE(B.UBICACION_ZONA         ,''SV'')       							 
+							 OR COALESCE(STG.UBICACION_BARRIO      ,''SV'') <> COALESCE(B.UBICACION_BARRIO       ,''SV'')       
+							 OR COALESCE(STG.UBICACION_LOCALIDAD   ,''SV'') <> COALESCE(B.UBICACION_LOCALIDAD    ,''SV'')       
+							 OR COALESCE(STG.UBICACION_CODIGOPOSTAL,''SV'') <> COALESCE(B.UBICACION_CODIGOPOSTAL ,''SV'')       
+							 OR COALESCE(STG.UBICACION_LONGITUD    ,-1)     <> COALESCE(B.UBICACION_LONGITUD     ,-1)       
+							 OR COALESCE(STG.UBICACION_LATITUD     ,-1)     <> COALESCE(B.UBICACION_LATITUD      ,-1)       
+							 OR COALESCE(STG.TIPO                  ,''SV'') <> COALESCE(B.TIPO                   ,''SV'')       
+							 OR COALESCE(STG.FUENTE                ,''SV'') <> COALESCE(B.FUENTE                 ,''SV'')       
+							 OR COALESCE(STG.ID                    ,''SV'') <> COALESCE(B.ID 		             ,''SV'') )  
+							THEN 2
+					ELSE -1
+				 END Severidad
+		FROM '||@BDSTAGE||'.TMP_AGR_ETAPA_FINAL STG
+		LEFT JOIN '||@BDDATOS||'.BK_MAT_UBICACION_AGREGADA B
+		ON   STG.INFO_BASICA = B.INFO_BASICA
+		AND STG.TIPO_IDENTIFICACION	= B.TIPO_IDENTIFICACION
+		AND STG.NUMERO_IDENTIFICACION = B.NUMERO_IDENTIFICACION
+		AND STG.UBICACION_DATO = B.UBICACION_DATO
+		AND STG.UBICACION_CODIGODANE = B.UBICACION_CODIGODANE
+		AND STG.UBICACION_CIUDAD = B.UBICACION_CIUDAD
+		AND STG.UBICACION_DEPARTAMENTO = B.UBICACION_DEPARTAMENTO
+
+    ;')
+		
+		TO OPERATOR ( DDL_OPERATOR);  
+	);
+	STEP CREATE_VIEW_STAGE_TOPONIMOS_DELTA (
+	APPLY ('REPLACE VIEW '||@BDSTAGE||'.Vstg_Reconocer_TOPONIMOS_DELTA 
+		AS
+		LOCKING ROW FOR ACCESS
+			  SELECT T1.cod_dw_parametro,T1.Valor,T1.Normalizado,T1.Nombre_Grupo_Parametro FROM (SELECT max(cod_dw_parametro)cod_dw_parametro, P.Valor,P.Normalizado, GP.Nombre_Grupo_Parametro
+                    FROM '||@BDDATOS||'.GRUPO_PARAMETRO AS GP
+                    INNER JOIN '||@BDDATOS||'.TIPO_PARAMETRO AS TP ON GP.Cod_DW_Grupo_Parametro = TP.Cod_DW_Grupo_Parametro
+                    INNER JOIN  '||@BDDATOS||'.SUBTIPO_PARAMETRO AS STP ON TP.Cod_DW_Tipo_Parametro =STP.Cod_DW_Tipo_Parametro
+                    INNER JOIN '||@BDDATOS||'.PARAMETRO AS P ON STP.Cod_DW_Subtipo_Parametro = P.Cod_DW_Subtipo_Parametro
+                    WHERE   GP.Nombre_Grupo_Parametro  in (''ACEPCIONES'',''TOPONIMOS'') AND TP.Nombre_Tipo_Parametro = ''DIRECCION''
+                    GROUP BY 2,3,4) AS T1
+      LEFT JOIN '||@BDDATOS||'.CAT_TOPO_ACEP_DELTA T2 ON
+      T1.Valor=T2.Valor and T1.Normalizado= T2.Normalizado
+      where T2.Valor is null and T2.Normalizado is null 
+    ;')
+		TO OPERATOR ( DDL_OPERATOR);  
+	);
+
+);

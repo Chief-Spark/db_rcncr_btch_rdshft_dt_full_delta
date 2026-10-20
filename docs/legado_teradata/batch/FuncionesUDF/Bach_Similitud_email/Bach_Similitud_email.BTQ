@@ -1,0 +1,97 @@
+REPLACE FUNCTION REC_VISTA.Bach_Similitud_email  (
+		BuzonInsumoIn VARCHAR(30)
+		,DominioInsumoIn VARCHAR(30)
+		,SounBuzInsIn VARCHAR(5)
+		,SounDomInsIn VARCHAR(5)
+		,BuzonBodegaIn VARCHAR(30)
+		,DominioBodegaIn VARCHAR(30)
+		,SounBuzBodIn VARCHAR(5)
+		,SounDomBodIn VARCHAR(5)
+		
+		,PorBzIn INTEGER
+		,PorBzSounIn INTEGER
+		,PorBzDistIn INTEGER
+		,PorDomIn INTEGER
+		,PorDomSounIn INTEGER
+		,PorDomDistIn INTEGER
+/*
+ * ############################################################################
+ * 
+ * Objetivo:	  Funcion Bach_Similitud_email para aplicar el algoritmo de
+ *		  comparacion de similitud de direccion electronica
+ * Fecha:	  2017/04/24
+ * Realizado por: Luis E Ramirez (Capgemini)
+ * Parametros:	  BuzonInsumoIn, DominioInsumoIn, SounBuzInsIn, SounDomInsIn, 
+ *		  BuzonBodegaIn, DominioBodegaIn, SounBuzBodIn, PorBzIn,
+ *		  PorBzSounIn, PorBzDistIn, PorDomIn, PorDomSounIn, PorDomDistIn
+ *		  retorna INTEGER
+ * Proyecto:	  Experian - Reconocer
+ * Script:	  Bach_Similitud_email.BTQ
+ * 
+ * 
+ * 
+ * BITACORA
+ * ---------------------------------------------------------------------------
+ * Fecha		Objetivo			Realizado por
+ * 
+ * ---------------------------------------------------------------------------
+ * 
+ * Copyright 2016 Equipo Teradata - Capgemini
+ * 
+ *  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+ * 		se encuentra protegido por las leyes de derechos de autor
+ * 
+ * 
+ * ############################################################################
+ */
+ )
+	RETURNS INTEGER
+	LANGUAGE C
+	NO SQL
+	SPECIFIC BachSimilitudEmail
+	EXTERNAL  NAME 'CI!loadParamsAcepAut!/reconocer/pruebas/fuentes/udfs/library/loadParamsAcepAut.h!CS!BachSimilitudEmail!/reconocer/pruebas/fuentes/udfs/Bach_Similitud_email/BachSimilitudEmail.c'
+	PARAMETER STYLE TD_GENERAL
+;
+
+
+
+
+/*
+.run file Bach_Similitud_email.BTQ
+
+SELECT cast('luedu01' as varchar(10)) BuzonInsumoIn
+	, 'gmail.com' DominioInsumoIn
+	,SOUNDEX(BuzonInsumoIn) SounBuzInsIn
+	,SOUNDEX(DominioInsumoIn) SounDomInsIn
+	,'luedu' BuzonBodegaIn
+	,'gmail.com' DominioBodegaIn
+	,SOUNDEX(BuzonBodegaIn) SounBuzBodIn
+	,SOUNDEX(DominioBodegaIn) SounDomBodIn
+	,70 PorBzIn
+	,50 PorBzSounIn
+	,50 PorBzDistIn
+	,30 PorDomIn
+	,50 PorDomSounIn
+	,50 PorDomDistIn
+	, REC_VISTA.Bach_Similitud_email(
+			BuzonInsumoIn
+			,DominioInsumoIn
+			,SounBuzInsIn
+			,SounDomInsIn
+			,BuzonBodegaIn
+			,DominioBodegaIn
+			,SounBuzBodIn
+			,SounDomBodIn
+			
+			,PorBzIn
+			,PorBzSounIn
+			,PorBzDistIn
+			,PorDomIn
+			,PorDomSounIn
+			,PorDomDistIn
+			) SIMILITUD
+;
+
+
+
+*/

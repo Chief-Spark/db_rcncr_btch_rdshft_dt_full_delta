@@ -1,0 +1,116 @@
+# ################################################################################
+# 
+# Objetivo:		Creacion de vista VstgCargaUnificacionDir
+# Fecha:		2017-23-03
+# Realizado por:	Luis Eduardo Ramirez
+# Parametros:		/reconocer/desarrollo/.tdenv
+# Proyecto:		Nuevo Recnocer
+# Script:		P0020_UNIFICACION_DIRECCION_111.BTQ 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha			Objetivo							Realizado por
+# 2018-03-13 	#1 cod_pin_persona					carlos castillo
+# 2018-10-25 	#2 Ajuste via puerta direccion		carlos castillo
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+	
+/*Ejecuta el SP */
+CALL ${BDDATOS}.PRO_UnificacionR2 
+		(
+		$lote
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BTTPRUVI}'
+		,P_ERROR
+	);
+	
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+/*Crear la vista VstgCargaUnificacionDir*/
+
+	REPLACE VIEW ${BDSTAGE}.VstgCargaUnificacionDir
+	(
+		Cod_DW_Persona_Ubic
+		,Cod_DW_Direccion_Unificada
+		,Unifica_Atributos
+		,Fecha_Unificacion
+		,Id_Buro_Persona
+		,Cod_DW_Ubic
+		,Complemento     
+		,Cod_DW_Direccion_Fisica
+		,Cod_DW_Tipo_Ubicacion_Dir
+		,Severidad_UD
+		,ID_ACTUALIZACION
+		,cod_pin_persona
+		,SEVERIDAD_DIR_FISICA          
+		,Tipo_Via_Principal            
+		,Via_Principal                 
+		,Via_Generadora                
+		,Numero_Puerta   
+	)
+	AS
+	LOCK ROW FOR ACCESS
+	SELECT	RVU.Cod_DW_Persona_Ubic
+		,RVU.ID_PADRE AS Cod_DW_Direccion_Unificada
+		,CAST(1 AS INTEGER) Unifica_Atributos
+		,CURRENT_DATE AS Fecha_Unificacion
+		,RVU.Id_Buro_Persona
+		,RVU.Cod_DW_Ubic
+		,RVU.Complemento     
+		,RVU.Cod_DW_Direccion_Fisica
+		,RVU.Cod_DW_Tipo_Ubicacion_Dir
+		,CASE WHEN (RVU.Cod_DW_Persona_Ubic IS NULL
+					OR Cod_DW_Direccion_Unificada IS NULL
+					OR Fecha_Unificacion IS NULL)
+				THEN 3
+		      ELSE 1
+		 END Severidad_UD
+		,CASE WHEN RVU.ROW_U = -99 THEN 1 ELSE 0 END AS ID_ACTUALIZACION  
+		 ,CPP.cod_pin_persona
+		 ,RVU.SEVERIDAD_DIR_FISICA          
+		 ,RVU.Tipo_Via_Principal            
+		 ,RVU.Via_Principal                 
+		 ,RVU.Via_Generadora                
+		 ,RVU.Numero_Puerta                 
+FROM ${BDSTAGE}.R2_Vstg_Unificacion RVU
+ LEFT JOIN (SELECT Id_Buro_Persona ,cod_pin_persona FROM ${BDSTAGE}.tmpINSUMO_UNI_REG2 WHERE cod_pin_persona NOT EQ 1 GROUP BY 1,2) CPP /*#1 ajuste cod_pin_persona*/
+  ON RVU.Id_Buro_Persona=CPP.Id_Buro_Persona
+WHERE (Severidad_UD=1 OR ID_ACTUALIZACION = 1 ); 
+
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	.LABEL SALIR
+	.exit 0
+	
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la creacion de la vista VstgCargaUnificacionDir'
+	.EXIT ERRORCODE
+
+	.LOGOFF;
+	.QUIT;
+BTEQ
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+
+exit 0

@@ -1,0 +1,153 @@
+/* # ################################################################################
+# 
+# Objetivo:			Extrae Datos de BATCH2
+# Fecha:			2017-12-26
+# Realizado por:	Carlos Castillo
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:		    P0033_BATCH2_EXPORTVERTPLANO_130.TPT 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		Objetivo			Realizado por
+# 
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################ */
+
+
+DEFINE JOB ExportarArchivo
+DESCRIPTION 'Exporta Registros a BATCH2'
+( 
+ 
+ DEFINE SCHEMA Account_Schema
+	( 
+		COLUMNA VARCHAR(30) 
+      ,VALORES VARCHAR(1000)
+      ,NUMERO_ID VARCHAR(20) 	
+	);
+
+ 
+
+
+DEFINE OPERATOR Data_Connector_PNPJ
+	TYPE DATACONNECTOR CONSUMER
+	SCHEMA Account_Schema
+	ATTRIBUTES
+	( VARCHAR 	
+				DirectoryPath 	  = @SALIDAS1, 
+				FileName 		  = @NOM_ARCHIVO||'_PNPJ'||@FCH_ARCHIVO||@EXTENCION||'VERT', 
+				Format 			  = 'DELIMITED', 
+				TextDelimiter	  = @DELIMITADOR, 
+				IndicatorMode 	  = 'N', 
+				OpenMode 		  = 'Write' 
+		); 
+
+DEFINE OPERATOR Data_Connector_PN
+	TYPE DATACONNECTOR CONSUMER
+	SCHEMA Account_Schema
+	ATTRIBUTES
+	( VARCHAR 	
+				DirectoryPath 	  = @SALIDAS1, 
+				FileName 		  = @NOM_ARCHIVO||'_PN'||@FCH_ARCHIVO||@EXTENCION||'VERT', 
+				Format 			  = 'DELIMITED', 
+				TextDelimiter	  = @DELIMITADOR, 
+				IndicatorMode 	  = 'N', 
+				OpenMode 		  = 'Write' 
+		); 
+
+DEFINE OPERATOR Data_Connector_PJ
+	TYPE DATACONNECTOR CONSUMER
+	SCHEMA Account_Schema
+	ATTRIBUTES
+	( VARCHAR 	
+				DirectoryPath 	  = @SALIDAS1, 
+				FileName 		  = @NOM_ARCHIVO||'_PJ'||@FCH_ARCHIVO||@EXTENCION||'VERT', 
+				Format 			  = 'DELIMITED', 
+				TextDelimiter	  = @DELIMITADOR, 
+				IndicatorMode 	  = 'N', 
+				OpenMode 		  = 'Write' 
+		); 
+
+
+
+DEFINE OPERATOR Select_PNPJ
+ TYPE SELECTOR
+ SCHEMA Account_Schema
+ ATTRIBUTES
+ (
+ VARCHAR UserName 	  = @UserName,
+ VARCHAR UserPassword = @UserPassword,
+ VARCHAR TdpId = @TdpId,
+ VARCHAR SelectStmt =  'SELECT COLUMNA,VALORES,NUMERO_ID FROM '||@BDSTAGE||'.TB_Vstg_Batch2_PNPJ 
+						WHERE COLUMNID = CASE WHEN '''||@ORIENTACION||'''=''OE_VERTICA'' AND '''||@ARCHIVOS_PN_PJ||''' <> ''1'' 
+											THEN COLUMNID ELSE -9 END ORDER BY NUMERO_ID,COLUMNID' 
+ );
+
+ 
+DEFINE OPERATOR Select_PN
+ TYPE SELECTOR
+ SCHEMA Account_Schema
+ ATTRIBUTES
+ (
+ VARCHAR UserName 	  = @UserName,
+ VARCHAR UserPassword = @UserPassword,
+ VARCHAR TdpId = @TdpId,
+ VARCHAR SelectStmt = 'SELECT COLUMNA,VALORES,NUMERO_ID FROM '||@BDSTAGE||'.TB_Vstg_Batch2_PN 
+						WHERE COLUMNID = CASE WHEN '''||@ORIENTACION||'''=''OE_VERTICA'' AND '''||@ARCHIVOS_PN_PJ||''' = ''1'' 
+											THEN COLUMNID ELSE -9 END ORDER BY NUMERO_ID,COLUMNID' 
+ );
+ 
+DEFINE OPERATOR Select_PJ
+ TYPE SELECTOR
+ SCHEMA Account_Schema
+ ATTRIBUTES
+ (
+ VARCHAR UserName 	  = @UserName,
+ VARCHAR UserPassword = @UserPassword,
+ VARCHAR TdpId = @TdpId,
+ VARCHAR SelectStmt =  'SELECT COLUMNA,VALORES,NUMERO_ID FROM '||@BDSTAGE||'.TB_Vstg_Batch2_PJ 
+						WHERE COLUMNID = CASE WHEN '''||@ORIENTACION||'''=''OE_VERTICA'' AND '''||@ARCHIVOS_PN_PJ||''' = ''1'' 
+											THEN COLUMNID ELSE -9 END ORDER BY NUMERO_ID,COLUMNID' 
+ );
+ 
+
+	STEP Generacion_Tabla_Salida_PNPJ
+	 (
+		APPLY
+				
+		TO OPERATOR(Data_Connector_PNPJ[1]) 
+		SELECT  *
+		FROM OPERATOR (Select_PNPJ[1]);
+		
+	 ); 
+
+ 
+	STEP Generacion_Tabla_Salida_PN
+	 (
+		APPLY
+			TO OPERATOR (Data_Connector_PN[1])
+		SELECT  *
+		FROM OPERATOR (Select_PN[1]);
+	 ); 
+
+
+ 
+	STEP Generacion_Tabla_Salida_PJ
+	 (
+		APPLY
+			TO OPERATOR(Data_Connector_PJ[1])
+		SELECT  *
+		FROM OPERATOR (Select_PJ[1]);
+	 ); 
+ 
+); 
+ 
+ 
+ 

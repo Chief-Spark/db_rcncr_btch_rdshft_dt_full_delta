@@ -1,0 +1,220 @@
+# ################################################################################
+#
+# Objetivo: Ejecutar el SP PRO_Cursor_caract,PRO_Cursor_caracteristicaTele
+#          PRO_Cursor_caracteristicaMovil,PRO_Cursor_caracteristicaEmail
+#          PRO_Cursor_caracteristicaDirec
+# Fecha:              2018/10/08
+# Realizado por:      Fernando Garrido.
+# Parametros:         N/A
+# Proyecto:           Reconocer Master
+# Script:             BTEQ_CURSOR_131.BTQ
+#
+#
+#
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha         Objetivo                                   Realizado por
+# 2018-10-08    se modifico para que ejecute               Fernando Garrido M.
+#               los proceso en paralelo por canal.
+# 2018-08-15    Se modifica BTEQ para que valide por       Fernando Garrido M.
+#               Medio de la Shell ValidaLogReconocerTDT
+#               si todos los SPs relamente finalizaron OK 
+#2023-10-20		se coloca el proceso para borrar todas las John W Bueno
+#				tablas Temporales que crea la malla de ORDENAMIENTO
+# ---------------------------------------------------------------------------
+#
+# Copyright 2018 Equipo Teradata - Experian
+#
+# ################################################################################
+
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+export REPORTE=${LOGS}/${BTQ}.log
+export vLogP=${LOGS}/${BTQ}.error
+> ${vLogP}
+
+P_VARQUERYDROP=" PROC_FIN <>''FINAL''"
+
+export vListSPs="PRO_Cursor_Drop:S PRO_Cursor_caracteristicaTele:P PRO_Cursor_caracteristicaMovil:P PRO_Cursor_caracteristicaEmail:P PRO_Cursor_caracteristicaDirec:P"
+
+#Funcion para ejecutar SP's
+execSP () {
+        rm -r ${REPORTE}$1 2>/dev/null
+        bteq <<BTQ
+                .logon ${Logon};
+                DATABASE ${BDDATOS};
+
+                .SET DEFAULTS
+                .SET TITLEDASHES OFF
+                .SET WIDTH 254
+                .SET SEPARATOR '|'
+
+                .EXPORT REPORT FILE=${REPORTE}$1
+                -- Ejecuta el SP $1
+                CALL $1(${lote}
+                        ,'${dateTimeStartPro}'
+                        ,'${1}'
+                        ,'${BDDATOS}'
+                        ,'${BDVISTA}'
+                        ,'${BDSTAGE}'
+                        ,P_ERROR
+                ) ;
+
+                .IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+                .EXPORT reset
+
+                .LABEL SALIR
+                .exit 0
+
+                .LABEL ERRORFOUND
+                .REMARK '#### ERROR ejecutando el SP $1'
+                .EXIT ERRORCODE
+
+                .LOGOFF;
+                .QUIT;
+BTQ
+
+        if [ $? -ne 0 ]
+                then
+                echo '3' >>$vLogP
+        else
+                IdProceso=`cat ${REPORTE}$1 |tail -1`
+                echo $IdProceso >${REPORTE}$1
+                vError=`cat ${REPORTE}$1 | awk -F"|" '{print $1}'`
+                vError=`echo ${vError}`
+                vCantError=`echo ${#vError}`
+
+                rm -r ${REPORTE}$1 2>/dev/null
+
+                if [ $vCantError -gt 0 ]
+                        then
+                        echo '3' >>$vLogP
+                fi
+
+                echo '0' >>$vLogP
+        fi
+
+}
+
+#Funcion para ejecutar Borrado
+execDrop () {
+rm -r ${REPORTE}PRO_Cursor_Drop_TblaOrdenamiento 2>/dev/null
+bteq <<BTQ2
+				.logon ${Logon};
+                DATABASE ${BDDATOS};
+
+                .SET DEFAULTS
+                .SET TITLEDASHES OFF
+                .SET WIDTH 254
+                .SET SEPARATOR '|'
+
+                .EXPORT REPORT FILE=${REPORTE}PRO_Cursor_Drop_TblaOrdenamiento
+                -- Ejecuta el SP REC_DATOS.PRO_Cursor_Drop_TblaOrdenamiento
+	
+                CALL REC_DATOS.PRO_Cursor_Drop_TblaOrdenamiento
+						(${lote}
+                        ,'${dateTimeStartPro}'
+                        ,'${process}'
+                        ,'${BDDATOS}'
+                        ,'${BDVISTA}'
+                        ,'${BDSTAGE}'
+                        ,'${P_VARQUERYDROP}'
+                        ,P_ERROR
+                ) ;
+
+                .IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+                .EXPORT reset
+
+                .LABEL SALIR
+                .exit 0
+
+                .LABEL ERRORFOUND
+                .REMARK '#### ERROR ejecutando el SP PRO_Cursor_Drop_TblaOrdenamiento'
+                .EXIT ERRORCODE
+
+                .LOGOFF;
+                .QUIT;
+BTQ2
+
+       if [ $? -ne 0 ]
+                then
+                echo '3' >>$vLogP
+        else
+                IdProceso=`cat ${REPORTE}PRO_Cursor_Drop_TblaOrdenamiento |tail -1`
+                echo $IdProceso >${REPORTE}PRO_Cursor_Drop_TblaOrdenamiento
+                vError=`cat ${REPORTE}PRO_Cursor_Drop_TblaOrdenamiento | awk -F"|" '{print $1}'`
+                vError=`echo ${vError}`
+                vCantError=`echo ${#vError}`
+
+                rm -r ${REPORTE}PRO_Cursor_Drop_TblaOrdenamiento 2>/dev/null
+
+                if [ $vCantError -gt 0 ]
+                        then
+                        echo '3' >>$vLogP
+                fi
+
+                echo '0' >>$vLogP
+        fi
+}
+
+rm -r ${REPORTE} 2>/dev/null
+
+### COMIENZA BTEQ
+
+bteq<<BTEQU
+        .logon ${Logon};
+
+        .SET DEFAULTS
+        .SET TITLEDASHES OFF
+        .SET WIDTH 254
+        .SET SEPARATOR '|'
+
+        .EXPORT REPORT FILE=${REPORTE}
+         SELECT USER
+        ;
+
+        .EXPORT reset
+BTEQU
+
+if [ $? -ne 0 ]
+        then echo 'Error en ejecucion BTEQ, identificacion de USUARIO'
+        exit 3
+fi
+
+# Recorre uno a uno la lista de SP's mediante un loop
+# y ejecuta SP por SP
+
+for sp in ${vListSPs}
+do
+        vStoredPro=`echo $sp|awk -F":" '{print $1}'`
+        vParallel=`echo $sp|awk -F":" '{print $2}'`
+
+        if [ "$vParallel" = "P" ]
+                then
+                execSP $vStoredPro &
+                vWait=$vWait" "$!
+                vWait=`echo $vWait`
+        else
+                if [ "$vWait" != "" ]
+                then
+                        wait $vWait
+                fi
+
+                execSP $vStoredPro
+        fi
+
+        sleep 5
+
+done
+
+wait $vWait
+execDrop
+sh $HOMER/fuentes/macros/ValidaLogReconocerTDT.sh BTEQ_CURSOR
+err=$?
+
+if [ $err -ne 0 ]
+        then
+        exit 3
+fi
+
+exit 0

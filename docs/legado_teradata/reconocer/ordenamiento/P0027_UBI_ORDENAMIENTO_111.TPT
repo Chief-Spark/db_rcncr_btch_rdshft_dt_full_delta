@@ -1,0 +1,109 @@
+/*♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠
+♠  
+♠  Objetivo: Creacion de la vista VS0006
+♠  Fecha:	2017-07-17
+♠  Realizado por: Capgemini Colombia
+♠  PARAMETROS:	
+♠  Proyecto: Experian Reconocer	
+♠  Script:	 P0027_UBI_ORDENAMIENTO_111
+♠  
+♠  BITACORA
+♠  ---------------------------------------------------------------------------
+♠  Fecha		Objetivo				Realizado por
+♠  
+♠  ---------------------------------------------------------------------------
+♠  
+♠  Copyright 2016 Equipo Teradata - Capgemini ♠
+♠  
+♠   Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+♠  		se encuentra protegido por las leyes de derechos de autor
+♠  
+♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠*/
+
+DEFINE JOB CREACION_VSTG_Y_REGLAS_DE_NEGOCIO
+DESCRIPTION 'CRECION VISTA VstgUBI_ORDENAMIENTO MEDIANTE OPERADOR DDL'
+(
+    DEFINE OPERATOR DDL_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR'
+    TYPE DDL
+    ATTRIBUTES
+    (
+      VARCHAR UserName        = @UserName,      
+      VARCHAR UserPassword    = @UserPassword,   
+      VARCHAR TdpId           = @TdpId,                 
+      VARCHAR ARRAY ErrorList = ['3803','3807','2574'] 
+    );
+
+
+    STEP Crea_VSTG	   
+    (               
+      APPLY  ('DROP TABLE '||@BDDATOS||'.TablaResultCaract_TUbic') 
+	  
+		,('CREATE TABLE '||@BDDATOS||'.TablaResultCaract_TUbic AS
+			( SELECT Cod_DW_Persona_Ubic,SCORE AS Orden_prioridad,Lugar,Cod_Pin_Persona, Id_Buro_Persona
+			FROM ' ||@BDSTAGE||'.Orden_TM   
+			UNION ALL 
+			SELECT     
+			Cod_DW_Persona_Ubic,SCORE AS Orden_prioridad,Lugar,Cod_Pin_Persona, Id_Buro_Persona
+			FROM ' ||@BDSTAGE||'.Orden_Email   
+			UNION ALL SELECT         
+			Cod_DW_Persona_Ubic,SCORE AS Orden_prioridad,Lugar,Cod_Pin_Persona, Id_Buro_Persona
+			FROM ' ||@BDSTAGE||'.Orden_TelF 
+			UNION ALL SELECT         
+			Cod_DW_Persona_Ubic,SCORE AS Orden_prioridad,Lugar,Cod_Pin_Persona, Id_Buro_Persona
+			FROM ' ||@BDSTAGE||'.Orden_Direcc 
+			) 
+			WITH DATA  
+			PRIMARY INDEX (Cod_DW_Persona_Ubic);
+		')
+		
+		,('DROP TABLE '||@BDDATOS||'.TablaResult_Inter') 
+		
+		,('CREATE TABLE '||@BDDATOS||'.TablaResult_Inter AS
+			( SELECT Id_Buro_Persona
+			        ,Cod_Pin_Persona  
+					
+			FROM '||@BDDATOS||'.TablaResultCaract_TUbic
+			GROUP BY 1,2 ) 
+			WITH DATA  
+			PRIMARY INDEX (Id_Buro_Persona, Cod_Pin_Persona);
+		')
+
+		,('DROP TABLE '||@BDDATOS||'.TablaResult_SDUP') 
+
+		,('CREATE TABLE '||@BDDATOS||'.TablaResult_SDUP AS
+			( SELECT RPU.Cod_Pin_Persona
+					,RPU.Id_Buro_Persona
+					,RPU.Cod_Dw_Persona_Ubic
+					,RPU.Orden_Prioridad					
+					
+			FROM '||@BDDATOS||'.TablaResult_Inter TRI
+				LEFT JOIN '||@BDDATOS||'.RELACION_PERSONA_UBICACION RPU
+					ON  TRI.Cod_Pin_Persona = RPU.Cod_Pin_Persona
+					AND TRI.Id_Buro_Persona = RPU.Id_Buro_Persona) 
+			WITH DATA  
+			PRIMARY INDEX (Cod_Dw_Persona_Ubic);
+		')
+		
+           ,('REPLACE VIEW ' ||@BDSTAGE||'.VstgUBI_ORDENAMIENTO as
+				LOCK ROW FOR ACCESS 
+														
+				SELECT RPU.Cod_Pin_Persona
+					 ,RPU.Id_Buro_Persona
+					 ,RPU.Cod_Dw_Persona_Ubic
+					 ,TT.Lugar 
+					 ,CAST (CASE WHEN RPU.Cod_Pin_Persona IS NOT NULL THEN 1 ELSE 3 END AS INTEGER) AS  SEVERIDAD_UPDATE
+					 ,CAST (CASE WHEN TT.Cod_DW_Persona_Ubic IS NOT NULL THEN 1 ELSE 3 END AS INTEGER) AS SEVERIDAD
+					 ,RPU.Orden_Prioridad
+					
+					FROM '||@BDDATOS||'.TablaResult_SDUP RPU
+					
+					LEFT JOIN '||@BDDATOS||'.TablaResultCaract_TUbic TT 
+						ON TT.Cod_DW_Persona_Ubic =RPU.Cod_Dw_Persona_Ubic
+					
+				;
+           ')
+      TO OPERATOR (DDL_OPERATOR );
+    );
+  
+);

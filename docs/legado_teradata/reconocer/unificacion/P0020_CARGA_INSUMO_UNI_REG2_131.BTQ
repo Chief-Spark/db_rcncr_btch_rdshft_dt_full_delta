@@ -1,0 +1,75 @@
+# ################################################################################
+# 
+# Objetivo:		Ejecutar el SP PRO_CARGA_INSUMO_UNI_REG2
+# Fecha:		2016/11/09
+# Realizado por:	Luis E Ramirez
+# Parametros:		N/A
+# Proyecto:		Nuevo Recnocer
+# Script:		Peee_CARGA_INSUMO_UNI_REG2_131.BTQ
+# 
+# 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		Objetivo			Realizado por
+# 
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2016 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+export REPORTE=${LOGS}/${BTQ}.log
+
+rm -r ${REPORTE} 2>/dev/null
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_CARGA_INSUMO_UNI_REG2
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BTTVISTA}'
+		,P_ERROR
+	) ;
+	
+	.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+exit 0

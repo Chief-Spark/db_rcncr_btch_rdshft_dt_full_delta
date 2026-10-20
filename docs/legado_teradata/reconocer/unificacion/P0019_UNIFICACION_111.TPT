@@ -1,0 +1,174 @@
+/* ♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠
+♠  
+♠  Objetivo: Algoritmo de unificación CU 3.4.1
+♠  Fecha:	2017-01-18	
+♠  Realizado por:	Carlos Castillo
+♠  PARAMETROS:	
+♠  Proyecto: Experian Reconocer	
+♠  Script:		P0019_Unificacion_111.TPT
+♠  
+♠  BITACORA
+♠  ---------------------------------------------------------------------------
+♠  Fecha		Objetivo							Realizado por
+♠	2017-10-02	#1 Ajuste id unificados				Carlos Castillo
+♠	2017-10-06	#2 Ajuste para Calculo de ID 		Carlos Castillo
+♠  ---------------------------------------------------------------------------
+♠  
+♠  Copyright 2016 Equipo Teradata - Capgemini ♠
+♠  
+♠   Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+♠  		se encuentra protegido por las leyes de derechos de autor
+♠  
+♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠ */
+
+
+DEFINE JOB STG_VIEW_UNIFICACION
+DESCRIPTION 'CRECION VISTA VS0019 MEDIANTE OPERADOR DDL'
+(
+    DEFINE OPERATOR DDL_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR'
+    TYPE DDL
+    ATTRIBUTES
+    (
+      VARCHAR UserName        = @UserName,      
+      VARCHAR UserPassword    = @UserPassword,   
+      VARCHAR TdpId           = @TdpId,          
+      VARCHAR ARRAY ErrorList = ['3803','3807','2574'] 
+    );
+
+
+STEP Borra_temporales
+(APPLY 
+	('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'1;')
+	,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'2;')
+	,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'3;')
+
+  TO OPERATOR (DDL_OPERATOR); 
+);
+
+
+
+
+
+
+ 
+    STEP Crea_Insumo_CU_3_4_1	   
+    (               
+      APPLY          
+            ( 'CREATE TABLE '||@BDSTAGE||'.'||@LAYOUT||'1 AS 
+				(SELECT VIUR.Cod_DW_Persona_Ubic
+					,VIUR.Id_Buro_Persona
+					,VIUR.Texto_Ubicacion
+					,VIUR.Complemento
+					,VIUR.Cod_DW_Tipo_Ubicacion_Dir
+					,COALESCE(VIUR.Cod_Act_Econo_CIIU_Fte,'''') AS Cod_Act_Econo_CIIU_Fte /*#2*/
+					,COALESCE(VIUR.Numero_Entidades_Reportan,0) AS Numero_Entidades_Reportan /*#2*/
+					,VTUD.Descripcion_Tipo_Ubicacion_Dir AS TIPO_DIRECCION    
+					,VIUR.Cod_DW_Ciudad
+				  FROM '||@BDVISTA||'.V_Insumo_Unificacion_Regla1 VIUR
+				  LEFT JOIN '||@BDVISTA||'.V_Tipo_Ubicacion_Direccion VTUD 
+				   ON VIUR.Cod_DW_Tipo_Ubicacion_Dir=VTUD.Cod_DW_Tipo_Ubicacion_Dir 
+				)
+				WITH DATA
+				PRIMARY INDEX (COD_DW_PERSONA_UBIC)
+				;'
+         	)
+         	/*Se asignan pesos numericos para cada uno de los Escenarios */
+        	,('CREATE TABLE '||@BDSTAGE||'.'||@LAYOUT||'2 AS (
+				
+				SELECT U1.*
+				  ,COUNT(*) OVER(PARTITION BY TEXTO_UBICACION,ESCENARIO,ID,Id_Buro_Persona,Cod_DW_Ciudad) AS COUNT_EMPATE /*#2*/
+				  ,MAX(ORDEN) OVER(PARTITION BY TEXTO_UBICACION,ESCENARIO,Id_Buro_Persona,Cod_DW_Ciudad) AS IDMAX
+				  ,CASE     WHEN COUNT_EMPATE=    1 THEN 1 
+				  		WHEN  COUNT_EMPATE= IDMAX THEN 0
+						WHEN IDMAX > COUNT_EMPATE  AND ORDEN = 1 THEN 0		  		
+				  ELSE 1 END AS EMPATE
+				FROM
+				(
+				
+				SELECT 
+				  VIUR1.COD_DW_PERSONA_UBIC
+				 ,VIUR1.TEXTO_UBICACION 
+				,/* Escenario 1: */
+				CASE WHEN Cod_Act_Econo_CIIU_Fte=''10'' 
+									THEN (CAST(CASE WHEN Cod_Act_Econo_CIIU_Fte=''10'' AND (TIPO_DIRECCION=''LAB'' OR TIPO_DIRECCION=''CRR'') THEN 100000 ELSE 0 end
+						 			 			+ CASE WHEN Cod_Act_Econo_CIIU_Fte=''10'' AND (TIPO_DIRECCION<>''LAB'' OR TIPO_DIRECCION<>''CRR'') THEN 0 ELSE 0 end
+						 			 			+ Numero_Entidades_Reportan AS INTEGER)
+						 			 			)
+							
+				/* Escenario 2:*/ 
+					    WHEN Cod_Act_Econo_CIIU_Fte IN (''81'',''82'',''90'')  
+									THEN (CAST(CASE WHEN Cod_Act_Econo_CIIU_Fte IN (''81'',''82'',''90'') AND (TIPO_DIRECCION=''RES'' OR TIPO_DIRECCION=''CRR'') THEN 100000 ELSE 0 end
+												+ CASE WHEN Cod_Act_Econo_CIIU_Fte IN (''81'',''82'',''90'') AND (TIPO_DIRECCION<>''RES'' OR TIPO_DIRECCION<>''CRR'') THEN 0 ELSE 0 end
+												+ Numero_Entidades_Reportan AS INTEGER)
+											   )
+				
+				/*Escenario 3: */ 
+				WHEN Cod_Act_Econo_CIIU_Fte NOT IN (''10'',''81'',''82'',''90'') 
+									THEN (CAST( CASE WHEN Cod_Act_Econo_CIIU_Fte NOT IN (''10'',''81'',''82'',''90'') THEN Numero_Entidades_Reportan END AS INTEGER) )
+				ELSE 0 END AS ID
+				, 
+				CASE WHEN Cod_Act_Econo_CIIU_Fte=''10'' THEN ''ESCENARIO1''
+				     WHEN Cod_Act_Econo_CIIU_Fte IN (''81'',''82'',''90'') THEN ''ESCENARIO2''
+					 ELSE  	''ESCENARIO3'' END AS ESCENARIO 
+				,ROW_NUMBER ()OVER (PARTITION BY ESCENARIO,TEXTO_UBICACION,Id_Buro_Persona,Cod_DW_Ciudad ORDER BY ID DESC) AS ORDEN
+				
+				,Id_Buro_Persona
+				,Cod_DW_Ciudad
+				FROM '||@BDSTAGE||'.'||@LAYOUT||'1 VIUR1
+				)AS U1
+			 	QUALIFY EMPATE=1
+
+				) WITH DATA
+				PRIMARY INDEX (COD_DW_PERSONA_UBIC,TEXTO_UBICACION,ESCENARIO,Id_Buro_Persona,ORDEN,Cod_DW_Ciudad);')
+        	   /* Proceso unificación */
+        	,('CREATE TABLE '||@BDSTAGE||'.'||@LAYOUT||'3 AS
+			  (SELECT T2.COD_DW_PERSONA_UBIC
+			   ,T1.COD_DW_PERSONA_UBIC AS Cod_DW_Direccion_Unificada
+			   ,CURRENT_DATE AS FECHA_UNIFICACION
+			   ,'||@LOTE||' AS LOTE
+			  FROM '||@BDSTAGE||'.'||@LAYOUT||'2 T1
+			   LEFT JOIN '||@BDSTAGE||'.'||@LAYOUT||'2 T2
+			    ON T1.TEXTO_UBICACION=T2.TEXTO_UBICACION
+			    AND T1.ESCENARIO=T2.ESCENARIO 
+				AND T1.Id_Buro_Persona=T2.Id_Buro_Persona
+				AND T1.Cod_DW_Ciudad=T2.Cod_DW_Ciudad
+			    AND T1.ID>T2.ID
+			  QUALIFY (MIN(T1.ORDEN ) OVER(PARTITION BY T1.TEXTO_UBICACION,T1.Id_Buro_Persona,T1.ESCENARIO,t1.Cod_DW_Ciudad) )=T1.ORDEN /*#1*/
+			  ) WITH DATA 
+			   PRIMARY INDEX (COD_DW_PERSONA_UBIC,Cod_DW_Direccion_Unificada);'
+			  )
+/*      		,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'1;')
+			,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'2;')
+  */
+TO OPERATOR (DDL_OPERATOR );
+    );
+ 
+
+    STEP Crea_VSTG	   
+    (               
+					 
+      APPLY ( 'REPLACE VIEW '||@BDSTAGE||'.Vstg_Unificacion_uno
+				AS LOCKING ROW FOR ACCESS
+				(SELECT 
+				STG.COD_DW_PERSONA_UBIC
+				,STG.Cod_DW_Direccion_Unificada
+				,1 AS UNIFICA_ATRIBUTOS
+				,STG.FECHA_UNIFICACION
+				,CAST ('||@LOTE||' AS INTEGER)  as LOTE
+				,CASE WHEN (STG.Cod_Dw_Persona_Ubic IS NULL 
+							OR STG.COD_Dw_Direccion_Unificada IS NULL
+							)
+							THEN 3 
+					ELSE 1 END
+					AS SEVERIDAD
+				,CASE WHEN (STG.Cod_Dw_Persona_Ubic IS NULL) THEN ''P001901'' ELSE '' '' END
+				||CASE WHEN (STG.COD_Dw_Direccion_Unificada IS NULL) THEN ''P001902'' ELSE '''' END
+				AS COD_RECHAZO
+				,CURRENT_DATE AS Fecha_Inicio_Dato
+				FROM '||@BDSTAGE||'.'||@LAYOUT||'3 as STG);' 
+			)
+      		
+      TO OPERATOR (DDL_OPERATOR);
+    ); 
+);

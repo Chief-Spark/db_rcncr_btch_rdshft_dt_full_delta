@@ -1,0 +1,149 @@
+set -x
+# ################################################################################
+# 
+# Objetivo:		Actualizar la tabla BATCH_HISTORIA_RESULTADOS
+# Fecha:		2017/11/24
+# Realizado por:	Equipo Capgemini
+# Parametros:		N/A
+# Proyecto:		Nuevo Recnocer
+# Script:		P0033_BATCH2_VALIDAR_ARCHIVOS
+# 
+# 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha			Objetivo											Realizado por: Fernando Tafur P.
+# 2019-06-26	#1 Incluir un label que permita no ejecutar la actualizacion de historia cuando en la configuracion el campo #NO_ENTREGADO_X_MESES igual a cero, esto para no excluir las identificaciones que se hayan enviado. Jeimmy Chavez
+# 
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2016 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+LOGFILE=${vLog}
+export LOGFILE
+touch ${LOGFILE}
+
+exec </dev/null
+exec >${LOGFILE} 2>&1
+
+
+
+###################################################################
+#  Lee variable de entorno del  archivo .par
+####################################################################
+
+
+IDSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F"=" '{print $2}'`
+IDPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F"=" '{print $2}'`
+
+
+grep -v IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_ACTUALIZA_HISTORIA.par >${PARAMETROS}/P0033_BATCH2_ACTUALIZA_HISTORIA.partmp
+echo "IDSOLICITUD = '"$IDSOLICITUD"'" >>${PARAMETROS}/P0033_BATCH2_ACTUALIZA_HISTORIA.partmp
+mv -f ${PARAMETROS}/P0033_BATCH2_ACTUALIZA_HISTORIA.partmp ${PARAMETROS}/P0033_BATCH2_ACTUALIZA_HISTORIA.par 
+
+grep -v IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_ACTUALIZA_HISTORIA.par >${PARAMETROS}/P0033_BATCH2_ACTUALIZA_HISTORIA.partmp
+echo "IDPLANTILLA = '"$IDPLANTILLA"'" >>${PARAMETROS}/P0033_BATCH2_ACTUALIZA_HISTORIA.partmp
+mv -f ${PARAMETROS}/P0033_BATCH2_ACTUALIZA_HISTORIA.partmp ${PARAMETROS}/P0033_BATCH2_ACTUALIZA_HISTORIA.par 
+
+
+
+#####################################################################################
+# LABEL PARA EJECUTAR O NO ACTUALIZA HISTORIA RESULTADOS
+###################################################################################
+bteq<<BTEQ
+	.logon ${Logon};
+
+/*Inicio #1*/
+
+SELECT NO_ENTREGADO_X_MESES
+FROM ${BDSTAGE}.BATCH_DATOS_GENERALES
+WHERE ID_SOLICITUD = ${IDSOLICITUD}
+AND NO_ENTREGADO_X_MESES > 0;
+
+.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+.IF ACTIVITYCOUNT = 1 THEN .GOTO EJECUTAR_ACTUALIZA_HISTORIA;
+.IF ACTIVITYCOUNT = 0 THEN .GOTO FINAL;
+
+/*Fin #1*/
+
+.Label EJECUTAR_ACTUALIZA_HISTORIA
+
+/******************** ACTUALIZA HISTORIA RESULTADOS*************/
+
+	
+    REPLACE VIEW  ${BDSTAGE}.V_Stg_Hist_Resultado_TMP AS
+	LOCK ROW FOR ACCESS
+	SEL cast(${IDSOLICITUD} as INTEGER) Id_Solicitud
+	    ,CAST(${IDPLANTILLA} AS INTEGER) Id_Plantilla
+	    ,Cod_DW_Persona_Ubic
+		,CAST(DATE AS FORMAT 'yyyy-mm-dd') Fecha_ejecucion
+		,Id_Buro_Suscriptor
+	FROM
+	(
+	SEL COD_PIN_PERSONA,Cod_DW_Persona_Ubic
+	FROM  ${BDSTAGE}.BATCH_Cubo_DIRECCION
+
+	UNION 
+
+	SEL COD_PIN_PERSONA,Cod_DW_Persona_Ubic
+	FROM  ${BDSTAGE}.BATCH_Cubo_Telefono
+
+	UNION 
+
+	SEL COD_PIN_PERSONA,Cod_DW_Persona_Ubic
+	FROM  ${BDSTAGE}.BATCH_Cubo_CELULAR
+
+	UNION
+
+	SEL COD_PIN_PERSONA,Cod_DW_Persona_Ubic
+	FROM  ${BDSTAGE}.BATCH_Cubo_CORREO
+	) CUBOS
+	LEFT JOIN ${BDSTAGE}.BATCH_CUBO_PERSONA PER
+	ON PER.COD_PIN_PERSONA = CUBOS.COD_PIN_PERSONA
+
+	LEFT JOIN (
+	SEL 
+	Id_Buro_Persona AS Id_Buro_Suscriptor 
+	,cod_tipo_ident_fte 
+	,num_ident
+	FROM ${BDSTAGE}.BATCH_SOLICITUD_BATCH BSB
+	INNER JOIN ${BDSTAGE}.Vstg_BUROPERS_TMP VBT
+		 ON BSB.TIPO_ID_SUSCRIPTOR = VBT.Cod_Tipo_Ident_Fte
+		AND BSB.NUM_ID_SUSCRIPTOR = VBT.Num_Ident
+	WHERE ID_SOLICITUD = ${IDSOLICITUD}
+	) PERS
+	ON PER.NUMERO_ID = PERS.num_ident;
+	
+	
+	
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+	.Label FINAL
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en creacion de la Tabla...'
+	.EXIT ERRORCODE
+
+	.LOGOFF;
+	.QUIT;
+BTEQ
+
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+
+
+
+

@@ -1,0 +1,623 @@
+# ##############################################################################################################################################################
+# 
+# Objetivo:		Generar archivo de ejecucion .txt el cual va ejecutar los procesos.
+# Fecha:		2018/01/24
+# Realizado por:	Equipo Capgemini
+# Parametros:		N/A
+# Proyecto:		Nuevo Recnocer
+# Script:		P0033_PROCESO_BATCH2.BTQ
+# Autor    : Fernando Tafur
+# 
+# 
+# BITACORA
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Fecha				Objetivo																				Realizado por
+# 2019-07-04		#1Se incluye nueva variable de usuario USERTDWBATCH de carga para los procesos batch	Jeimmy Chavez
+# 2019-07-24        #Se ajusta la Shell para que permita ejecutarse en paralelo con Estandarizacion         Fernando Garrido
+# 
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------
+# 
+# Copyright 2016 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################################################################################################
+#!/bin/ksh
+set -x
+. $HOMER/.tdenv
+
+
+
+
+LOGFILE=${LOGS}/PROCESO_BATCH2_`date +%Y%m%d%H%M%S`.log
+export LOGFILE
+touch ${LOGFILE}
+
+exec </dev/null
+exec >${LOGFILE} 2>&1
+
+
+#####------------------------------------------------
+#       Valida si proceso se debe ejecutar
+#####------------------------------------------------
+
+chmod 777 ${LOGS}/.Batchtodo.txt
+ps -elaf > ${LOGS}/.Batchtodo.txt
+
+CountP=`grep -c "P0033_PROCESO_BATCH2" ${LOGS}/.Batchtodo.txt`
+CountP=($CountP)
+
+if [ ${CountP} -gt 1 ] # Proceso ya se esta ejecutando
+then			
+	echo "Proceso esta en ejecucion"
+	exit 8
+fi
+
+# #############################################################
+
+
+
+IDSOLICITUD=$1
+export IDSOLICITUD
+
+if [ -z ${IDSOLICITUD} ] 
+then
+   echo "Parametro de SOLICITUD esta vacio...."
+   exit 0
+fi 
+
+
+
+PARAMETROS=${PARAMETROS}
+process=`grep process ${PARAMETROS}/P0033_PROCESO_BATCH2.par|awk -F"'" '{print $2}'`
+BDDATOS=`grep BDDATOS ${PARAMETROS}/P0033_PROCESO_BATCH2.par|awk -F"'" '{print $2}'`
+BDMTDAT=`grep BDMTDAT ${PARAMETROS}/P0033_PROCESO_BATCH2.par|awk -F"'" '{print $2}'`
+BTQ=PROCESO_BATCH2
+export Logon="$SERVTD/\$tdwallet(${USERTDWBATCH}),\$tdwallet(${PWDTDWBATCH})"
+SALIDA=${SALIDAS}
+NOMBRE_ARCHIVO=`grep NOMBRE_ARCHIVO ${PARAMETROS}/P0033_PROCESO_BATCH2.par|awk -F"'" '{print $2}'`
+RUTA_SCRIPT=`grep RUTA_SCRIPT ${PARAMETROS}/P0033_PROCESO_BATCH2.par|awk -F"'" '{print $2}'`
+OTRO=${PARAMETROS}
+
+
+fechahoy_format_teradata=`date +%Y%m%d%H%M%S`
+export fechahoy_format_teradata      
+
+
+#####------------------------------------------------
+#                   FUNCION  GENERA LOTE
+#####------------------------------------------------
+
+funGenerateLote() {
+	rm -f ${LOGS}/.${process}.batch 2>/dev/null
+	
+	
+		bteq <<EOF
+		.logon ${Logon};
+		.REMARK  '####Comenzando BTEQ_GeneraLote  '
+		LOCKING ${BDMTDAT}.LOTE_ID FOR EXCLUSIVE
+		UPDATE ${BDMTDAT}.LOTE_ID
+		SET Lote = coalesce(Lote, 0) + 1
+		;
+		.if Errorcode <> 0 Then .Goto ERRORFOUND
+
+		.EXPORT DATA FILE = ${LOGS}/.${process}.batch
+		.SET RECORDMODE OFF;
+		.set heading '';
+		.set titledashes off;
+
+		LOCKING ${BDMTDAT}.LOTE_ID FOR EXCLUSIVE
+		SELECT Lote a
+		FROM ${BDMTDAT}.LOTE_ID
+		;
+		.if Errorcode <> 0 Then .Goto ERRORFOUND
+
+		.EXPORT RESET
+		.LOGOFF
+
+		.REMARK '#### LOTE obtenido con exito'
+		.QUIT 0
+
+		/* ===================== */
+		/* ERRORS TERMINATE HERE */
+		/* ===================== */
+		.Label ERRORFOUND
+		.REMARK '#### Error genera lote'
+		.EXIT 12
+
+	/*
+	 * Fin de la script
+	 */
+EOF
+
+		if [ $? -ne 0 ]
+			then
+			echo "#### Error en generacion de lote"
+			echo "####"
+			exit $?
+		fi
+		
+		lote=`tail -1 ${LOGS}/.${process}.batch`
+		lote=`echo ${lote}`
+}		
+
+	
+lote=""
+funGenerateLote
+
+
+#####------------------------------------------------
+#                   FUNCION  VALIDAR PROCESO
+#####------------------------------------------------
+funValidarProceso(){
+	rm -f ${LOGS}/.${process}_valida.batch
+	
+	
+		bteq <<EOF
+		.logon ${Logon};
+		
+
+		.EXPORT DATA FILE = ${LOGS}/.${process}_valida.batch
+		.SET RECORDMODE OFF;
+		.set heading '';
+		.set titledashes off;
+
+
+		
+		SEL distinct  'FALLO' A
+		FROM REC_MTDAT.LOG_TD
+		WHERE Nombre_Proceso = '${PROCESO}'
+		AND ESTADO_EJECUCION= 'Fallo Proceso'
+		AND lote > ${lote};
+		
+		
+		.if Errorcode <> 0 Then .Goto ERRORFOUND
+
+		.EXPORT RESET
+		.LOGOFF
+
+		.REMARK '#### LOTE obtenido con exito'
+		.QUIT 0
+
+		/* ===================== */
+		/* ERRORS TERMINATE HERE */
+		/* ===================== */
+		.Label ERRORFOUND
+		.REMARK '#### Error genera chequeo'
+		.EXIT 12
+
+	/*
+	 * Fin de la script
+	 */
+EOF
+
+		if [ $? -ne 0 ]
+			then
+			echo "#### Error en generacion chequeo"
+			echo "####"
+			exit $?
+		fi
+		
+		chequeo=`tail -1 ${LOGS}/.${process}_valida.batch`
+		chequeo=`echo ${chequeo}`
+}		
+
+
+
+#####------------------------------------------------
+#                FUNCION  ACTUALIZA PROCESO
+#####------------------------------------------------
+funActualizaProceso(){
+	rm -f ${LOGS}/.${process}.batch 2>/dev/null
+	
+	
+		bteq <<EOF
+		.logon ${Logon};
+		.REMARK  '####Comenzando BTEQ_ActualizaProceso'
+
+
+		UPDATE REC_STAGE.BATCH2_SHELLS_PLANEJECUCION
+		FROM (
+
+				SELECT
+				LOTE
+				,FECHA_HORA_INICIO
+				,FECHA_HORA_FIN
+				,CASE WHEN '${Error_log}' = 'SI' THEN 'Fallo Proceso' ELSE  MAX(Estado_Ejecucion) END Estado_Ejecucion
+				FROM REC_MTDAT.LOG_TD
+			    WHERE (Lote,FECHA_HORA_FIN) IN 
+				 (SEL 
+				 MAX(LOTE) LOTE
+				 ,MAX(FECHA_HORA_FIN) FECHA_HORA_FIN
+				 FROM REC_MTDAT.LOG_TD
+				 WHERE LOTE > ${lote}
+				 AND Nombre_Proceso = '${PROCESO}')
+				 GROUP BY 1,2,3
+				QUALIFY ROW_NUMBER() OVER (PARTITION BY LOTE,FECHA_HORA_FIN,FECHA_HORA_INICIO,FECHA_HORA_FIN ORDER BY Fecha_Hora_Fin DESC  ) = 1  				
+				 ) TMP_FINAL
+		SET 
+		LOTE = TMP_FINAL.LOTE
+		,FECHA_HORA_INICIO =  TMP_FINAL.FECHA_HORA_INICIO
+		,FECHA_HORA_FIN = TMP_FINAL.FECHA_HORA_FIN
+		,ESTADO_EJECUCION =  TMP_FINAL.Estado_Ejecucion
+		,LOG_ARCHIVO='${VALOR_LOG}'
+		WHERE ORDEN_ID = ${ORDEN_ID};
+		
+		
+		
+		.if Errorcode <> 0 Then .Goto ERRORFOUND
+
+
+		.EXPORT RESET
+		.LOGOFF
+
+		.REMARK '#### LOTE obtenido con exito'
+		.QUIT 0
+
+		/* ===================== */
+		/* ERRORS TERMINATE HERE */
+		/* ===================== */
+		.Label ERRORFOUND
+		.REMARK '#### Error Actualizando proceso'
+		.EXIT 12
+
+	/*
+	 * Fin de la script
+	 */
+EOF
+}
+
+
+
+
+#####------------------------------------------------
+#                FUNCION  ULTIMO LOG POR PROCESO
+#####------------------------------------------------
+funCalLog(){
+	fechahoy_linux=`date +%Y%m%d`
+	DATAFILE=`ls -lt  ${LOGS}/BDM-DWH_Exec_Process_Batch_${PROCESO}_[0-9]*.log 2>/dev/null | head -n 1`  
+	VALOR_LOG=`echo $DATAFILE | awk {'print $9'}`  
+    
+}
+
+
+#####------------------------------------------------
+#      FUNCION  GENERA REPORTE LOTE POR SOLICITUD
+#####------------------------------------------------
+
+funGeneraReporteSolicitud(){
+
+	   fechahoy_format=`date +%Y%m%d%H%M%S`
+	
+		bteq <<EOF
+		.logon ${Logon};
+		.REMARK  '####Comenzando BTEQ_GeneraReporteSolicitud  '
+		
+
+		.EXPORT DATA FILE = ${LOGS}/PROCESO_BATCH2_${IDSOLICITUD}_${fechahoy_format}.log
+		.SET DEFAULTS
+		.SET TITLEDASHES OFF
+		.SET HEADING '';
+		.SET WIDTH 1000
+		.SET SEPARATOR '|'
+
+		SEL
+         CAST(ID_PLANTILLA AS CHAR(10)) PLANTILLA
+		,CAST(NOMBRE_SHELL AS CHAR(40)) NOMBRE_SHELL
+		,CAST(CASE WHEN TRIM(NOMBRE_SECCION) = 'X' THEN '' ELSE NOMBRE_SECCION END AS CHAR(50)) NOMBRE_SECCION
+		,LOTE
+		,cast(cast(FECHA_HORA_INICIO as timestamp(6) format 'MM/DD/YYYYBHH:MI:SS') as varchar(20)) FECHA_HORA_INICIO
+		,cast(cast(FECHA_HORA_FIN as timestamp(6) format 'MM/DD/YYYYBHH:MI:SS') as varchar(20)) FECHA_HORA_FIN
+		,CAST(ESTADO_EJECUCION AS CHAR(15)) ESTADO_EJECUCION
+		,LOG_ARCHIVO
+		FROM REC_STAGE.BATCH2_SHELLS_PLANEJECUCION
+		ORDER BY ORDEN_ID;
+	
+	
+		.if Errorcode <> 0 Then .Goto ERRORFOUND
+
+		.EXPORT RESET
+		.LOGOFF
+
+		.REMARK '#### LOTE obtenido con exito'
+		.QUIT 0
+
+		/* ===================== */
+		/* ERRORS TERMINATE HERE */
+		/* ===================== */
+		.Label ERRORFOUND
+		.REMARK '#### Error genera lote'
+		.EXIT 12
+
+	/*
+	 * Fin de la script
+	 */
+EOF
+
+		if [ $? -ne 0 ]
+			then
+			echo "#### Error en generacion Reporte"
+			echo "####"
+			exit $?
+		fi
+
+}		
+
+
+funpermisos(){
+for LINEA in $(cat ${SALIDA}/${NOMBRE_ARCHIVO})  
+do
+    PROCESO=`echo $LINEA | cut -d ":" -f1` #Extrae proceso
+	ARCHIVO_PARAMETROS=${OTRO}/${PROCESO}
+    chmod 777 ${ARCHIVO_PARAMETROS}.par
+	
+done
+}
+
+
+###############################################################################################3
+#                     actualizacion variables de parametros
+##################################################################################################3
+grep -v lote ${PARAMETROS}/P0033_PROCESO_BATCH2.par >${PARAMETROS}/P0033_PROCESO_BATCH2.partmp
+echo "lote = "$lote"" >>${PARAMETROS}/P0033_PROCESO_BATCH2.partmp
+mv -f ${PARAMETROS}/P0033_PROCESO_BATCH2.partmp ${PARAMETROS}/P0033_PROCESO_BATCH2.par 
+
+
+grep -v IDSOLICITUD ${PARAMETROS}/P0033_PROCESO_BATCH2.par >${PARAMETROS}/P0033_PROCESO_BATCH2.partmp
+echo "IDSOLICITUD = "$IDSOLICITUD"" >>${PARAMETROS}/P0033_PROCESO_BATCH2.partmp
+mv -f ${PARAMETROS}/P0033_PROCESO_BATCH2.partmp ${PARAMETROS}/P0033_PROCESO_BATCH2.par 
+###############################################################################################3
+
+
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+export REPORTE=${LOGS}/${BTQ}.log
+
+rm -f ${REPORTE} 2>/dev/null
+rm -f ${SALIDA}/${NOMBRE_ARCHIVO} 2>/dev/null
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_PLAN_EJECUCION_SHELL
+	(
+		${lote}
+		,'${process}'
+		,${IDSOLICITUD}
+		,'${process}'
+		,P_ERROR
+	) ;
+	
+	SEL Descripcion_Teradata_Error
+	FROM ${BDMTDAT}.LOG_TD_DETALLE
+	WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+	and  Lote = ${lote};
+		
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+
+.EXPORT DATA FILE = ${SALIDA}/${NOMBRE_ARCHIVO}
+.SET RECORDMODE OFF;
+.set heading '';
+.set titledashes off;
+
+
+	
+	SELECT CAST(TRIM(NOMBRE_SHELL) AS  VARCHAR(50))
+	        ||':'||CAST(ID_SOLICITUD AS VARCHAR(50))
+			||':'||CAST(COALESCE(ID_PLANTILLA,0) AS VARCHAR(50))
+			||':'||CAST(ACTUALIZA_SOLICITUD AS VARCHAR(1)) 
+	        ||':'||CAST(ACTUALIZA_PLANTILLA AS VARCHAR(1)) 
+			||':'||CAST(ACTUALIZA_RUTA_SALIDA AS VARCHAR(1)) 
+			||':'||TRIM(CAST(ORDEN_ID AS VARCHAR(2)))
+	FROM REC_STAGE.BATCH2_SHELLS_PLANEJECUCION
+	ORDER BY ORDEN_ID;		
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+	
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO ITERACION.....'
+.EXIT 104
+	
+.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+echo "LOG  solo  iteracion : "${lote}
+chmod 777 ${SALIDA}/${NOMBRE_ARCHIVO}
+
+
+
+###########################################################3
+#                  lanza PROCESOS....
+###########################################################3
+
+
+
+CHECKARCH=`wc -l ${SALIDA}/${NOMBRE_ARCHIVO}`;export CHECKARCH
+echo $CHECKARCH 
+VALOR=`echo $CHECKARCH | awk {'print $1'}`
+
+if [ ${VALOR} == 0 ]
+then
+   echo "Iteracion Invalida"
+   exit 0
+fi
+
+
+
+
+ if [ -d ${SALIDA}/${IDSOLICITUD} ]
+ then
+    echo "Existe directorio"
+ 
+ else
+    mkdir ${SALIDA}/${IDSOLICITUD}
+	chmod 777 ${SALIDA}/${IDSOLICITUD}
+ fi
+
+
+for LINEA in $(cat ${SALIDA}/${NOMBRE_ARCHIVO})  
+do
+	
+	PROCESO=`echo $LINEA | cut -d ":" -f1` #Extrae proceso
+    V_IDSOLICITUD=`echo $LINEA | cut -d ":" -f2` #Extrae solicitud
+    V_IDPLANTILLA=`echo $LINEA | cut -d ":" -f3` #Extrae plantilla
+    ACTUALIZA_SOLICITUD=`echo $LINEA | cut -d ":" -f4` #Extrae si actualiza o parametros
+    ACTUALIZA_PLANTILLA=`echo $LINEA | cut -d ":" -f5` #Extrae si actualiza o parametros
+	ACTUALIZA_RUTA_SALIDA=`echo $LINEA | cut -d ":" -f6` #Extrae si actualiza o parametros
+	ORDEN_ID=`echo $LINEA | cut -d ":" -f7` #Extrae ORDEN_ID
+
+	
+	if [ ${PROCESO} == 'P0032_BATCH_GENERACUBO' ]
+	then
+	   P_SOLICITUD=IDSOLICITUD
+	   P_PLANTILLA=IDPLANTILLA
+	fi
+	
+	
+	if [ ${PROCESO} == 'P0034_CARGA_INSUMO_STANDARD' ]
+	then
+	   P_SOLICITUD=ID_SOLICITUD
+	   P_PLANTILLA=ID_PLANTILLA
+	fi
+	
+
+	if [ ${PROCESO} == 'P0033_BATCH2_PROCESACUBOS' ]
+	then
+	   P_SOLICITUD=IDSOLICITUD
+	   P_PLANTILLA=IDPLANTILLA
+	fi	
+	
+	if [ ${PROCESO} == 'P0033_BATCH2_ESTADISTICAS' ]
+	then
+	   P_SOLICITUD=IDSOLICITUD
+	   P_PLANTILLA=IDPLANTILLA
+	fi		
+
+	
+ 	ARCHIVO_PARAMETROS=${OTRO}/${PROCESO}	
+
+
+	if [ ${ACTUALIZA_SOLICITUD} == 'S' ]
+	then
+			grep -v ${P_SOLICITUD} ${ARCHIVO_PARAMETROS}.par >${ARCHIVO_PARAMETROS}.partmp
+			echo ${P_SOLICITUD}"="${V_IDSOLICITUD}>>${ARCHIVO_PARAMETROS}.partmp
+			mv -f ${ARCHIVO_PARAMETROS}.partmp ${ARCHIVO_PARAMETROS}.par 				
+	fi
+
+
+	if [ ${ACTUALIZA_PLANTILLA} == 'S' ]
+	then
+			grep -v ${P_PLANTILLA} ${ARCHIVO_PARAMETROS}.par >${ARCHIVO_PARAMETROS}.partmp
+			echo ${P_PLANTILLA}"="${V_IDPLANTILLA}>>${ARCHIVO_PARAMETROS}.partmp
+			mv -f ${ARCHIVO_PARAMETROS}.partmp ${ARCHIVO_PARAMETROS}.par 				
+	fi
+
+	
+
+	if [ ${ACTUALIZA_RUTA_SALIDA} == 'S' ]
+	then
+			grep -v SALIDAS1 ${ARCHIVO_PARAMETROS}.par >${ARCHIVO_PARAMETROS}.partmp
+			echo "SALIDAS1 = '"$SALIDA/$V_IDSOLICITUD"'">>${ARCHIVO_PARAMETROS}.partmp
+			mv -f ${ARCHIVO_PARAMETROS}.partmp ${ARCHIVO_PARAMETROS}.par 				
+	fi	
+
+	
+			grep -v PARAMETROS ${ARCHIVO_PARAMETROS}.par >${ARCHIVO_PARAMETROS}.partmp
+			echo "PARAMETROS = '"$PARAMETROS"'">>${ARCHIVO_PARAMETROS}.partmp
+			mv -f ${ARCHIVO_PARAMETROS}.partmp ${ARCHIVO_PARAMETROS}.par 		
+		
+	cd ${OTRO}
+	chmod 777 ${ARCHIVO_PARAMETROS}.par	
+	if [ $? -ne 0 ]
+	then
+	  echo "No se pudo otorgar permisos a: "${ARCHIVO_PARAMETROS}.par
+	  exit 20
+	fi
+	
+	
+	
+	cd ${MACROS}
+	VALOR_LOG=""
+	Error_log="NO"
+	ksh -x BDM-DWH_Exec_Process_batch.sh ${PROCESO}
+	if [ $? -ne 0 ]
+	then
+	    funCalLog        
+		Error_log="SI"
+        funActualizaProceso
+		funGeneraReporteSolicitud
+		echo "Se encontro error ver LOG del proceso :"${PROCESO} 
+		echo "VER LOG :"${VALOR_LOG} 
+		cd ${OTRO}
+    	chmod 777 ${ARCHIVO_PARAMETROS}.par		
+		funpermisos
+		exit 3
+	fi
+	
+	cd ${OTRO}
+	chmod 777 ${ARCHIVO_PARAMETROS}.par
+	if [ $? -ne 0 ]
+	then
+	  echo "No se pudo otorgar permisos a: "${ARCHIVO_PARAMETROS}.par
+	  exit 20
+	fi
+	
+
+	funValidarProceso
+    if [ "${chequeo}" == "FALLO" ]
+	then  
+	      funCalLog 
+		  Error_log="SI"
+	      funActualizaProceso
+		  funGeneraReporteSolicitud
+          echo "Se encontro error ver LOG del proceso :"${PROCESO} 	 
+		  echo "VER LOG :"${VALOR_LOG} 	
+		  cd ${OTRO}
+    	  chmod 777 ${ARCHIVO_PARAMETROS}.par	
+          funpermisos		  
+		  exit 4
+	fi  
+	funCalLog
+	funActualizaProceso	
+	
+	
+done
+#####################################
+#          Genera reporte
+#####################################
+funGeneraReporteSolicitud
+funpermisos
+exit 0
+
+
+
+
+
+
+

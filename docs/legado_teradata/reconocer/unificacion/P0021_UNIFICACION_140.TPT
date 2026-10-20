@@ -1,0 +1,65 @@
+/*♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠
+♠  
+♠  Objetivo: Recoleción de estadisticas y Borrado tablas temporales.
+♠  Fecha:	2017-03-27
+♠  Realizado por:Carlos Castillo
+♠  PARAMETROS:	
+♠  Proyecto: Experian Reconocer	
+♠  Script:		P0021_Unificacion_140.TPT
+♠  
+♠  BITACORA
+♠  ---------------------------------------------------------------------------
+♠  Fecha		Objetivo								Realizado por
+♠  Fecha: 2018-09-14  Objetivo: #1 Ajuste indices			Realizado por: Carlos Castillo
+♠  ---------------------------------------------------------------------------
+♠  
+♠  Copyright 2016 Equipo Teradata - Capgemini ♠
+♠  
+♠   Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+♠  		se encuentra protegido por las leyes de derechos de autor
+♠  
+♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠*/
+
+DEFINE JOB Drop_tablas_temp_stats                                                         
+DESCRIPTION 'Recoleci�n de estadisticas y borrado tablas temporales' 
+(   
+    /* ================================================================     
+       Definición del Operador "Bteq"                                       
+       ================================================================  */ 
+    
+    DEFINE OPERATOR BTEQ_OPERATOR                            
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR' 
+    TYPE DDL                                                 
+    ATTRIBUTES                                               
+    ( 
+      VARCHAR UserName     = @UserName,      
+      VARCHAR UserPassword = @UserPassword,  
+      VARCHAR TdpId        = @TdpId,         
+      VARCHAR ErrorList    = '3807'            /* Ignore Error: Object �%VSTR� does not exist */
+    ); 
+          
+    /* ====================================================================     
+       Estadisticas de las Tablas Destino, estas se definen en el documento de requerimientos                                      
+       ====================================================================  */ 
+    
+    STEP Bteq_Stats 
+    (
+      APPLY    
+            ('COLLECT STATS  INDEX ( Cod_DW_Persona_Ubic  ) ,COLUMN (Cod_DW_Direccion_Unificada) ON ' || @BDDATOS ||'.'||@TablaDestino1||';')  
+           ,('COLLECT STATS  INDEX ( Cod_DW_Persona_Ubic,Cod_DW_Direccion_Unificada,Fecha_Inicio_Dato ) /*#1*/ ,COLUMN (Cod_DW_Persona_Ubic) ON ' || @BDDATOS ||'.'||@TablaDestino2||';')    
+		   ,('DROP TABLE '||@BDTEMPO||'.'||@Wktb||';')          
+		   ,('DROP TABLE '||@BDTEMPO||'.'||@Err1||';')          
+		   ,('DROP TABLE '||@BDTEMPO||'.'||@Err2||';')          
+		   ,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'3;')
+		   ,('DROP TABLE '||@BDTEMPO||'.'||@Wktb||'_4;')
+		   ,('DROP TABLE '||@BDTEMPO||'.'||@Err1||'_5;')
+		   ,('DROP TABLE '||@BDTEMPO||'.'||@Err2||'_6;')
+		   ,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'7;')
+		   ,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'8;')
+		   ,('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||'9;')
+		   ,('DROP TABLE '||@BDSTAGE||'.Unificacion_3434;')
+		   
+	   			
+      TO OPERATOR ( BTEQ_OPERATOR );
+    );        
+);

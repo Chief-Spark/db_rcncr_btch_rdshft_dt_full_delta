@@ -1,0 +1,60 @@
+/*♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠
+♠  
+♠  Objetivo: Borrar temporales
+♠  Fecha:	2016-09-02	
+♠  Realizado por:	Carlos Castillo
+♠  PARAMETROS:	
+♠  Proyecto: Experian Reconocer	
+♠  Script:		Paso 120 Borrar temporales
+♠  
+♠  BITACORA
+♠  ---------------------------------------------------------------------------
+♠  Fecha		Objetivo			Realizado por
+♠  
+♠  ---------------------------------------------------------------------------
+♠  
+♠  Copyright 2016 Equipo Teradata - Capgemini ♠
+♠  
+♠   Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+♠  		se encuentra protegido por las leyes de derechos de autor
+♠  
+♠ ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠*/
+
+
+DEFINE JOB RECHAZADOS_NUEVANOMENCLATURA
+DESCRIPTION 'CRECION VISTA VS0014 MEDIANTE OPERADOR DDL'
+(
+    DEFINE OPERATOR DDL_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR'
+    TYPE DDL
+    ATTRIBUTES
+    (
+      VARCHAR UserName        = @UserName,      
+      VARCHAR UserPassword    = @UserPassword,   
+      VARCHAR TdpId           = @TdpId,          
+      VARCHAR AccountID,                         
+      VARCHAR ARRAY ErrorList = ['3803','3807','2574','2580','2572'] 
+    );
+STEP DROP_RELEASE_TABLES  
+    (           
+      APPLY      
+           ('DROP TABLE '||@BDTEMPO||'.'||@Wktb||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err1||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err2||';'),
+		   ('DROP TABLE '||@BDTEMPO||'.'||@Wktb||'_IN;'),
+		   ('DROP TABLE '||@BDTEMPO||'.'||@Err1||'_IN;'),
+		   ('DROP TABLE '||@BDTEMPO||'.'||@Err2||'_IN;'),
+		   ('DROP TABLE '||@BDTEMPO||'.'||@Wktb||'_DUP;'),
+		   ('DROP TABLE '||@BDTEMPO||'.'||@Err1||'_DUP;'),
+		   ('DROP TABLE '||@BDTEMPO||'.'||@Err2||'_DUP;'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@LogTable||';'),
+		   ('RELEASE MLOAD ' || @BDDATOS || '.'||@TablaDestino1 ||';'),
+		   ('RELEASE MLOAD ' || @BDDATOS || '.'||@TablaDestino1 ||' in apply;'),	
+		   ('RELEASE MLOAD ' ||@BDSTAGE	 ||'.'||@LAYOUT||'_IN;'),   
+		   ('RELEASE MLOAD ' ||@BDSTAGE	 ||'.'||@LAYOUT||'_DUP;'), 
+		   ('RELEASE MLOAD ' ||@BDSTAGE	 ||'.'||@LAYOUT||'_IN  in apply;'),   
+		   ('RELEASE MLOAD ' ||@BDSTAGE	 ||'.'||@LAYOUT||'_DUP in apply;')
+      TO OPERATOR ( DDL_OPERATOR );                       
+    );
+  
+);

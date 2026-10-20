@@ -1,0 +1,211 @@
+set -x
+# ################################################################################
+# 
+# Objetivo:		Ejecutar el SP PRO_CARGA_INSUMO_STANDARD
+# Fecha:		2017/11/24
+# Realizado por:	Equipo Capgemini
+# Parametros:		N/A
+# Proyecto:		Nuevo Recnocer
+# Script:		P0033_BATCH2_VALIDAR_ARCHIVOS
+# 
+# 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		Objetivo			Realizado por: Fernando Tafur P.
+# 
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2016 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+LOGFILE=${vLog}
+export LOGFILE
+touch ${LOGFILE}
+
+exec </dev/null
+exec >${LOGFILE} 2>&1
+
+
+
+###################################################################
+#  Lee variable de entorno del  archivo .par
+####################################################################
+
+IDPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F"=" '{print $2}'`
+IDSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F"=" '{print $2}'`
+DELIMITADOR=`grep DELIMITADOR ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+NUMERO_ARCHIVO=`grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+TIPO_ARCHIVO=`grep TIPO_SALIDA ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+NOM_ARCHIVO=`grep NOM_ARCHIVO ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+FUENTEDIR=`grep SALIDAS1 ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+ARCHIVO_ALERTA=`grep ARCHIVO_ALERTAS ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+varSECUENCIA_ITERADOR=`grep SECUENCIA_ITERADOR ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+
+
+##actualizar SOLICITUD
+grep -v IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_VALIDAR_ARCHIVOS.par >${PARAMETROS}/P0033_BATCH2_VALIDAR_ARCHIVOS.partmp
+echo "IDSOLICITUD = '"$IDSOLICITUD"'" >>${PARAMETROS}/P0033_BATCH2_VALIDAR_ARCHIVOS.partmp
+#Se actualiza el archivo de parametros con las variables actualizadas 
+mv -f ${PARAMETROS}/P0033_BATCH2_VALIDAR_ARCHIVOS.partmp ${PARAMETROS}/P0033_BATCH2_VALIDAR_ARCHIVOS.par 
+
+##actualizar PLANTILLA
+grep -v IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_VALIDAR_ARCHIVOS.par >${PARAMETROS}/P0033_BATCH2_VALIDAR_ARCHIVOS.partmp
+echo "IDPLANTILLA = '"$IDPLANTILLA"'" >>${PARAMETROS}/P0033_BATCH2_VALIDAR_ARCHIVOS.partmp
+#Se actualiza el archivo de parametros con las variables actualizadas 
+mv -f ${PARAMETROS}/P0033_BATCH2_VALIDAR_ARCHIVOS.partmp ${PARAMETROS}/P0033_BATCH2_VALIDAR_ARCHIVOS.par 
+
+
+
+
+rm -f ${FUENTEDIR}/cuantosx_mal.txt
+rm -f ${FUENTEDIR}/V_config_archivos.txt
+
+
+
+   
+#####################################################################################
+#
+# Validacion de archivos Nombre con datos, longitud y numero de separadores coherentes
+#   
+#####################################################################################3   
+
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+export REPORTE=${LOGS}/${BTQ}.log
+
+rm -r ${REPORTE} 2>/dev/null
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+     
+   	Update ${BDSTAGE}.BATCH2_shells_planejecucion
+	Set	estado_ejecutado = NULL
+	Where	orden_id = '${varSECUENCIA_ITERADOR}' ; 	 
+
+	
+	.EXPORT FILE='${FUENTEDIR}/V_config_archivos.txt'
+	.SET RECORDMODE OFF;
+	.set heading '';
+	.set titledashes off;
+	
+
+	
+	SEL   TRIM(CAST('Numero_Separadores=' AS VARCHAR(20))) ||trim(CAST(count(*) AS VARCHAR(10)))  TOTAL
+	FROM  ${BDSTAGE}.V_BA2_CAMPOS_SALIDA
+	UNION 
+	SEL   TRIM(CAST('Ancho_Fijo=' AS VARCHAR(20))) ||trim(CAST(SUM(COALESCE(AF_ANCHO_CAMPO,0)) AS VARCHAR(10))) TOTAL
+	FROM  ${BDSTAGE}.V_BA2_CAMPOS_SALIDA;
+
+   .EXPORT RESET
+
+   	Update ${BDSTAGE}.BATCH2_shells_planejecucion
+	Set	estado_ejecutado = '1'
+	Where	orden_id = '${varSECUENCIA_ITERADOR}' ;
+   
+    .LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creación del Squema/Sentencia.'
+	.EXIT ERRORCODE
+
+
+	.LOGOFF
+	.EXIT
+BTEQ
+
+###################################################################
+#  LEER VARIABLES CANTIDAD DE REGISTROS Y SEPARADORES
+####################################################################
+
+ANCHO_FIJO=`grep Ancho_Fijo ${FUENTEDIR}/V_config_archivos.txt|awk -F"=" '{print $2}'`
+NUMERO_SEPARADORES=`grep Numero_Separadores ${FUENTEDIR}/V_config_archivos.txt|awk -F"=" '{print $2}'`
+
+
+
+EXTENSION=`echo $TIPO_ARCHIVO|cut -c4-6`
+NOMARCHIVO1=$NOM_ARCHIVO
+DATAFILE=`ls ${FUENTEDIR}/${NOMARCHIVO1}*.${EXTENSION} 2>/dev/null`
+
+STATUS1="SI"
+export STATUS1
+
+
+if [ `echo ${DATAFILE} | wc -w` -eq 0 ]
+then
+   echo "error: No hay archivo de datos."
+   STATUS1="ERROR"
+   export STATUS1
+   exit 5
+fi
+
+
+	
+
+if [ $STATUS1 == "SI" ]
+then
+    	
+	NOMARCHIVO=${NOMARCHIVO1}
+	export NOMARCHIVO
+	DATAFILE=`ls ${FUENTEDIR}/${NOMARCHIVO1}*.${EXTENSION} 2>/dev/null`
+	for i in ${DATAFILE}
+	do 
+
+	   if [ ! -z ${DELIMITADOR} ]
+	   then
+            #####################################
+			# con delimitador csv
+			#####################################
+			rm -f ${FUENTEDIR}/cuantosx_mal.txt
+			cat $i | awk -v separador=$DELIMITADOR  -v cuantos=$NUMERO_SEPARADORES '{ X=split($0,array,separador); if(length(array)!=cuantos ) {print "Error Ancho:" NR}}'>${FUENTEDIR}/cuantosx_mal.txt
+			CHECKARCH=`wc -l ${FUENTEDIR}/cuantosx_mal.txt`;export CHECKARCH
+			echo $CHECKARCH 
+			VALOR=`echo $CHECKARCH | awk {'print $1'}`
+			
+			if [ ${VALOR} -ne 0 ]
+			then
+			   #rm -f ${FUENTEDIR}/${ARCHIVO_ALERTA}
+               echo "5,A,ESTRUCTURA ANCHO VARIABLE "$i >> ${FUENTEDIR}/${ARCHIVO_ALERTA}
+			   echo "5,D,La estructura de la salida no es consistente, posiblemente a un separador no permitido, por lo tanto no se puede enviar la salida al cliente. ">>${FUENTEDIR}/${ARCHIVO_ALERTA}			
+			fi			
+		else
+		    #####################################
+			# sin delimitador txt
+			#####################################
+			rm -f ${FUENTEDIR}/cuantosx_mal.txt
+			cat $i | awk -v cuantos=$ANCHO_FIJO '{ X=split($0,array,//); if(length(array)!=cuantos ) {print "Error Ancho:" NR}}'>${FUENTEDIR}/cuantosx_mal.txt
+			CHECKARCH=`wc -l ${FUENTEDIR}/cuantosx_mal.txt`;export CHECKARCH
+			echo $CHECKARCH 
+			VALOR=`echo $CHECKARCH | awk {'print $1'}`
+			
+			if [ ${VALOR} -ne 0 ]
+			then
+			   #rm -f ${FUENTEDIR}/${ARCHIVO_ALERTA}         			   
+               echo "4,A,ESTRUCTURA  ANCHO FIJO "$i >> ${FUENTEDIR}/${ARCHIVO_ALERTA}	
+			   echo "4,D,La estructura del archivo esta definido como ancho fijo, la informacion contenida no cumple con esta longitud ">>${FUENTEDIR}/${ARCHIVO_ALERTA}
+			
+			fi
+			
+		fi
+	  
+
+    done
+fi
+   
+   	
+	
+
+#############################################3
+# borrado de archivos Temporales
+#############################################3
+
+rm -f ${FUENTEDIR}/cuantosx_mal.txt
+rm -f ${FUENTEDIR}/V_config_archivos.txt
+
+
+exit 0
+

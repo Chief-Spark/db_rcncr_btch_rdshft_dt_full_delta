@@ -1,0 +1,1041 @@
+# ################################################################################
+# 
+# Objetivo:		Ejecutar el SP PRO_CARGA_INSUMO_STANDARD
+# Fecha:		2017/11/24
+# Realizado por:	Equipo Capgemini
+# Parametros:		N/A
+# Proyecto:		Nuevo Recnocer
+# Script:		P0033_BATCH2_EXPORT_131.BTQ
+# 
+# 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		Objetivo			Realizado por
+# 
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2016 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+set -x
+
+LOGFILE=${vLog}
+export LOGFILE
+touch ${LOGFILE}
+exec </dev/null
+exec >${LOGFILE} 2>&1
+
+
+IDPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_PROCESACUBOS.par|awk -F"=" '{print $2}'`
+IDSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_PROCESACUBOS.par|awk -F"=" '{print $2}'`
+
+
+echo $IDPLANTILLA
+echo $IDSOLICITUD
+
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+export REPORTE=${LOGS}/${BTQ}.log
+
+rm -r ${REPORTE} 2>/dev/null
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_FILTRO_A
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BDMTDAT}'
+		,${IDPLANTILLA}
+		,${IDSOLICITUD}
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_A Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+	
+	
+	.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+#######################################33
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_FILTRO_B
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BDMTDAT}'
+		,${IDPLANTILLA}
+		,${IDSOLICITUD}
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND	
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_B Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+	
+	
+	.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+
+################################################################
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_FILTRO_C
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BTTVISTA}'
+		,'${BDSTAGE}'
+		,'${BDMTDAT}'
+		,${IDPLANTILLA}
+		,${IDSOLICITUD}
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_C Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+		
+.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+
+################################################################
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_FILTRO_D
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,${IDPLANTILLA}
+		,${IDSOLICITUD}
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_D Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+		
+.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+
+################################################################
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_FILTRO_E
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BTTVISTA}'
+		,'${BDSTAGE}'
+		,'${BDMTDAT}'
+		,${IDPLANTILLA}
+		,${IDSOLICITUD}
+		,'N'
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_E Persona Natural Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+		
+.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+################################################################
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_FILTRO_E
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BTTVISTA}'
+		,'${BDSTAGE}'
+		,'${BDMTDAT}'
+		,${IDPLANTILLA}
+		,${IDSOLICITUD}
+		,'J'
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND	
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_E Persona Juridica Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+		
+.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+#######################################33
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_FILTRO_F
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BDMTDAT}'
+		,${IDPLANTILLA}
+		,${IDSOLICITUD}
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_F Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+		
+.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+################################################################
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_FILTRO_G
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,${IDPLANTILLA}
+		,${IDSOLICITUD}
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_G Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+		
+.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+################################################################
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_HOMOLOGACIONES
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,${IDPLANTILLA}
+		,${IDSOLICITUD}
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_HOMOLOGACIONES Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+		
+.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+########################################################################################################################################
+###########FILTRO I Marcan en 1 el Filtro_I cuando el camo orden_prioridad se encuentre en (null) y 0 para otro valor. ####
+########################################################################################################################################
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_FILTRO_I
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDSTAGE}'
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_I S Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+		
+.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+
+########################################################################################################################################
+###########FILTRO H marcación con datos, sin datos y eliminacion de personas clasificadas como con datos y sindatos al mismo tiempo ####
+########################################################################################################################################
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_FILTRO_H
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDSTAGE}'
+		,${IDPLANTILLA}
+		,${IDSOLICITUD}
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_HOMOLOGACIONES Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+		
+.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+
+########################################################################################################################################
+###########FILTRO J Eliminacion de duplicados correo y/o celulares vs base de salida											####
+########################################################################################################################################
+
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_FILTRO_J
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDSTAGE}'
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_J Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+	
+	
+	.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+
+########################################################################################################################################
+###########Creación de campos porcentaje de similitud tabla STG_INSUMO_BATCH_VALIDACION 											####
+########################################################################################################################################
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH_ADD_PORC_INSUMO
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDSTAGE}'
+		,${IDSOLICITUD}
+		,${IDPLANTILLA}
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_HOMOLOGACIONES Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+		
+.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+########################################################################################################################################
+########### Actualizar la tabla inconsistencias debido a la comparacion entre batch_solicitud y el cubo persona. ####
+########################################################################################################################################
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_ADICIONAR_INCON
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDSTAGE}'
+		,${IDPLANTILLA}
+		,${IDSOLICITUD}
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO FILTRO_I S Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+		
+.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+IdProceso=`cat ${REPORTE} |tail -1`
+echo $IdProceso >${REPORTE}
+vError=`cat ${REPORTE} | awk -F"|" '{print $1}'`
+vError=`echo ${vError}` 
+vCantError=`echo ${#vError}`
+
+rm -r ${REPORTE} 2>/dev/null
+
+if [ $vCantError -gt 0 ]
+	then
+	exit 3
+fi
+
+
+exit 0

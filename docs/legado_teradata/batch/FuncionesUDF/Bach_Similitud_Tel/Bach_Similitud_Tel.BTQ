@@ -1,0 +1,71 @@
+REPLACE FUNCTION REC_VISTA.Bach_Similitud_Tel  (
+		TelInsIn VARCHAR(20)
+		,TelBodIn VARCHAR(20)
+/*
+ * ############################################################################
+ * 
+ * Objetivo:	  Funcion Bach_Similitud_Tel para aplicar el algoritmo de
+ *		  comparacion de telefonos
+ * Fecha:	  2017/04/24
+ * Realizado por: Luis E Ramirez (Capgemini)
+ * Parametros:	  TelInsIn, TelBodIn, retorna INTEGER
+ * Proyecto:	  Experian - Reconocer
+ * Script:	  Bach_Similitud_Tel.BTQ
+ * 
+ * 
+ * 
+ * BITACORA
+ * ---------------------------------------------------------------------------
+ * Fecha		Objetivo			Realizado por
+ * 
+ * ---------------------------------------------------------------------------
+ * 
+ * Copyright 2016 Equipo Teradata - Capgemini
+ * 
+ *  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+ * 		se encuentra protegido por las leyes de derechos de autor
+ * 
+ * 
+ * ############################################################################
+ */
+ )
+	RETURNS INTEGER
+	LANGUAGE C
+	NO SQL
+	SPECIFIC BachSimilitudTel
+	EXTERNAL  NAME 'CI!loadParamsAcepAut!/reconocer/pruebas/fuentes/udfs/library/loadParamsAcepAut.h!CS!BachSimilitudTel!/reconocer/pruebas/fuentes/udfs/Bach_Similitud_Tel/BachSimilitudTel.c'
+	PARAMETER STYLE TD_GENERAL
+;
+
+
+
+
+/*
+.run file Bach_Similitud_Tel.BTQ
+
+SELECT '2826373' A
+	, '2826373' B
+	, REC_VISTA.Bach_Similitud_Tel(B, A) SIMILITUD
+;
+
+SELECT '2822992' A
+	, '2822994' B
+	, REC_VISTA.Bach_Similitud_Tel(B, A) SIMILITUD
+;
+
+SELECT '3436420' A
+	, '3434620' B
+	, REC_VISTA.Bach_Similitud_Tel(B, A) SIMILITUD
+;
+	
+SELECT '3436420' A
+	, '3432064' B
+	, REC_VISTA.Bach_Similitud_Tel(B, A) SIMILITUD
+;
+	
+SELECT '1234567' A
+	, '7654321' B
+	, REC_VISTA.Bach_Similitud_Tel(B, A) SIMILITUD
+;
+
+*/

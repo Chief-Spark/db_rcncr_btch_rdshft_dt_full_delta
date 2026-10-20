@@ -1,0 +1,11 @@
+Code/text,Code,Full Name,Name,Description,Abbreviation,Status,Asset Type,Equivalency,Tag,[Code Value] Grouped by [Code Set] > Name
+AGN,,Agencias,Agencias,,AGN,Cargado,Code Value,,225_TYPE_OF_INFORMATION_RECONOCER_HO,225_TYPE_OF_INFORMATION_RECONOCER_HO
+C,,Correspondencia,Correspondencia,,CRR,Cargado,Code Value,,225_TYPE_OF_INFORMATION_RECONOCER_HO,225_TYPE_OF_INFORMATION_RECONOCER_HO
+CDI,,Central de Información,Central de Información,,CDI,Cargado,Code Value,,225_TYPE_OF_INFORMATION_RECONOCER_HO,225_TYPE_OF_INFORMATION_RECONOCER_HO
+CO,,Comercial,Comercial,,CCL,Cargado,Code Value,,225_TYPE_OF_INFORMATION_RECONOCER_HO,225_TYPE_OF_INFORMATION_RECONOCER_HO
+EST,,Establecimientos,Establecimientos,,EST,Cargado,Code Value,,225_TYPE_OF_INFORMATION_RECONOCER_HO,225_TYPE_OF_INFORMATION_RECONOCER_HO
+L,,Laboral,Laboral,,LAB,Cargado,Code Value,,225_TYPE_OF_INFORMATION_RECONOCER_HO,225_TYPE_OF_INFORMATION_RECONOCER_HO
+PPL,,Principal,Principal,,PPL,Cargado,Code Value,,225_TYPE_OF_INFORMATION_RECONOCER_HO,225_TYPE_OF_INFORMATION_RECONOCER_HO
+R,,Residencia,Residencia,,RES,Cargado,Code Value,,225_TYPE_OF_INFORMATION_RECONOCER_HO,225_TYPE_OF_INFORMATION_RECONOCER_HO
+SUC,,Sucursales,Sucursales,,SUC,Cargado,Code Value,,225_TYPE_OF_INFORMATION_RECONOCER_HO,225_TYPE_OF_INFORMATION_RECONOCER_HO
+,,225_TYPE_OF_INFORMATION_RECONOCER_HO,225_TYPE_OF_INFORMATION_RECONOCER_HO,Contiene los nombres y abreviaturas de los tipos de ubicación de la dirección y teléfono de una persona o entidad. Se utiliza para homologar el registro que entrega RECONOCER por la Abreviatura utilizada en el Front de los productos.,,Cargado,Code Set,,225_TYPE_OF_INFORMATION_RECONOCER_HO,

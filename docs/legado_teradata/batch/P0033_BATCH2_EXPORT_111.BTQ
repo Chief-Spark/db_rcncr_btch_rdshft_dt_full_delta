@@ -1,0 +1,496 @@
+set -x
+# ################################################################################
+# 
+# Objetivo:			Exportar Datos Dinamicos Batch2
+# Fecha:			2017-12-15
+# Realizado por:	Holmer Alfonso H
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer - BATCH2
+# Script:		    P0033_BATCH2_EXPORT_111.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha				Objetivo									Realizado por
+# 
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+##  Toma Datos de Parametrizacion de BD y los Actualiza en el .par
+
+LOGFILE=${vLog}
+export LOGFILE
+touch ${LOGFILE}
+
+exec </dev/null
+exec >${LOGFILE} 2>&1
+
+
+varSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+export varSOLICITUD 
+export varPLANTILLA 
+
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt
+
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	 .logon ${Logon}; 
+
+
+	--  EXPORTANDO Parametros Base.
+	--
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 1024
+	.SET SEPARATOR '|'
+
+
+	Select	'DELIMITADOR = ''' || 
+		CASE 
+			WHEN TRIM(COALESCE(FORMATO_SALIDA,'')) = 'FE_TXT' AND TRIM(Coalesce(Separador,'')) = '' then ''
+			WHEN TRIM(COALESCE(FORMATO_SALIDA,'')) = 'FE_TXT' AND TRIM(Coalesce(Separador,'')) <> '' then Separador
+			WHEN TRIM(COALESCE(FORMATO_SALIDA,'')) = 'FE_CSV' AND TRIM(Coalesce(Separador,'')) = '' then ';'
+			WHEN TRIM(COALESCE(FORMATO_SALIDA,'')) = 'FE_CSV' AND TRIM(Coalesce(Separador,'')) <> '' then Separador
+		ELSE COALESCE(SEPARADOR,';') 
+		END || '''' 
+	From ${BDSTAGE}.Batch_Datos_Generales A
+	INNER JOIN (Select
+				 Y1.ID_SOLICITUD
+				,Y1.ID_PLANTILLA
+				,Y1.NOMBRE_SECCION
+				From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+				Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+				qualify row_number() over(order by Y1.orden_id)=1
+				) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD and A.id_plantilla = W1.ID_PLANTILLA 
+	GROUP BY 1 
+
+	union
+
+	Select	'ANCHOFIJO = ''' || CASE WHEN UPPER(COALESCE(FORMATO_SALIDA,'-')) = 'FE_TXT' then 'S' ELSE 'N' END || '''' 	
+		From ${BDSTAGE}.Batch_Datos_Generales A
+	INNER JOIN (Select
+				 Y1.ID_SOLICITUD
+				,Y1.ID_PLANTILLA
+				,Y1.NOMBRE_SECCION
+				From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+				Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+				qualify row_number() over(order by Y1.orden_id)=1
+				) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD and A.id_plantilla = W1.ID_PLANTILLA 
+	GROUP BY 1 
+
+	union 
+
+	Select	'ORIENTACION = ''' || CASE WHEN UPPER(TRIM(ORIENTACION)) NOT IN ('OE_HORIZON','OE_VERTICA') then 'OE_HORIZON' ELSE UPPER(TRIM(ORIENTACION)) END  || ''''	
+	From ${BDSTAGE}.Batch_Datos_Generales A
+	INNER JOIN (Select
+				 Y1.ID_SOLICITUD
+				,Y1.ID_PLANTILLA
+				,Y1.NOMBRE_SECCION
+				From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+				Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+				qualify row_number() over(order by Y1.orden_id)=1
+				) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD and A.id_plantilla = W1.ID_PLANTILLA 
+	GROUP BY 1 
+
+	union 
+
+	Select	'ARCHIVOS_PN_PJ = ''' || COALESCE(ARCHIVOS_PN_PJ, '0') || ''''	
+	From ${BDSTAGE}.Batch_Datos_Generales A 
+	INNER JOIN (Select
+				 Y1.ID_SOLICITUD
+				,Y1.ID_PLANTILLA
+				,Y1.NOMBRE_SECCION
+				From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+				Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+				qualify row_number() over(order by Y1.orden_id)=1
+				) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD and A.id_plantilla = W1.ID_PLANTILLA 
+	GROUP BY 1 
+
+	union 
+	
+	Select
+		'ARCHIVO_CONDATOS = ''' || 'CON_DATOS_' || COALESCE(TRIM(W1.ID_SOLICITUD),'X') || '''' 
+	From  ${BDSTAGE}.batch_solicitud_batch A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD 
+		INNER JOIN	${BDSTAGE}.Batch_Datos_Generales X1 ON W1.id_solicitud = X1.ID_SOLICITUD and W1.id_plantilla = X1.ID_PLANTILLA 
+	GROUP BY 1 
+
+	union 
+
+	Select
+		'ARCHIVO_SINDATOS = ''' || 'SIN_DATOS_' || COALESCE(TRIM(W1.ID_SOLICITUD),'X') || '''' 
+	From  ${BDSTAGE}.batch_solicitud_batch A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD 
+		INNER JOIN	${BDSTAGE}.Batch_Datos_Generales X1 ON W1.id_solicitud = X1.ID_SOLICITUD and W1.id_plantilla = X1.ID_PLANTILLA 
+	GROUP BY 1 
+
+	union 
+
+	Select	'ARCHIVO_INCONSISTENCIA = ''' || 'INCONSISTENCIA_' || COALESCE(TRIM(W1.ID_SOLICITUD),'X') || '''' 
+	From  ${BDSTAGE}.batch_solicitud_batch A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD 
+		INNER JOIN	${BDSTAGE}.Batch_Datos_Generales X1 ON W1.id_solicitud = X1.ID_SOLICITUD and W1.id_plantilla = X1.ID_PLANTILLA 
+	GROUP BY 1 
+
+	union 
+
+	Select	'ARCHIVO_ALERTAS = ''' || COALESCE(A.ARCHIVO_ALERTAS, 'ALERTAS_') || ''''
+	From ${BDSTAGE}.Batch_Datos_Generales A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA
+	GROUP BY 1 
+
+	union 
+
+	Select	'NOMBRE_SECCION = ''' || TRIM(UPPER(NOMBRE_SECCION)) || '''' 
+	From ${BDSTAGE}.BATCH2_shells_planejecucion
+	Where Coalesce(estado_ejecutado,'0')='0' and id_plantilla is not null and TRIM(nombre_seccion)<>'X' and nombre_shell='P0033_BATCH2_EXPORT' 
+	qualify row_number() over(order by orden_id)=1 
+
+	union 
+
+	Select	'EXTENCION = ''' || CASE when UPPER(COALESCE(A.FORMATO_SALIDA,'-')) = 'FE_TXT' then '.TXT''' when UPPER(COALESCE(A.FORMATO_SALIDA,'-')) = 'FE_CSV' then '.CSV''' else '.''' END 
+	From ${BDSTAGE}.batch_datos_generales A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA
+	GROUP BY 1 
+
+	union 
+
+	Select	'FORMATO = ''' || CASE when UPPER(COALESCE(A.FORMATO_SALIDA,'-')) = 'FE_TXT' then 'TEXT''' when UPPER(COALESCE(A.FORMATO_SALIDA,'-')) = 'FE_CSV' then 'DELIMITED''' else '.''' END 
+	From ${BDSTAGE}.batch_datos_generales A
+	INNER JOIN (Select
+				 Y1.ID_SOLICITUD
+				,Y1.ID_PLANTILLA
+				,Y1.NOMBRE_SECCION
+				From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+				Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+				qualify row_number() over(order by Y1.orden_id)=1
+				) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA
+	GROUP BY 1 
+
+	union 
+
+	Select	'TIPO_SALIDA = ''' || COALESCE(A.FORMATO_SALIDA, '') || ''''	
+	From ${BDSTAGE}.Batch_Datos_Generales A
+	INNER JOIN (Select
+				 Y1.ID_SOLICITUD
+				,Y1.ID_PLANTILLA
+				,Y1.NOMBRE_SECCION
+				From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+				Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+				qualify row_number() over(order by Y1.orden_id)=1
+				) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD AND A.id_plantilla = W1.ID_PLANTILLA
+	GROUP BY 1 
+
+	union
+
+	Select
+		'NOM_ARCHIVO = ''' || 
+		CASE
+			WHEN TRIM(UPPER(W1.nombre_seccion)) = 'CON DATOS DE UBICACION' then 'CON_DATOS_'
+			WHEN TRIM(UPPER(W1.nombre_seccion)) = 'SIN DATOS DE UBICACION' then 'SIN_DATOS_'
+			WHEN TRIM(UPPER(W1.nombre_seccion)) = 'CON DATOS DE UBICACION PERSONALIZADO' then 'CON_DATOS_PERSONALIZADO_'
+			WHEN TRIM(UPPER(W1.nombre_seccion)) = 'SIN DATOS DE UBICACION PERSONALIZADO' then 'SIN_DATOS_PERSONALIZADO_'
+		END 
+		|| COALESCE(TRIM(W1.ID_SOLICITUD),'X') || '''' 
+	From  ${BDSTAGE}.batch_solicitud_batch A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD 
+
+	union
+
+	Select
+		'FCH_ARCHIVO = ''' || 
+		'_' ||
+		substr(coalesce(cast(A.Fecha_Solicitud as varchar(25)),'yyyy-mm-dd hh:mm:ss'),1,4)
+		||
+		substr(coalesce(cast(A.Fecha_Solicitud as varchar(25)),'yyyy-mm-dd hh:mm:ss'),6,2)
+		||
+		substr(coalesce(cast(A.Fecha_Solicitud as varchar(25)),'yyyy-mm-dd hh:mm:ss'),9,2)
+		||
+		substr(coalesce(cast(A.Fecha_Solicitud as varchar(25)),'yyyy-mm-dd hh:mm:ss'),12,2)
+		||
+		substr(coalesce(cast(A.Fecha_Solicitud as varchar(25)),'yyyy-mm-dd hh:mm:ss'),15,2)
+		||
+		substr(coalesce(cast(A.Fecha_Solicitud as varchar(25)),'yyyy-mm-dd hh:mm:ss'),18,2)
+		|| '''' 
+	From  ${BDSTAGE}.batch_solicitud_batch A
+		INNER JOIN (Select
+					 Y1.ID_SOLICITUD
+					,Y1.ID_PLANTILLA
+					,Y1.NOMBRE_SECCION
+					From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+					Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+					qualify row_number() over(order by Y1.orden_id)=1
+					) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD 
+
+	union
+
+	Select	'INCLUIR_CABECERA = ''' || 
+		CASE
+			when chars(TRIM(INCLUIR_CABECERA))=0 then 'NO'
+		ELSE 
+			UPPER(COALESCE(INCLUIR_CABECERA,'NO'))
+		END || '''' 	
+	From ${BDSTAGE}.Batch_Datos_Generales A
+	INNER JOIN (Select
+				 Y1.ID_SOLICITUD
+				,Y1.ID_PLANTILLA
+				,Y1.NOMBRE_SECCION
+				From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+				Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+				qualify row_number() over(order by Y1.orden_id)=1
+				) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD and A.id_plantilla = W1.ID_PLANTILLA 
+	GROUP BY 1 
+
+	union
+
+	Select	'SECUENCIA_ITERADOR = ''' || TRIM(W1.ORDEN_ID) || '''' 	
+	From ${BDSTAGE}.Batch_Datos_Generales A
+	INNER JOIN (Select
+				 Y1.ID_SOLICITUD
+				,Y1.ID_PLANTILLA
+				,Y1.NOMBRE_SECCION
+				,Y1.ORDEN_ID
+				From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+				Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+				qualify row_number() over(order by Y1.orden_id)=1
+				) AS W1 ON A.id_solicitud = W1.ID_SOLICITUD and A.id_plantilla = W1.ID_PLANTILLA 
+	GROUP BY 1 
+
+	union
+
+	Select	'IDSOLICITUD = ' || TRIM(W1.ID_SOLICITUD)
+		From (Select
+				 Y1.ID_SOLICITUD
+				,Y1.ID_PLANTILLA
+				,Y1.NOMBRE_SECCION
+				From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+				Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+				qualify row_number() over(order by Y1.orden_id)=1
+				) AS W1  
+	GROUP BY 1 
+	
+	union
+	
+	Select	'IDPLANTILLA = ' || TRIM(W1.ID_PLANTILLA)
+		From (Select
+				 Y1.ID_SOLICITUD
+				,Y1.ID_PLANTILLA
+				,Y1.NOMBRE_SECCION
+				From (Select orden_id, id_solicitud, id_plantilla, nombre_seccion, estado_ejecutado From ${BDSTAGE}.BATCH2_shells_planejecucion where Coalesce(estado_ejecutado,'0')='0' and nombre_seccion <> 'X' and nombre_shell='P0033_BATCH2_EXPORT' group by 1,2,3,4,5) Y1
+				Where Coalesce(Y1.estado_ejecutado,'0')='0' and Y1.id_plantilla is not null and TRIM(Y1.nombre_seccion)<>'X' 
+				qualify row_number() over(order by Y1.orden_id)=1
+				) AS W1  
+	GROUP BY 1 
+
+
+	;
+
+	.EXPORT RESET	
+
+
+	.LOGOFF
+	.EXIT
+BTEQ
+
+
+# Recorte de la primera linea de titulos
+
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros_W.txt > ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt
+
+
+####################################################
+# Filtra Parametros de P0033_BATCH2_EXPORT.par 
+grep -v ENTRADAS ${PARAMETROS}/P0033_BATCH2_EXPORT.par | grep -v FORMATO | grep -v DELIMITADOR | grep -v ANCHOFIJO | grep -v ORIENTACION | grep -v ARCHIVOS_PN_PJ | grep -v ARCHIVO_CONDATOS | grep -v ARCHIVO_INCONSISTENCIA | grep -v ARCHIVO_SINDATOS | grep -v ARCHIVO_ALERTAS | grep -v NOMBRE_SECCION | grep -v EXTENCION | grep -v NOM_ARCHIVO | grep -v TIPO_SALIDA | grep -v FCH_ARCHIVO | grep -v INCLUIR_CABECERA | grep -v SECUENCIA_ITERADOR | grep -v IDSOLICITUD | grep -v IDPLANTILLA > ${PARAMETROS}/P0033_BATCH2_EXPORT.salida 
+
+# Actualiza Parametros de P0033_BATCH2_EXPORT.par 
+grep TIPO_SALIDA ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep DELIMITADOR ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep ANCHOFIJO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep ORIENTACION ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep ARCHIVO_CONDATOS ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep ARCHIVO_INCONSISTENCIA ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep ARCHIVO_SINDATOS ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep ARCHIVO_ALERTAS ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep NOMBRE_SECCION ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep EXTENCION ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep FORMATO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep NOM_ARCHIVO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep FCH_ARCHIVO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep INCLUIR_CABECERA ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep SECUENCIA_ITERADOR ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+
+
+
+cp ${PARAMETROS}/P0033_BATCH2_EXPORT.salida ${PARAMETROS}/P0033_BATCH2_EXPORT.par
+if [ $? -ne 0 ]
+	then echo 'No pudo realizar la accion..'
+	exit 3
+fi
+
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORT.salida
+
+
+####################################################
+# Filtra Parametros de P0033_BATCH2_CUBOEXPORT.par 
+grep -v ENTRADAS ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.par | grep -v FORMATO | grep -v DELIMITADOR | grep -v ANCHOFIJO | grep -v ORIENTACION | grep -v ARCHIVOS_PN_PJ | grep -v ARCHIVO_CONDATOS | grep -v ARCHIVO_INCONSISTENCIA | grep -v ARCHIVO_SINDATOS | grep -v ARCHIVO_ALERTAS | grep -v NOMBRE_SECCION | grep -v EXTENCION | grep -v NOM_ARCHIVO | grep -v TIPO_SALIDA | grep -v FCH_ARCHIVO | grep -v INCLUIR_CABECERA | grep -v SECUENCIA_ITERADOR > ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida 
+
+# Actualiza Parametros de P0033_BATCH2_CUBOEXPORT.par 
+grep TIPO_SALIDA ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep DELIMITADOR ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep ANCHOFIJO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep ORIENTACION ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep ARCHIVO_CONDATOS ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep ARCHIVO_INCONSISTENCIA ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep ARCHIVO_SINDATOS ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep ARCHIVO_ALERTAS ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep NOMBRE_SECCION ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep EXTENCION ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep FORMATO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep NOM_ARCHIVO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep FCH_ARCHIVO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep INCLUIR_CABECERA ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+grep SECUENCIA_ITERADOR ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+
+
+cp ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.par
+if [ $? -ne 0 ]
+	then echo 'No pudo realizar la accion..'
+	exit 3
+fi
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.salida
+
+
+####################################################
+# Filtra Parametros de P0033_BATCH2_EXPORTPLANO.par 
+grep -v ENTRADAS ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par | grep -v FORMATO | grep -v DELIMITADOR | grep -v ANCHOFIJO | grep -v ORIENTACION | grep -v ARCHIVOS_PN_PJ | grep -v ARCHIVO_CONDATOS | grep -v ARCHIVO_INCONSISTENCIA | grep -v ARCHIVO_SINDATOS | grep -v ARCHIVO_ALERTAS | grep -v NOMBRE_SECCION | grep -v EXTENCION | grep -v NOM_ARCHIVO | grep -v TIPO_SALIDA | grep -v FCH_ARCHIVO | grep -v INCLUIR_CABECERA | grep -v SECUENCIA_ITERADOR > ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida 
+
+# Actualiza Parametros de P0033_BATCH2_EXPORTPLANO.par 
+grep TIPO_SALIDA ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep DELIMITADOR ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep ANCHOFIJO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep ORIENTACION ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep ARCHIVO_CONDATOS ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep ARCHIVO_INCONSISTENCIA ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep ARCHIVO_SINDATOS ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep ARCHIVO_ALERTAS ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep NOMBRE_SECCION ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep EXTENCION ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep FORMATO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep NOM_ARCHIVO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep FCH_ARCHIVO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep INCLUIR_CABECERA ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+grep SECUENCIA_ITERADOR ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+
+
+cp ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par
+if [ $? -ne 0 ]
+	then echo 'No pudo realizar la accion..'
+	exit 3
+fi
+
+rm -f ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.salida
+
+
+
+
+####################################################
+# Filtra Parametros de P0033_BATCH2_CANALCONTACTO.par 
+grep -v ENTRADAS ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.par | grep -v FORMATO | grep -v DELIMITADOR | grep -v ANCHOFIJO | grep -v ORIENTACION | grep -v ARCHIVOS_PN_PJ | grep -v ARCHIVO_CONDATOS | grep -v ARCHIVO_INCONSISTENCIA | grep -v ARCHIVO_SINDATOS | grep -v ARCHIVO_ALERTAS | grep -v NOMBRE_SECCION | grep -v EXTENCION | grep -v NOM_ARCHIVO | grep -v TIPO_SALIDA | grep -v FCH_ARCHIVO  | grep -v INCLUIR_CABECERA | grep -v SECUENCIA_ITERADOR > ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida 
+if [ $? -ne 0 ]
+	then echo 'No pudo realizar la accion..'
+	exit 3
+fi
+
+# Actualiza Parametros de P0033_BATCH2_CANALCONTACTO.par 
+grep TIPO_SALIDA ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep DELIMITADOR ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep ANCHOFIJO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep ORIENTACION ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep ARCHIVO_CONDATOS ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep ARCHIVO_INCONSISTENCIA ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep ARCHIVO_SINDATOS ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep ARCHIVO_ALERTAS ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep NOMBRE_SECCION ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep EXTENCION ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep FORMATO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep NOM_ARCHIVO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep FCH_ARCHIVO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep INCLUIR_CABECERA ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+grep SECUENCIA_ITERADOR ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Parametros.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+
+cp ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.par
+if [ $? -ne 0 ]
+	then echo 'No pudo realizar la accion..'
+	exit 3
+fi
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO.salida
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+exit 0
+

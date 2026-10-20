@@ -1,0 +1,86 @@
+NOMBRE_DEL_VALOR, CANTIDAD
+CON_UBI         ,        1
+SIN_UBI         ,        6
+INCO            ,        0
+CAMPO
+6,A,CONSISTENCIA IDENTIFICACIONES
+6,E,TEXTO,CANTIDAD
+D,Documento de Identificacion Repetidos,0
+D,Registros procesados (Registros recibidos DEL cliente, Documento identificacio repetidos,7
+D,Registros sin Datos de ubicacion,6
+D,Registro Con Datos de ubicacion,1
+D,Registros con direccion,1
+D,Registros con Telefono,1
+D,Registros con Correo electronico,0
+D,Regisros con numero celular,1
+D,Registro con inconsistencias,0
+D,identificacion no Existe (tipo 7),0
+D,Nombre no coincide con registraduria (tipo 6),0
+D,Registro de personas fallecidas,0
+D,Nit o cedula de extranjeria no Existe,0
+D,Nombre no coincide con Dian o DAS,0
+D,Identificacion no vigente,0
+NOMBRE_DEL_VALOR, CANTIDAD
+CON_UBI         ,        1
+SIN_UBI         ,        6
+INCO            ,        0
+CAMPO
+6,A,CONSISTENCIA IDENTIFICACIONES
+6,E,TEXTO,CANTIDAD
+D,Documento de Identificacion Repetidos,0
+D,Registros procesados (Registros recibidos DEL cliente, Documento identificacio repetidos,7
+D,Registros sin Datos de ubicacion,6
+D,Registro Con Datos de ubicacion,1
+D,Registros con direccion,1
+D,Registros con Telefono,1
+D,Registros con Correo electronico,0
+D,Regisros con numero celular,1
+D,Registro con inconsistencias,0
+D,identificacion no Existe (tipo 7),0
+D,Nombre no coincide con registraduria (tipo 6),0
+D,Registro de personas fallecidas,0
+D,Nit o cedula de extranjeria no Existe,0
+D,Nombre no coincide con Dian o DAS,0
+D,Identificacion no vigente,0
+NOMBRE_DEL_VALOR, CANTIDAD
+CON_UBI         ,        1
+SIN_UBI         ,        6
+INCO            ,        0
+CAMPO
+6,A,CONSISTENCIA IDENTIFICACIONES
+6,E,TEXTO,CANTIDAD
+D,Documento de Identificacion Repetidos,0
+D,Registros procesados (Registros recibidos DEL cliente, Documento identificacio repetidos,7
+D,Registros sin Datos de ubicacion,6
+D,Registro Con Datos de ubicacion,1
+D,Registros con direccion,1
+D,Registros con Telefono,1
+D,Registros con Correo electronico,0
+D,Regisros con numero celular,1
+D,Registro con inconsistencias,0
+D,identificacion no Existe (tipo 7),0
+D,Nombre no coincide con registraduria (tipo 6),0
+D,Registro de personas fallecidas,0
+D,Nit o cedula de extranjeria no Existe,0
+D,Nombre no coincide con Dian o DAS,0
+D,Identificacion no vigente,0
+NOMBRE_DEL_VALOR, CANTIDAD
+CON_UBI         ,        ?
+SIN_UBI         ,        0
+INCO            ,        0
+CAMPO
+6,A,CONSISTENCIA IDENTIFICACIONES
+6,E,TEXTO,CANTIDAD
+D,Registros sin Datos de ubicacion,0
+?
+D,Registros con direccion,0
+D,Registros con Telefono,0
+D,Registros con Correo electronico,0
+D,Regisros con numero celular,0
+D,Registro con inconsistencias,0
+D,identificacion no Existe (tipo 7),0
+D,Nombre no coincide con registraduria (tipo 6),0
+D,Registro de personas fallecidas,0
+D,Nit o cedula de extranjeria no Existe,0
+D,Nombre no coincide con Dian o DAS,0
+D,Identificacion no vigente,0

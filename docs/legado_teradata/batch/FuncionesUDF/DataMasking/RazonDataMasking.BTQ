@@ -1,0 +1,37 @@
+AMBIENTE=`echo $AMBIENTESVR |tr [:upper:] [:lower:]`
+
+bteq << EOF
+.logon dbc/\$tdwallet(ucargareconocer),\$tdwallet(pcargareconocer);
+.set width 254
+REPLACE FUNCTION REC_VISTA.RazonDataMasking (
+		dir VARCHAR(200)
+/*
+ * ############################################################################
+ * 
+ * Objetivo:  Funcion que realiza el enmascaramiento de la razon social.
+ * Fecha:	  2018/06/05
+ * Realizado por: Fernando Garrido(Stefanini)
+ * Proyecto:	  Experian - Reconocer
+ * Script:	  RazonDataMasking.BTQ
+ * 
+ * 
+ * 
+ * BITACORA
+ * ---------------------------------------------------------------------------
+ * Fecha		Objetivo			Realizado por
+ * 2018-02-08          Version Inicial             Fernando Garrido 
+ * ---------------------------------------------------------------------------
+ * ############################################################################
+ */
+ )
+        RETURNS VARCHAR(500) 	
+	LANGUAGE C
+	NO SQL
+	SPECIFIC RazonDataMasking 
+	EXTERNAL  NAME 'CS!RazonDataMasking!/reconocer/$AMBIENTE/fuentes/udfs/DataMasking/RazonDataMasking.c'
+	PARAMETER STYLE TD_GENERAL
+;
+.QUIT
+EOF
+exit $?
+

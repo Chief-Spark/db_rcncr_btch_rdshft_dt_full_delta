@@ -1,0 +1,76 @@
+ REPLACE VIEW REC_VISTA.VM_Reporte_Relacion_Pers_Ubi
+( Cod_DW_Reporte_Persona_Ubic
+,Cod_DW_Persona_Ubic
+,Id_Buro_Suscriptor
+,Cod_DW_Cta
+,Fecha_Reporte
+,Fecha_Apertura
+,Fecha_Nov
+,Desc_Est_Vigencia
+,Nombre_Natu_Cta
+,Nombre_Tipo_Rel_con_Cta
+,Cod_DW_Motivo_Bloqueo
+,Id_Flag_Nuevo
+,Id_Flag_Desde
+,Cod_DW_Fuente
+,Cod_DW_Matricula
+,Flag_Bloqueo
+,Fecha_Reporte_Step1) AS 
+LOCK ROW FOR ACCESS
+
+SELECT Cod_DW_Reporte_Persona_Ubic
+,Cod_DW_Persona_Ubic
+,Id_Buro_Suscriptor
+,Cod_DW_Cta
+,Fecha_Reporte
+,Fecha_Apertura
+,Fecha_Nov
+,Desc_Est_Vigencia
+,Nombre_Natu_Cta
+,Nombre_Tipo_Rel_con_Cta
+,Cod_DW_Motivo_Bloqueo
+,Id_Flag_Nuevo
+,Id_Flag_Desde 
+,Cod_DW_Fuente
+,Cod_DW_Matricula
+,Flag_Bloqueo
+, CASE WHEN Desc_Est_Vigencia='A' THEN 
+    CASE WHEN Nombre_Natu_Cta = 'PASIVO'  THEN --1 -- validar si los flags de la ubicaciÃ¸Â³n tienen valor v y no son fechas de reporte nulas para tomar el campo fecha_nov
+           CASE WHEN ID_FLAG_NUEVO=1 AND Fecha_Reporte IS NOT NULL THEN 
+                                   Fecha_Apertura
+               ELSE 
+                  Fecha_Reporte
+           END
+           
+            WHEN Nombre_Natu_Cta='ACTIVO' AND Nombre_Tipo_Rel_con_Cta='PRINCIPAL' THEN --2 -- validar si los flags de la ubicaciÃ¸Â³n tienen valor v y no son fechas de reporte nulas para tomar el campo fecha_nov
+             CASE WHEN ID_FLAG_NUEVO=1 AND Fecha_Reporte IS NOT NULL THEN 
+                                   Fecha_Apertura
+               ELSE 
+                  Fecha_Reporte
+           END
+           
+         WHEN Nombre_Tipo_Rel_Con_Cta='CODEUDOR' THEN --2.5 Ã´Â¿Regla para el Codeudor ya que estos casos no se tienen en cuenta para las reglas inicialmente entregadas?
+            CASE WHEN ID_FLAG_NUEVO=1 AND Fecha_Reporte IS NOT NULL THEN 
+                                   Fecha_Apertura
+               ELSE 
+                  Fecha_Reporte
+            END
+         
+       END
+    
+    ELSE
+       CASE WHEN Desc_Est_Vigencia<>'A' OR Cod_DW_Motivo_Bloqueo <> 1 AND ID_FLAG_DESDE=0 THEN --3 --Fecha_Nov  -- Aplicar la evalucaciÃ¸Â³n de la Regla de Fechas
+           CASE WHEN Fecha_Reporte>Fecha_Nov THEN 
+                                   Fecha_Nov
+               ELSE 
+                  Fecha_Reporte
+           END 
+          ELSE
+             Fecha_Reporte --4
+       END
+       
+       --CASE WHEN Desc_Est_Vigencia<>'A' THEN Fecha_Nov ELSE Fecha_Reporte END
+       
+    END Fecha_Reporte_Step1
+    
+FROM REC_DATOS.MAT_REPORTE_REL_PERS_UBI A;

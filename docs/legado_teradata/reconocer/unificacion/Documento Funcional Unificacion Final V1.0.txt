@@ -1,0 +1,310 @@
+[Texto extraido del .docx para poder buscar con grep. Las imagenes y diagramas solo estan en el .docx.]
+
+
+Documento Funcional – Algoritmo de Unificacion.
+Ver.1.0. 
+Creado por: Andy García – Arquitecto Teradata
+Enero 2019.
+
+Objetivo:
+Explicar de una manera sencilla, los detalles de la solución desarrollada para Experian del algoritmo de Unificación de Direcciones Físicas con ejemplos prácticos y funcionales.
+
+Contenido
+Descripción General del Proceso.
+Flujo de Datos del Proceso
+Etapas del proceso:
+Unificación Regla 1 y sus Escenarios
+Unificación Regla 2 y sus Escenarios
+Unificación Regla 3 y sus Escenarios
+
+Apéndice: 
+Lógica de Negocio.
+
+Descripción General del Proceso.
+
+Dentro de la solución Reconocer Máster, Experian estableció los lineamientos para poder generar valor de negocio a partir de la información de ubicaciones reportadas por los suscriptores y distintas fuentes hacia el buró.
+Con la información de ubicación de personas, se desea conocer finalmente cual es la ubicación mas probable a la que se pueda contactar una persona (Ver Documentación Algoritmo Ordenamiento).
+Pero, para lograr esto, se hace necesario tomar toda la información de direcciones físicas ya estandarizadas y normalizadas (Ver Documento Algoritmo Estandarización) para luego realizar la unificación de las direcciones (Generalmente por sus variaciones tanto a nivel de puerta como complemento) que no es mas que un “borrado lógico” de aquellas direcciones que son iguales y que cambian por su Tipo de Uso (RES: Residencial, LAB: Laboral , CRR: Correspondencia) o que en su defecto, se puedan generar nuevas y mejores direcciones físicas usando sus COMPLEMENTOS.
+
+Unificar: La unificación de direcciones físicas, es el proceso mediante el cual, se toman las direcciones normalizadas de tipo vía (Ver documento de estandarización) y que a partir de su puerta y/o complemento, mas el uso de variables como Latitud, Longitud, Número de meses de reporte, Número de entidades que reportan, Diccionario de Via, entre otros elementos estadísticos y reglas de negocio, poder establecer cual es la dirección que sería la mejor para su explotación en cuanto a uso y/o calidad de esta por completitud para luego ser tratadas por un proceso de ordenamiento (Ver Documento de Algoritmo de Ordenamiento) para establecer cual es la ubicación mas probable de una persona.
+
+Reglas Generales de Unificación:
+La unificación se realiza por pares de direcciones para una misma persona. Esto quiere decir, que si una persona cuenta con tres (3) o mas direcciones y estas se pueden unificar, deberá primero unificar dos (2) y a partir del resultado de unificar esas se unifican con la tercera.
+
+Ej:
+
+Haciendo la analogía, podemos ver que si una misma persona tiene tres (3) direcciones, este debería ser el orden para procesar dicha información, donde del resultado de las dos ubicaciones inicialmente unificadas luego pasarían a unificarse con la última. En resumen, este sería un proceso recursivo.
+
+Dentro de la Unificación manejaremos el concepto de Padre e Hijo, donde el padre es la dirección resultado de la unificación por completitud o escogida estadísticamente para representar a su antecesora. Esto es muy importante para entender el funcionamiento de la estandarización, teniendo estos términos muy claros desde el comienzo.
+
+Se puede decir que hay dos tipos de direcciones padres y las revisaremos con un ejemplo sencillo:
+
+Dirección Padre Tipo 1: Son todas aquellas Direcciones Físicas que se llamarán “Unificadoras” cuando por determinada variable son escogidas entre las dos (2) direcciones candidatas que se están analizando. En el ejemplo vemos que la dirección 2 es la “Padre” de la Dirección 1. Este tipo de “Padre” es básicamente el resultado de la Regla 1 y Regla 3 que veremos más adelante con sus escenarios.
+
+Dirección Padre Tipo 2: Son todas aquellas Direcciones Físicas que se llamarán “Unificadoras” cuando son el resultado de una Nueva Dirección a partir de los componentes de las dos direcciones “hijas” que entraron al algoritmo o son analizadas. Este tipo de padre es en general, el resultado de la Regla dos (2) de Unificación que veremos mas adelante con sus escenarios.
+
+Toda dirección que se torna en “Hija” no volverá a entrar al algoritmo de unificación. Esto es una regla estricta ya que no se pueden volver a tomar direcciones procesadas y que ya tienen un “padre” asignado. Esta marcación Padre – Hijo queda persistida dentro del modelo de datos, específicamente en la tabla REC_DATOS.UNIFICACION_DIRECCION.
+
+Las reglas de Unificación se aplican en cascada y tienen un peso específico para su ejecución. El proceso de ordenamiento se ejecuta secuencialmente, primero aplicando los criterios de la “Regla 1” luego la “Regla 2” y finalmente la “Regla 3”. El resultado de una es el insumo de la siguiente y así sucesivamente hasta terminar todo el proceso.
+
+Ej:
+
+Es decir, que del resultado de la Regla 1, puede ser, que las mismas direcciones que terminan siendo “Padres” de Tipo 1 en la Regla 1, sean insumo para la Regla 2 como Hijas. Del resultado de la Regla 2: Padres Tipo 2 serán posteriormente insumo para la Regla 3 como “Hijas”. Esto no quiere decir, que solo pasan de un proceso al otro los resultados de cada regla en ese mismo instante de tiempo, se incluyen también las direcciones que cumplan con las condiciones mínimas necesarias para ser tomadas como candidatas para una u otra regla.
+
+Ej:
+
+Solo se toman para unificar direcciones hijas sin pades y sin bloqueos. Esta premisa es vital para la ejecución del proceso de unificación, puesto que las direcciones generalmente pueden haber sido ya unificadas y estas no deben volver a tomarse para este propósito y así mismo las direcciones que ya estén bloqueadas. Para poder identificar cuales direcciones ya fueron Unificadas solo basta con mirar el Flag “Ind_unificacion=1” en la tabla REC_DATOS.RELACION_PERSONA_UBICACION. Para saber cuales ubicaciones asociadas a personas se encuentran bloqueadas, se realiza un join contra la tabla REC_DATOS.BLOQUEO por el Cod_DW_Persona_Ubic, entre RELACION_PERSONA_UBICACION y esta.
+
+Proceso de Unificación – Regla uno (1)
+
+Este paso del proceso de unificación se encarga de validar cuales son las direcciones de una persona que cuentan con la misma Puerta, pero con diferente tipo de uso (RES - LAB – CRR). 
+Desde aquí se validan algunas variables asociadas a la dirección como son las siguientes:
+CIIU: Este concepto es el mismo que se conoce como Actividad Económica. Es un concepto asociado a la persona y que se refiere a la actividad comercial (Empleado, Metalurgia, etc.) con la cual genera sus ingresos la misma.
+
+Tipo de Uso: Este es el mismo concepto para el Modelo de Datos de Reconocer (Ver Documentación del Modelo de Datos) y que hace referencia a la “Descripcion Tipo Ubicación Dir”. Dentro del universo de valores posibles se encuentran: RES, LAB, CRR, JUD, CCL.
+
+Número de entidades que reporta: Dentro del buró se maneja un concepto de negocio que son los suscriptores. Los suscriptores son quienes reportan la información que se procesa, administra y explota en el buró de sus clientes y que se relaciona e interrelaciona en modelos estadísticos o informativos con el propósito de generar valor.
+Siendo esta su principal fuente de información, todos los datos que se manejan de un suscriptor (Bancos, Telcos, sector Real, etc.) son asociadas a este a través de un código de suscriptor con el cual poder establecer quien reporta. Entonces, para el propósito del presente documento es necesario revisar la documentación del modelo de datos y entender, que el número de entidades que reporta no es mas que un conteo distinto del número de suscriptores que reportan una misma ubicación, independiente de cuantas personas estén asociadas a esta.
+
+Nota: El insumo que se entrega para cada una de las reglas parten de unas vistas en el esquema REC_STAGE. Para la regla 1 se toma la información a partir de la V_Insumo_Unificacion_Regla1. En esta vista se agrupan algunas variables con sus respectivos criterios para poder determinar las direcciones candidatas con los siguientes campos:
+Address_Geo 
+Complement 
+Departamento 
+Código Localidad 
+Ciudad 
+Zona 
+Estrato
+Para más información revisar la documentación del Modelo de Negocio Reconocer.
+
+Ya teniendo estos conceptos medianamente claros, podemos profundizar ahora un poco en el uso que se le dan a los mismos para que con la Regla 1, se usen y establecer cual es la Dirección Padre entre dos que se estén analizando dados los siguientes escenarios:
+
+Escenario 1: Direcciones con CIIU igual 10 (Asalariado) y el tipo de dirección contiene los valores LAB o CRR.
+Si una de las direcciones no presenta alguno de estos valores (LAB o CRR), se toma como dirección unificada la dirección que si tenga una de estas partículas.
+
+Cuando las dos direcciones presentan una de estas partículas, se toma como dirección unificada aquella que el campo “Numero entidades que reportan” presente el mayor valor.
+
+Ahora veremos como aplicaría el ordenamiento con un ejemplo práctico con la información cargada en el modelo de datos:
+
+Aquí podemos ver que el registro con complemento OF 101 es unificado por su homólogo con complemento BR COLINA OF 101, aplicando la regla 1 numeral b, donde si se tiene el mismo tipo de uso (CRR) se toma la dirección con mayor fecha de reporte / número entidades que reporta.
+
+Escenario 2: El campo CIIU es igual a 81, 82 o 90 (Sin Actividad Económica, Subsidiada por terceros rentistas de capital) y el tipo de dirección contiene la partícula RES o CRR.
+Si una de las direcciones no presenta alguna de estas partículas, se toma como dirección unificada la dirección que si tenga una de estas partículas.
+
+Cuando las dos direcciones presentan una de estas partículas, se toma como dirección unificada aquella que el campo “Numero entidades que reportan” presente el mayor valor.
+
+Ahora veremos como aplicaría el ordenamiento con un ejemplo práctico con la información cargada en el modelo de datos:
+
+Para este ejemplo, vemos como la dirección con la partícula RES y que en últimas tiene la mayor cantidad de entidades que reporta es la dirección unificadora para las otros tipos de uso (LAB y CRR).
+
+Escenario 3: En los casos en que el campo CIIU presente un código diferente a los especificados en los escenarios 1 y 2, no se tiene en cuenta el campo tipo de dirección por lo que puede tener cualquier combinación de valores en dicho campo. Para este caso se hace la escogencia de la dirección unificada tomando aquella que presente en mayor valor en el campo “Numero entidades que reportan”.
+
+Veremos un ejemplo de este escenario a continuación:
+
+En este ejemplo, vemos como la dirección que resulta siendo unificada es la que tiene el mayor “número de entidades que reporta” así mismo se incluyó la fecha de última actualización como desempate. Para el escenario 3, no importa en últimas si se tiene el CIIU o no, acá por lo general, van a entrar a unificar la mayor cantidad de direcciones que no tengan esta variable dentro de su información del buró.
+
+Como podemos ver, para todos los procesos de unificación se realiza la persistencia de las relaciones entre “padres” e “hijos” en las tablas REC_DATOS.UNIFICACION_DIRECCION y REC_DATOS.REPORTE_UNIFICACION_DIRECCION.
+
+En la tabla REC_DATOS.RELACION_PERSONA_UBICACION se realizan las siguientes operaciones:
+
+Para poder establecer cuales Ubicaciones ya se unificaron, se marcan con un flag que indica si estas ya pasaron por el proceso para luego no ser revisadas. (Ind_Unificacion=1).
+
+Se marca la fecha de modificación, Lote y Lote Actualización del proceso como tal.
+
+REGLA 2: Direcciones Nuevas Generadas a partir de direcciones hijas.
+
+1.	DICCIONARIO DE NOMENCLATURAS: Una de las herramientas usadas en el algoritmo de Unificación de direcciones, es el Diccionario de nomenclaturas, este consiste en el cálculo del número de veces que se ha reportado cada nomenclatura para una dirección GEO.
+Ejemplo: Si se tiene una dirección GEO y el complemento TO 3 AP 404
+Se debe mantener en el diccionario el número de veces que se ha reportado TO 3 y también AP 404 de forma independiente.
+
+TO 3 15 veces reportado
+AP 404 – 5 veces reportado
+….
+BR CASTILLA – 9 veces reportado
+Etc
+Este diccionario es construido durante el proceso de Unificación sólo para aquellas direcciones que serían fuente del proceso de la regla 2.
+Para realizar el conteo se debe tener en cuenta todos los reportes que tiene dicha Dirección geo, esto se puede obtener de la tabla VM_REPORTE_RELACION_PERS_UBI en donde se tiene almacenado el histórico de los reportes.
+Este diccionario se almacena en el área STAGE y sólo permanece almacenado durante el proceso de unificación.
+El insumo para esta regla es la vista REC_STAGE.V_Insumo_Unificacion_Regla2, que contiene la información de direcciones asociadas a los clientes y que presentan igualdad en los siguientes valores:
+Address_Geo 
+Departamento 
+Código Localidad 
+Ciudad 
+Zona 
+Estrato 
+Barrio
+Tipo de Dirección
+Y que difieren en la variable complemento.
+
+Tenga en cuenta, para este y todas las reglas de unificación, se debe siempre tener claro las Reglas Generales de Unificación que ya revisamos al comienzo de este documento.
+
+Ahora comencemos a validar los escenarios asociados a la unificación por Regla 2:
+
+Escenario 1: En caso de que uno de los complementos no tiene información, se toma la dirección más completa.
+
+Aquí podemos observar que, para una dirección que viene analizada por pares, ambas manejan la misma puerta, pero una de las dos posee complemento, se toma la más completa que sería la que tiene los valores AP 802.
+
+Veamos un ejemplo de la regla ya aplicada en la data:
+
+Como podemos observar, el registro unificador es aquel que tiene la información del complemento. No se genera una nueva dirección, sino que se unifica una con la otra.
+
+Escenario 2: Si un complemento está completamente incluido en el otro se toma la dirección más completa.
+
+Como podemos ver en el ejemplo, se tomaría como dirección resultado la que maneja el complemento mas completo que incluye al otro, es decir, ED GALICIA AP 702.
+
+Un ejemplo de unificación por este escenario sería el siguiente:
+
+Podemos observar que en este ejemplo las dos direcciones que se unifican son la 703827254 y 703827256, donde la dirección mas completa es finalmente la que queda como “padre”.
+
+Escenario 3: En caso de que la nomenclatura sea la misma pero el valor que acompaña la nomenclatura sea diferente, se debe validar el campo Número de entidades que reportan el dato, en caso de ser diferentes se escoge con dirección unificada la que mayor número tenga.
+
+Para este caso, tenemos el siguiente ejempo:
+
+Podemos ver que el complemento maneja la misma nomenclatura “AP” pero el valor cambia, para lo cual tomaría por el número de entidades que reporta sea el mayor, que en este caso es la dirección con el complemento AP 105.
+
+En caso de que el campo “Tipo de documento” corresponda a NIT, se unen el texto de los dos complementos, creando para esto un nuevo complemento en la tabla DIRECCION_FISICA asociado a la dirección GEO y creando su correspondiente relación con la persona en la tabla RELACION_PERSONA_UBICACION, esté nuevo registro corresponderá a la dirección unificada y las dos direcciones evaluadas se unen a esta última.
+
+En caso de que el número de entidades que reporta el dato sean iguales, se revisa la fecha de última actualización y se toma la más reciente. Para cualquier otro caso se mantienen las existentes.
+
+Podemos ver con el siguiente ejemplo como quedan las direcciones unificadas con este escenario:
+
+Como podemos ver, las direcciones con complementos P2 y P3 se unificaron, generando una nueva dirección padre para aquellos casos cuando se maneja tipo de identificación NIT.
+
+Escenario 4: Para los Casos en los que existan varias nomenclaturas en el complemento y estos están contenidos en el otro, pero una de las nomenclaturas es diferente, se valida si las nomenclaturas se encuentran al mismo nivel, para ello se deben tener en cuenta los niveles definidos para las nomenclaturas en la tabla NOMENCLATURA.
+
+Si las nomenclaturas que difieren se encuentran al mismo Nivel, se consulta el DICCIONARIO DE COMPLEMENTOS, y verifica cuál de los valores de las nomenclaturas tienen un mayor valor de frecuencia, esta sería la dirección unificada.
+Cuando las frecuencias sean iguales se tomará la que tenga la fecha de actualización más reciente.
+
+Revisemos con un ejemplo de como se unifica una dirección por este escenario:
+
+Donde podemos observar que para nomenclatura es la misma, pero el número o valor es diferente por desempate escogío la que tiene el complemento CS 312. Si se revisa por el diccionario de complementos debería tomar el registro con mayor frecuencia o sino en últimas la fecha de actualización mas reciente.
+
+Escenario 5: Para los Casos en los que existan varias nomenclaturas en el complemento y estos están contenidos en el otro, pero una de las nomenclaturas es diferente, se valida si las nomenclaturas se encuentran en diferente nivel, para ello se deben tener en cuenta los Niveles definidos para las nomenclaturas en la tabla NOMENCLATURA.
+Subcaso uno: Si los valores que acompañan las nomenclaturas que difieren en el complemento son diferentes, se realiza la unificación buscando armar un solo registro más completo que contenga ambas nomenclaturas y sus valores, creando para esto una nuevo complemento en la tabla DIRECCION_FISICA  asociado a la dirección GEO y creando su correspondiente relación con la persona en la tabla RELACION_PERSONA_UBICACION, esté nuevo registro corresponderá a la dirección unificada y las dos direcciones evaluadas deben ser unidas a esta última.
+Veamos un ejemplo para el subcaso 1:
+
+Podemos ver que la dirección unificadora es la suma de los dos complementos de las direcciones hijas, generando una nueva dirección padre en la tabla REC_DATOS.RELACION_PERSONA_UBICACION.
+
+Subcaso dos: Si los valores que acompañan las nomenclaturas que difieren en el complemento son iguales, se debe consultar el Diccionario de la dirección GEO, y verificar cuál de los valores de las nomenclaturas tienen un mayor valor de frecuencia, esta sería la dirección unificada.
+Cuando las frecuencias sean iguales se toma la que tenga la fecha de actualización más reciente.
+
+Revisemos el siguiente ejemplo donde se manejan los mismos valores, pero las nomenclaturas son diferentes:
+
+Aquí se realiza la unifiación tomando la dirección con complemento “AP 1” dado que se realiza la comparación contra el diccionario de dirección geo y se toma el de mayor frecuencia.
+
+Escenario 6: Cuando ninguna nomenclatura está contenida en otra, estas deben ser comparadas independientemente y evaluar si una de ellas está incluida en la otra (EJ: OF 20 está incluida en OF 2007), con esto se tomaría la nomenclatura más completa, armando un nuevo complemento con estas (ED PROMOTOR OF 2007).
+
+Creando para esto un nuevo complemento en la tabla DIRECCION_FISICA asociado a la dirección GEO y creando su correspondiente relación con la persona en la tabla RELACION_PERSONA_UBICACION, esté nuevo registro corresponderá a la dirección unificada y las dos direcciones evaluadas deben ser unidas a esta última.
+Cuando un complemento no esté incluido en el otro y las nomenclaturas no coinciden en ninguno de los casos, se debe evaluar si las nomenclaturas están en niveles diferentes, en este caso se debe armar un nuevo complemento uniendo las nomenclaturas
+
+Creando para esto un nuevo complemento en la tabla DIRECCION_FISICA, asociado a la dirección GEO y creando su correspondiente relación con la persona en la tabla RELACION_PERSONA_UBICACION, este nuevo registro corresponde a la dirección unificada y las dos direcciones evaluadas deben ser unidas a esta última.
+
+Para este subcaso veamos como con un ejemplo de múltiple unificación se llega a la dirección mas completa a partir de la regla 6:
+
+Aquí podemos ver, que varias direcciones abiertas por sus tipos de uso y demases, son unificadas paulatinamente al encontrarse las nomenclaturas en diferentes niveles, como el caso de las direcciones con complemento LC 1301 termina unificándose hasta armar el complemento mas completo que es el “CC ALM TO SUR JUNTO OF 913 TO SUR J ALMACENTRO LC 1301 TO SUR OF 913”
+Esta regla digamos que funciona como un comodín, cuando no hay equivalencias entre complementos y no se tiene una cierta estructura por los diferentes niveles que se manejan.
+
+En caso de que las nomenclaturas sean de igual nivel se debe revisar el DICCIONARIO y escoger como dirección unificada la que más frecuencia tenga.
+
+Para este caso finalmente revisemos cuando las direcciones están al mismo nivel y se desempató por el diccionario:
+
+Regla 3: Direcciones unificadas con insumo GEO.
+
+En este punto del funcionamiento de la solución, es necesario tener en cuenta que para poder ejecutar la Regla 3 de Unificación, es necesario que se haya cargado al modelo de datos, las direcciones estandarizadas luego de haber sido procesadas por el servidor ESRI de Geocodificación y Cálculo de distancias.
+Es claro, que la información no va a estar 100% poblada para todos los casos, pero si fundamentalmente que aquellos casos que son los que cumplen con las condiciones mínimas para unificar, deben si o si, tener información tanto de latitud como longitud.
+Para mas información revisar la documentación de Carga del Modelo de Datos de Reconocer, específicamente para el proceso de Geocodificación de Direcciones y Cálculo de Distancias entre Direcciones físicas.
+
+Ahora revisemos en detalle otra de las precondiciones para poder realizar la unificación por Regla 3, como los es el Diccionario de Vía:
+
+DICCIONARIO VIA: Una de las herramientas usadas en el algoritmo de Unificación de direcciones, es el Diccionario de direcciones tipo vía, este consiste en el cálculo del número de veces que se ha reportado las direcciones Tipo vía en la bodega, clasificados por su diferencia en la vía generadora o por su número de Puerta
+Ejemplo: Si se tiene una dirección GEO: CL 34 78 52
+Se debe mantener en el diccionario VIA el número de veces que se ha reportado la vía generadora para el texto restante de la dirección (llave).
+En este caso se tendría para el texto CL 34 52 el siguiente conteo
+Numero Vía Generadora: 78, Número de veces reportada 15 (el número de veces que ha sido reportada la vía generadora para el texto restante). Es necesario identificar en el diccionario, que este conteo corresponde a Vía Generadora.
+Adicionalmente se debe mantener en el diccionario VIA el número de veces que se ha reportado el número de puerta para el texto restante de la dirección (llave).
+En este caso se tendría para el texto CL 34 78 el siguiente conteo
+Numero de puerta: 52, Número de veces reportada 11 (el número de veces que ha sido reportado el número de puerta para el resto del texto). Es necesario identificar en el diccionario, que este conteo corresponde a Número de puerta.
+
+Este diccionario se construye durante el proceso de Unificación sólo para aquellas direcciones que serían fuente del proceso de la regla 3.
+Para realizar el conteo se debe tener en cuenta todos los reportes que tiene la Dirección geo para sus diferentes combinaciones de número de Vía generadora y número de puerta, esto se puede obtener de la tabla VM_REPORTE_RELACION_PERS_UBI en donde se tiene almacenado el histórico de los reportes.
+Este diccionario se almacena en el área STAGE y sólo permanecerá almacenado durante el proceso de unificación, y se borra una vez finalice.
+
+Así mismo, se construye el insumo de las direcciones sobre las que se realizará el proceso de unificación de Direcciones regla 3. 
+Este insumo será la vista V_Insumo_Unificacion_Regla3 contendrá la información de direcciones asociadas a los clientes y que presentan igualdad en los siguientes valores:
+
+Departamento 
+Código Localidad 
+Ciudad 
+Zona
+Y que difieren en la Puerta, sólo en los valores Número de Vía generadora (NUMVIAGEN) o en el número de puerta (NUMPLACA) de la tabla DIRECCION_FISICA.
+Además, cuenta con los datos Latitud y Longitud correspondientes al resultado de la georreferenciación, así como la última fecha de actualización (FECHA REPORTE) de la dirección, el número de entidades que reportan la dirección (ID_BURO_SUSCRIPTOR).
+Esta regla de unificación sólo aplica para las direcciones Tipo Vía, se excluyen el tipo Manzana y Rurales.
+Las direcciones que presenten modificadores de vía (B, C, F, BIS, BBISS, ETC) a la vía principal o vía generadora, quedan excluidas de la tercera regla de unificación.
+Cuando las direcciones incluyen indicadores de cuadrante (norte, sur, este, oeste), estos no se tienen en cuenta. Se aclara que la dirección si se tendrá en cuenta, pero se omitirán estos indicadores dentro de la puerta.
+
+Ahora comencemos a revisar cada uno de los Escenarios y subcasos asociados a esta regla de unificación. Esta Regla presenta varios escenarios con subcasos con los cuales, se realiza una validación de diferentes flujos, que van cambiando de acuerdo con el comportamiento, ya sea de la vía generadora o del número de puerta y en dado caso, los subcasos para resolver cual de las dos direcciones “hijas” será la que finalmente queda como “padre”.
+
+Escenario 1: Cuando la diferencia se encuentra en el número de la vía generadora.
+Subcaso 1: Si sólo un address geo tiene latitud(X) y longitud(Y), se toma el registro que tenga dicha información, quedando únicamente el primer registro con el address geo CL 8 6 52
+
+Para estos escenarios la toma de decisiones es muy sencilla y por eso se recalca, que es importante y vital que se haya ejecutado el proceso de GEO en reconocer para poder tener la mayor parte de las variables pobladas.
+
+Revisemos con un ejemplo que ha pasado por diferentes reglas de unificación, como funciona este escenario:
+
+Para entender mejor, hagamos esta línea de tiempo:
+En un instante X, para esta misma persona (Id Buro Persona = 87711685) sus dos direcciones con puerta TV 54 19 24, fueron unificadas por la regla 1 de unificación. Si miramos la regla 1 valida que las puertas sean iguales bajo ciertas condiciones, dejando como “padre” la dirección con mayor número de entidades que reporta, dejando la dirección con Cod DW Persona Ubic = 674502716
+
+Luego en un instante de tiempo Y, se realiza la unificación por regla 3, escenario 1: Cuando la diferencia está en la vía generadora y se tiene que, para el subcaso 1, si una de las dos direcciones tiene latitud y longitud, se toma aquella que cuente con esta información. Por lo tanto, la dirección que deja como “padre” es aquella con Cod DW Persona Ubic = 674502716. (Genial no? jeje)
+Subcaso 2: Si ningún address geo tiene latitud (X) y longitud (Y) asociada, se toma el que tenga la máxima fecha de la última actualización (Fecha Reporte), en el caso que ambos registros tengan la misma fecha se toma el que tenga el número máximo de entidades que reporten la dirección. Si se mantiene el empate se mantiene sin modificaciones.
+
+Veamos con un ejemplo como se realiza la unificación por regla 3, para este escenario:
+
+Aquí con los datos podemos observar que se presentaron múltiples unificaciones, y que al final, se deja como dirección unificadora (todos los registros tienen Ind_unificacion= 1) a la que tiene como complemento BR PONTEVEDRA OF 1114 (Cod DW Persona Ubic = 747085829). Vemos que ningún registro cuenta con Latitud y Longitud, pero a nivel de manejo de desempates, en su momento debío tener esta dirección la mayor cantidad de entidades que reportan o en su defecto una fecha de actualización mas reciente.
+
+Subcaso 3: Si ambos address geo tienen latitud(X) y longitud(Y) asociada, se revisa el número de frecuencia que tienen la vía generadora para una determinada llave, es decir, se busca en el DICCIONARIO VÍA la frecuencia de las vías generadoras 90 y 91 asociadas a la llave KR 10 27, luego se toma la que presente mayor frecuencia. Si todas tuviesen la misma frecuencia se mantendrá sin alteraciones.
+
+Para este subcaso veamos con un ejemplo como una dirección es unificada cuando todas tienen Latitud y Longitud y a través del diccionario de via, se realiza el desempate:
+
+Como podemos ver para la dirección con Id Buro Persona 8654719, se tiene que para el mismo tipo de uso (RES) se tienen varias direcciones iguales, pero solo una tiene la diferencia en el número de la vía generadora. Como el análisis se realiza por pares de direcciones, se van comparando una a una contra la dirección KR 7 181 75, y a través del diccionario, se valida la frecuencia del número de vía generadora, deduciendo que la dirección con el valor 181 es el mas frecuente, y unificando todos contra esa dirección.
+
+Ahora validemos el Escenario 2 de la Regla 3 y sus diferentes subcasos:
+
+Escenario 2: Si la diferencia de la dirección se encuentra en el número de puerta.
+
+Subcaso 1: Si sólo un address geo tiene latitud (X) y longitud (Y), se toma el registro que tenga dicha información, quedando únicamente el segundo registro con el address geo AV BOYACA 77A 41
+
+Para poder entender mejor este escenario, veamos a través de un ejemplo como este unifica:
+
+En este ejemplo, vemos como la dirección unificadora, resultado de validar la variación en el número puerta (426 y 428) se toma escogiendo la dirección que tiene latitud y longitud.
+
+Subcaso 2: Si ningún address geo tiene latitud (X) y longitud(Y) asociada, se toma el que tenga la máxima fecha de la última actualización, en el caso que ambos registros tengan la misma fecha se toma el que tenga el número máximo de Número de entidades que reportan. Si se mantiene el empate se mantiene sin modificaciones
+
+Validemos para este subcaso, el manejo que le dio el algoritmo a un ejemplo real:
+
+Podemos ver, que la dirección CL 13 18 23 es unificada con la CL 13 18 21, donde hay una variación en el número de la puerta y como no tienen información de latitud y longitud, toma la dirección que tenga la fecha actualización mas reciente, por lo que podemos ver es la CL 13 18 21.
+
+Subcaso 3: Si ambos address geo tienen latitud(X) y longitud(Y) asociada, primero se verifica que las diferencias entre los números de puertas tengan ± 2 posiciones entre ellos; en caso que sea mayor se mantienen las direcciones, en caso que se cumple esta diferencia se revisa en el Diccionario VIA (sólo para los registros identificados por número de puerta) el número de frecuencia que tienen los números de puertas para una determinada llave, es decir, se busca la frecuencia de los números de  puertas 12 y 14 asociadas a la llave CL 11 10, luego se toma la que presente mayor frecuencia. Si todas tuviesen la misma frecuencia se mantendrá sin alteraciones.
+
+Podemos revisar con este ejemplo como se maneja este escenario:
+
+Como podemos ver, se presenta una variación entre las puertas de las direcciones reportadas (mas o menos 2 posiciones KR 55 14 55 y KR 55 14 57) y que, dentro de la regla de unificación para este escenario, establece que en dado caso las direcciones cuenten con latitud y longitud, se deba escoger a través del diccionario la puerta con mayor frecuencia, para este ejemplo, vemos que el algoritmo resuelve dejar como dirección unificadora Cod DW Persona Ubic = 67856009.
+
+Correcciones Complementos Resultado Unificación Regla 2
+
+Una vez realizada la unificación de direcciones a través de la regla 2, se procede a través de una función desarrollada en lenguaje C, realizar ajustes a los resultados de la unificación por regla 2 debido a que las salidas de este proceso no son tan legibles y de buena calidad como se esperaban.
+
+Por esto, se generaron y evaluaron una serie de escenarios con los cuales se pretende mitigar en cierta medida la duplicidad de nomenclaturas y valores dentro de un complemento unificado por Regla 2.
+
+Algunos casos que se solucionan con este artefacto son los siguientes:
+
+APENDICE
+
+LOGICA DE NEGOCIO: UNIFICACION REGLA 1
+
+INSUMO UNIFICACION REGLA 2
+
+INSUMO DICCIONARIO DE COMPLEMENTOS REGLA 2
+
+UNIFICACION DE DIRECCIONES: REGLA 2
+
+UNIFICACION REGLA 3
+

@@ -1,0 +1,371 @@
+# ################################################################################
+# 
+# Objetivo:			Extrae Datos de Cubos
+# Fecha:			2017-12-15
+# Realizado por:	CARLOS CASTILLO
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:			P0033_BATCH2_EXPORTVERTPLANO_111.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha				Objetivo						Realizado por
+# 2017-12-26		#1 Export Vertical				Carlos Castillo	
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+set -x
+
+LOGFILE=${vLog}
+export LOGFILE
+touch ${LOGFILE}
+exec </dev/null
+exec >${LOGFILE} 2>&1
+
+
+varSECUENCIA_ITERADOR=`grep SECUENCIA_ITERADOR ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+varSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varARCHIVOS_PN_PJ=`grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+
+varTIPO_SALIDA=`grep TIPO_SALIDA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+
+#Variable orientación para el export OE_VERTICA
+varOrienta=`grep ORIENTACION ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+
+varSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+FechaIncioP=`grep HOY ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F "'" '{print $2}'`
+FechaIncioP=20${FechaIncioP:0:2}-${FechaIncioP:2:2}-${FechaIncioP:4:2}" "${FechaIncioP:6:2}":"${FechaIncioP:8:2}":"${FechaIncioP:10:2}.
+NOM_ARCHIVO=`grep NOM_ARCHIVO ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+EXTENCION=`grep EXTENCION ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+ARCHIVO_CONDATOS=`grep ARCHIVO_CONDATOS ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+ARCHIVO_SINDATOS=`grep ARCHIVO_SINDATOS ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+NOMBRE_SECCION=`grep NOMBRE_SECCION ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+FCH_ARCHIVO=`grep FCH_ARCHIVO ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+SALIDAS1=`grep SALIDAS1 ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+MAQUINA=${SERVTD}
+RUTA=$SALIDAS1
+DELIMITADOR=`grep DELIMITADOR ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F"'" '{print $2}'`
+
+
+grep -v NOM_ARCHIVO ${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.par |grep -v DELIMITADOR |grep -v ARCHIVOS_PN_PJ| grep -v EXTENCION | grep -v ORIENTACION | grep -v SALIDAS1| grep -v RUTA|grep -v MAQUINA| grep -v IDPLANTILLA| grep -v IDSOLICITUD| grep -v FEINICIO | grep -v FCH_ARCHIVO >${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+echo "IDPLANTILLA = '"$varPLANTILLA"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+echo "IDSOLICITUD = '"$varSOLICITUD"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+echo "FEINICIO = '"$FechaIncioP"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+echo "NOM_ARCHIVO = '"$NOM_ARCHIVO"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+echo "RUTA = '"$RUTA"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+echo "MAQUINA = '"$MAQUINA"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+echo "SALIDAS1 = '"$SALIDAS1"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+echo "ORIENTACION = '"$varOrienta"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+echo "EXTENCION = '"$EXTENCION"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+echo "DELIMITADOR = '"$DELIMITADOR"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+echo "ARCHIVOS_PN_PJ = '"$varARCHIVOS_PN_PJ"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+echo "FCH_ARCHIVO = '"$FCH_ARCHIVO"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+
+
+
+
+
+#Se actualiza el archivo de parametros con las variables actualizadas 
+mv -f ${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp ${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.par 
+
+vardefault=";" 
+ 
+if [[ -z $DELIMITADOR ]]
+then 
+grep -v DELIMITADOR ${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.par >${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+echo "DELIMITADOR = '"$vardefault"'" >>${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp
+mv -f ${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.partmp ${PARAMETROS}/P0033_BATCH2_EXPORTVERTPLANO.par 
+fi
+
+
+
+
+# CAMBIA EL ESTADO DE LA VISTA PARA LA SIGUIENTE ITERACION CON ESTO SE PUEDEN CAPTURAR LOS DATOS YA PROCESADOS PARA REALIZAR EL EXPORT VERTICAL (UNIVERSO)
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+
+Update ${BDSTAGE}.BATCH2_shells_planejecucion
+Set estado_ejecutado = NULL
+Where orden_id = '${varSECUENCIA_ITERADOR}' ;
+	
+.IF  ERRORCODE <> 0 THEN .Goto ERRORFOUND
+
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO ACTIVACIÓN VISTA'
+.EXIT 104
+	
+	
+	.EXPORT reset
+BTEQ
+
+
+
+
+ 
+#---------------------------------------------------------------------------------------------------------------
+#-------------------#1. Export Vertical ----------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------------------
+
+# Si el export es Vertical se ejecutan los Sps
+
+if [ $varOrienta == "OE_VERTICA" ]
+
+then 
+	if [ "${varARCHIVOS_PN_PJ}" == "1" ]
+	
+	then 	# CALCULO PERSONA NATURAL
+		
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+export REPORTE=${LOGS}/${BTQ}.log
+
+rm -r ${REPORTE} 2>/dev/null
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_TRANSPUESTA
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'Vstg_Batch2_PN'
+		,P_ERROR
+	) ;
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO ACTUALIZACIÓN BATCH_ARCHIVO_LOG Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+	
+	
+	.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+# CALCULO PERSONA Juridica
+
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+export REPORTE=${LOGS}/${BTQ}.log
+
+rm -r ${REPORTE} 2>/dev/null
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_TRANSPUESTA
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'Vstg_Batch2_PJ'
+		,P_ERROR
+	) ;
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO ACTUALIZACIÓN BATCH_ARCHIVO_LOG Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+	
+	
+	.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+
+
+	else	# CALCULO PERSONA NATURAL Y Juridica
+			
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+export REPORTE=${LOGS}/${BTQ}.log
+
+rm -r ${REPORTE} 2>/dev/null
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+	
+	CALL PRO_BATCH2_TRANSPUESTA
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDDATOS}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'Vstg_Batch2_PNPJ'
+		,P_ERROR
+	) ;
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO ACTUALIZACIÓN BATCH_ARCHIVO_LOG Ver Tabla LOG_TD_DETALLE'
+.EXIT 104
+	
+	
+	.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi
+
+	fi
+	
+
+
+fi
+
+
+
+
+# CAMBIA EL ESTADO DE LA VISTA PARA LA SIGUIENTE ITERACION 
+bteq<<BTEQ
+	.logon ${Logon};
+	DATABASE ${BDDATOS};
+	
+
+Update ${BDSTAGE}.BATCH2_shells_planejecucion
+Set estado_ejecutado = '1'
+Where orden_id = '${varSECUENCIA_ITERADOR}' ;
+	
+.IF  ERRORCODE <> 0   THEN .Goto ERRORFOUND
+
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO ACTIVACIÓN VISTA'
+.EXIT 104
+	
+	
+	.EXPORT reset
+BTEQ
+
+
+
+
+
+
+
+
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+exit 0
+

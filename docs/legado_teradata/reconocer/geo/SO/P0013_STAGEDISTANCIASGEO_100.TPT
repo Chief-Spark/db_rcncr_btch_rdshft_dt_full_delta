@@ -1,0 +1,151 @@
+/* ♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠
+♠  
+♠  Objetivo: Cargar a Stage archivo plano CONTACTABILIDAD
+♠  Fecha:	2017-08-03
+♠  Realizado por:	Max Morales
+♠  PARAMETROS:
+♠  Proyecto: Experian Reconocer
+♠  Script:		P0022_STAGEDISTANCIASGEO_100.TPT
+♠  
+♠  BITACORA
+♠  ---------------------------------------------------------------------------
+♠  Fecha		Objetivo								Realizado por
+♠  ---------------------------------------------------------------------------
+♠  2018-08-39	#1 Ajuste tipo BIGINT					CARLOS CASTILLO
+♠  Copyright 2016 Equipo Teradata - Capgemini ♠
+♠  
+♠   Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+♠  		se encuentra protegido por las leyes de derechos de autor
+♠  
+♠  ♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠♠ */
+
+
+DEFINE JOB CARGAR_STAGE_RES_DISTANCIAS
+DESCRIPTION 'CARGA RESULTADO_DISTANCIAS A PARTIR DE ARCHIVOS PLANOS'
+(
+    DEFINE SCHEMA RESULTADO_DIST_SCHEMA
+    DESCRIPTION 'RESULTADO_DIST SCHEMA' 
+    (
+		Cod_DW_Ubic VARCHAR(100)
+		,Texto_Ubicacion VARCHAR(100)
+		,Latitud VARCHAR(100)
+		,Longitud VARCHAR(100)
+		,Lote VARCHAR(100)
+		,Descripcion_Proceso VARCHAR(100)
+		,Tipo_Punto_Interes VARCHAR(100)
+		,Nombre_Punto_Interes VARCHAR(200)
+		,Latitud_Punto_Interes VARCHAR(100)
+		,Longitud_Punto_Interes VARCHAR(100)
+		,Distancia_Punto_Interes VARCHAR(100)
+		,Cod_Punto_Interes_Host VARCHAR(20)
+    );
+
+    DEFINE OPERATOR DDL_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR'
+    TYPE DDL
+    ATTRIBUTES
+    (
+      VARCHAR UserName        = @UserName,
+      VARCHAR UserPassword    = @UserPassword,
+      VARCHAR TdpId           = @TdpId, 
+      VARCHAR ARRAY ErrorList = ['3803','3807']
+    );
+
+    DEFINE OPERATOR LOAD_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER LOAD OPERATOR'
+    TYPE UPDATE 
+    SCHEMA RESULTADO_DIST_SCHEMA
+    ATTRIBUTES
+    (
+      INTEGER MaxSessions  = 64,                     
+      INTEGER MinSessions  = 1,                      
+      INTEGER ErrorLimit   = 1,                      
+      VARCHAR TargetTable  = @BDSTAGE||'.'||@LAYOUT,  
+      VARCHAR UserName     = @UserName,              
+      VARCHAR UserPassword = @UserPassword,          
+      VARCHAR TdpId        = @TdpId,                 
+      VARCHAR WorkTable    = @BDTEMPO||'.'||@Wktb,     
+      VARCHAR ErrorTable1  = @BDTEMPO||'.'||@Err1,     
+      VARCHAR ErrorTable2  = @BDTEMPO||'.'||@Err2,     
+      VARCHAR LogTable     = @BDTEMPO||'.'||@LogTable,
+	  INTEGER TenacityHours = @TenacityHours,
+	  INTEGER TenacitySleep = @TenacitySleep
+    );  
+
+    DEFINE OPERATOR FILE_READER
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DATA CONNECTOR OPERATOR'
+    TYPE DATACONNECTOR PRODUCER
+    SCHEMA RESULTADO_DIST_SCHEMA
+    ATTRIBUTES
+    (
+      VARCHAR DirectoryPath   = @ENTRADAS,         
+      VARCHAR FileName        = @DATAFILE,    
+      VARCHAR IndicatorMode   = 'N',               
+      VARCHAR OpenMode        = 'Read',            
+      VARCHAR Format          = 'Delimited',       
+      VARCHAR TextDelimiter   = @TextDelimiter               
+    );
+
+    STEP setup_tables  
+    ( 
+      APPLY  
+           ('DROP TABLE '||@BDSTAGE||'.'||@LAYOUT||';'),	   
+           ('DROP TABLE '||@BDTEMPO||'.'||@Wktb||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err1||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@Err2||';'),
+           ('DROP TABLE '||@BDTEMPO||'.'||@LogTable||';') 
+      TO OPERATOR (DDL_OPERATOR );
+    );
+
+    STEP create_Stg
+    (      
+      APPLY 
+            ('CREATE MULTISET TABLE '||@BDSTAGE||'.'||@LAYOUT||',
+                     
+              NO BEFORE JOURNAL,  
+              NO AFTER JOURNAL,   
+              CHECKSUM = DEFAULT 
+              (
+				Cod_DW_Ubic BIGINT /*#1*/
+				,Texto_Ubicacion VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC
+				,Latitud DECIMAL(38,8)
+				,Longitud DECIMAL(38,8)
+				,Lote INTEGER
+				,Descripcion_Proceso VARCHAR(20) CHARACTER SET LATIN NOT CASESPECIFIC
+				,Tipo_Punto_Interes VARCHAR(100) CHARACTER SET LATIN NOT CASESPECIFIC
+				,Nombre_Punto_Interes VARCHAR(200) CHARACTER SET LATIN NOT CASESPECIFIC
+				,Latitud_Punto_Interes DECIMAL(38,8)				
+				,Longitud_Punto_Interes DECIMAL(38,8)
+				,Distancia_Punto_Interes INTEGER
+				,Cod_Punto_Interes_Host VARCHAR(20)
+              )
+              PRIMARY INDEX ( Cod_DW_Ubic ,Cod_Punto_Interes_Host );
+           ')		   
+		   
+      TO OPERATOR (DDL_OPERATOR);
+    );
+
+	   
+    STEP load_data_from_file
+    (
+      APPLY  
+           ('INSERT INTO  '||@BDSTAGE||'.'||@LAYOUT||'
+             VALUES 
+                   ( :Cod_DW_Ubic
+					,:Texto_Ubicacion
+					,:Latitud
+					,:Longitud
+					,:Lote
+					,:Descripcion_Proceso
+					,:Tipo_Punto_Interes
+					,:Nombre_Punto_Interes
+					,:Latitud_Punto_Interes
+					,:Longitud_Punto_Interes
+					,:Distancia_Punto_Interes
+					,:Cod_Punto_Interes_Host
+                   );
+           ')
+      TO OPERATOR ( LOAD_OPERATOR [1] )
+      SELECT * FROM OPERATOR ( FILE_READER [1] );
+    );
+);

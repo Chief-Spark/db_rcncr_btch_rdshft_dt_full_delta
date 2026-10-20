@@ -1,0 +1,585 @@
+#!/bin/sh
+#*------------------------------------------------------------------------------------*
+#SHELL        : sh-BATCH-VFORNOM
+#ENTIDAD      : EXPERIAN DATACREDITO
+#DATE-WRITTEN : Marzo 04 2021
+#AUTHOR       : ST&T
+#FUNCION      : Macro que orquesta la ejecucion del proceso de validacion de formatos
+#               BATCH
+#*------------------------------------------------------------------------------------*
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		  Objetivo			Realizado por
+# 2022-10-12  Se modifica la función fncGetFileLoad   Omar Delgado
+# 			  para filtrar o no por el campo obligatorio
+# ---------------------------------------------------------------------------
+
+# ================================================================
+# VARIABLES
+# ================================================================
+id_solicitud=$1
+dp=$HOMER/parametros/
+IDSOLICITUD=$(grep IDSOLICITUD ${dp}P0037_BATCH_VFORNOM.par|awk -F"=" '{print $2}')
+BDSTAGE=$(grep BDSTAGE ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+BDTEMPO=$(grep BDTEMPO ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+BDVISTA=$(grep BDVISTA ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+BDDATOS=$(grep BDDATOS ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+BDMTDAT=$(grep BDMTDAT ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+BDMVISTA=$(grep BDVISTA ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+BTTVISTA=$(grep BTTVISTA ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+UserName=$(grep UserName ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+UserPassword=$(grep UserPassword ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+UserNameP=$(grep UsNaProc ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+UserPasswordP=$(grep UsPaProc ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+TdpId=$(grep TdpId ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+LOGON="$TdpId/$UserName,$UserPassword"
+export LOGONP="$TdpId/$UserNameP,$UserPasswordP"
+LOTE=$(grep LOTE ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+TABLA1=$(grep TABLA1 ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+TABLA2=$(grep TABLA2 ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+TABLA4=$(grep TABLA4 ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+PARAMETROS=$(grep PARAMETROS ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+ENTRADAS=$(grep ENTRADAS ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+LOGS=$(grep LOGS ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+exportTPT=$(echo $HOMER/fuentes/scripts/EXPORT_INFO_$TABLA4"_VAL.TPT")
+exportTPT1=$(echo $HOMER/fuentes/scripts/EXPORT_INFO_$TABLA4"_INC.TPT")
+CDCN=$(grep "CDCN =" ${dp}P0037_BATCH_VFORNOM.par)
+DATAFILE=$(grep "DATAFILE =" ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+DATAFILE1=$(grep DATAFILE1 ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+
+# ================================================================
+# LOG
+# ================================================================
+VPROCESO='VFORNOM'
+export LOGFILE=${HOMER}/logs/${VPROCESO}_`date +%Y%m%d_%H%M%S`.log
+touch ${LOGFILE}
+
+
+# ================================================================
+# FUNCIONES
+# ================================================================
+#funcion que reemplaza el id de solicitud en el archivo de parametros del proceso. 
+fncSetPar(){     
+echo ""
+echo "PASO 2: Actualiza id en archivo parametros - " $(date +%Y%m%d_%H%M%S)
+    
+  if [ $IDSOLICITUD -ne $id_solicitud ];then 
+   sed "s/$IDSOLICITUD/$id_solicitud/g" ${dp}P0037_BATCH_VFORNOM.par > ${dp}P0037_BATCH_VFORNOM.par"1"
+   mv ${dp}P0037_BATCH_VFORNOM.par"1" ${dp}P0037_BATCH_VFORNOM.par   
+  fi    
+BASEFILE=$(grep BASEFILE ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+DATAFILE=$(grep "DATAFILE =" ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+DATAFILE1=$(grep DATAFILE1 ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+
+echo "  Crea el directorio salidas si no existe"
+fncCreaDirSal
+}
+
+#funcion que crea el directorio salidas si no existe. 
+fncCreaDirSal(){
+
+SALIDAS1=$(grep SALIDAS1 ${dp}P0037_BATCH_VFORNOM.par|awk -F"'" '{print $2}')
+
+ if [ -d $SALIDAS1 ];then 
+  echo "  El directorio que almacenara los archivos resultado del proceso es: "${SALIDAS1}   
+  else 
+  mkdir $SALIDAS1
+  echo "  El directorio que almacenara los archivos resultado del proceso es: "${SALIDAS1}   
+ fi 
+}
+
+#funcion que obtiene la solicitud y determina si es o no valida. 
+fncGetSolicitud(){
+echo ""
+echo "PASO 1: Validando tipo de solicitud $id_solicitud - " $(date +%Y%m%d_%H%M%S) >> ${LOGFILE}
+
+bteq << EOF
+.logon ${LOGON};
+.SET FORMAT OFF
+.SET FOLDLINE OFF
+.SET SIDETITLES OFF
+.SET RECORDMODE OFF
+.SET WIDTH 900
+.SET TITLEDASHES OFF
+.SET UNDERLINE OFF
+.SET SESSION CHARSET 'ASCII'
+.EXPORT REPORT FILE=$LOGS/SOLICITUD_$id_solicitud.val
+    select ( Max(Nombre_Plantilla) )(title '')  from rec_stage.batch_solicitud_batch where id_solicitud = $id_solicitud;
+.EXPORT RESET
+.QUIT;
+EOF
+
+}
+
+#funcion que obtiene la solicitud y determina si es o no valida. 
+fncActPatron(){
+echo "  Actualizar patrón en la solicitud $id_solicitud" >> ${LOGFILE}
+
+bteq << EOF
+.logon ${LOGONP};
+.SET WIDTH 254
+
+	UPDATE A
+	FROM REC_STAGE.BATCH_VALFORM_ST1 A, REC_STAGE.BATCH_VALFORM_ST1_C B
+	SET PATRON = B.PATRON
+	WHERE A.TIPO_REGISTRO = B.TIPO_REGISTRO AND A.POSICION = B.POSICION AND A.ID = ${id_solicitud};
+
+	.if Errorcode <> 0 Then .Goto ERRORFOUND
+
+.QUIT 0;
+.Label ERRORFOUND
+/*Se presento un fallo al actualizar patrón*/
+
+.LOGOFF
+.EXIT 13
+EOF
+
+}
+
+#funcion que crea el archivo Load.
+fncGetFileLoad(){
+
+ if [ -f $HOMER/entradas/$BASEFILE ]; then 
+	echo "  - Validar cabecera"
+    valHeader=$(head -1 $HOMER/entradas/$BASEFILE|grep -i tipo|wc -l)
+	if [ $valHeader -gt 0  ]; then 	
+		echo "   El archivo: "$HOMER/entradas/$BASEFILE" tiene cabecera, se remueve para el cargue"
+		sed '1d' $HOMER/entradas/$BASEFILE > $HOMER/entradas/$BASEFILE"1"
+		mv $HOMER/entradas/$BASEFILE"1" $HOMER/entradas/$BASEFILE
+		chmod 777 $HOMER/entradas/$BASEFILE
+	else
+		echo "    El archivo no tiene cabecera"
+	fi	 
+	
+	echo "  - Indicador tipo de solicitud"
+	valTipoSol=$(echo $TIPO_SOLICITUD|grep -i validacion|wc -l)
+	camposReq=3
+	if [ $valTipoSol -gt 0 ]
+	then 
+		echo "    Tipo solicitud - CDCN = '1=1'"
+		echo "    Campos Requeridos 9"
+		camposReq=9 
+		grep -v CDCN ${dp}P0037_BATCH_VFORNOM.par >  ${dp}P0037_BATCH_VFORNOM.par"1"	  
+		echo "CDCN = '1=1'" >> ${dp}P0037_BATCH_VFORNOM.par"1"
+		mv ${dp}P0037_BATCH_VFORNOM.par"1" ${dp}P0037_BATCH_VFORNOM.par
+		echo "  - Exportando archivo de parametros para la validacion de formatos "
+		echo "    SOLICITUD='${id_solicitud}'"
+		tbuild -f $HOMER/fuentes/scripts/EXPORT_INFO_${TABLA1}.TPT -u "SOLICITUD='and ID = ${id_solicitud}'" -v $HOMER/parametros/P0037_BATCH_VFORNOM.par -j P0037_Export_${TABLA1} >> ${LOGFILE}
+		echo "    Ejecuta TPT"
+	else 
+		echo "    Tipo solicitud - CDCN = 'obligatorio = 1'"
+		echo "    Campos Requeridos 3"
+		grep -v CDCN ${dp}P0037_BATCH_VFORNOM.par >  ${dp}P0037_BATCH_VFORNOM.par"1"
+		echo "CDCN = 'obligatorio = 1'" >> ${dp}P0037_BATCH_VFORNOM.par"1"
+		mv ${dp}P0037_BATCH_VFORNOM.par"1" ${dp}P0037_BATCH_VFORNOM.par
+		echo "  - Exportando archivo de parametros para la validacion de formatos "
+		echo "    SOLICITUD='${id_solicitud}'"
+		tbuild -f $HOMER/fuentes/scripts/EXPORT_INFO_${TABLA1}.TPT -u "SOLICITUD='and obligatorio = 1 and ID = ${id_solicitud}'" -v $HOMER/parametros/P0037_BATCH_VFORNOM.par -j P0037_Export_${TABLA1} >> ${LOGFILE}
+		echo "    Ejecuta TPT"
+	fi
+
+	echo "  - Validar tabla: " $SALIDAS1"/"$TABLA1
+	ctlExp=$(wc -l $SALIDAS1/$TABLA1|awk '{print $1}')
+	if [ $ctlExp -eq 0 ]; then 
+		echo "    Error, No existen registros en la tabla "${TABLA1}" para ejecutar la validacion de formatos "
+		exit 1
+	fi
+	
+	echo "  - Validar registros vacíos"
+	vacios=$(cat $HOMER/entradas/$BASEFILE|awk '{if(length($0)==0)print $0}'|wc -l)
+	if [ $vacios -gt 0 ]; then 
+		echo "    El archivo:"$HOMER/entradas/$BASEFILE" tiene "$vacios" registro(s) vacio(s), estos son eliminados"
+		cat $HOMER/entradas/$BASEFILE|awk '{if(length($0)>0)print $0}' > $HOMER/entradas/$BASEFILE"1"
+		mv $HOMER/entradas/$BASEFILE"1" $HOMER/entradas/$BASEFILE
+	else
+		echo "    El archivo no presenta registros vacíos"
+	fi  	 
+
+	echo "  - Validar separador"
+	separador=$(head -1 $SALIDAS1/$TABLA1|awk -F"<@>" '{print $3}')
+	if [ $separador = "/" ] 
+	then
+		echo "    El separador " $separador " no se permite, en el archivo de carga."
+		exit 1
+	else
+		echo "    Separador: "$separador
+	fi
+	
+	sed "s/$separador/<@>/g" $HOMER/entradas/$BASEFILE > $HOMER/entradas/$BASEFILE"1"
+	mv $HOMER/entradas/$BASEFILE"1" $HOMER/entradas/$BASEFILE
+	
+	valSep=$(grep "<@>" $HOMER/entradas/$BASEFILE|wc -l)
+	if [ $valSep -eq  0 ];then 	 
+		echo "    Se mapeo mal el separador para el archivo:"$HOMER/entradas/$BASEFILE
+		exit 1
+	else 
+		echo "    Registros sin cantidad de campos requeridos en: "$HOMER/entradas/$BASEFILE
+		if [ $camposReq -eq 3 ];then 	   
+			cat $HOMER/entradas/$BASEFILE|awk -F"<@>" '{if(NF<2) print $0}'	> $SALIDAS1/$DATAFILE1	
+			cat $HOMER/entradas/$BASEFILE|awk -F"<@>" '{if(NF>2) print $0}' > $HOMER/entradas/$BASEFILE"1"
+		else 
+			cat $HOMER/entradas/$BASEFILE|awk -F"<@>" '{if(NF<8) print $0}'	> $SALIDAS1/$DATAFILE1	
+			cat $HOMER/entradas/$BASEFILE|awk -F"<@>" '{if(NF>8) print $0}' > $HOMER/entradas/$BASEFILE"1"
+		fi
+		mv $HOMER/entradas/$BASEFILE"1" $HOMER/entradas/$BASEFILE
+
+		echo "  - Generando archivo: "$SALIDAS1/$DATAFILE" para ejecutar el Load "
+		valAF=$(cat $HOMER/entradas/$BASEFILE|wc -l)
+		if [ $valAF -eq 0 ]; then 
+			echo "    El archivo :"$HOMER/entradas/$BASEFILE" luego de la depuracion quedo sin registros"
+			exit 1
+		else  	   
+			sed "s/<@>/$separador/g" $HOMER/entradas/$BASEFILE > $HOMER/entradas/$BASEFILE"1"
+			mv $HOMER/entradas/$BASEFILE"1" $HOMER/entradas/$BASEFILE		
+		fi 	   
+	fi 
+	
+else 
+	echo "  No existe el archivo: "$HOMER/entradas/$BASEFILE
+	exit 1
+fi   
+}
+
+#  name: funGenerateLote
+#  desc: Genera Lote para la ejecucion actual
+#  @param
+#  @return
+#
+funGenerateLote() {
+echo ""
+echo "PASO 5: Generando Lote para invocar el SP - " $(date +%Y%m%d_%H%M%S)
+
+rm -f $HOMER/logs/LOTE-VALFORM.batch
+
+bteq <<EOF
+	.logon ${LOGON};
+	.REMARK  '####Seleccionar el Lote'
+	LOCKING REC_MTDAT.LOTE_ID FOR EXCLUSIVE
+	UPDATE REC_MTDAT.LOTE_ID
+	SET Lote = coalesce(Lote, 0) + 1
+	;
+	.if Errorcode <> 0 Then .Goto ERRORFOUND
+
+	.EXPORT DATA FILE = $HOMER/logs/LOTE-VALFORM.batch
+	.SET RECORDMODE OFF;
+	.set heading '';
+	.set titledashes off;
+
+	LOCKING REC_MTDAT.LOTE_ID FOR EXCLUSIVE
+	SELECT Lote a
+	FROM REC_MTDAT.LOTE_ID
+	;
+	.if Errorcode <> 0 Then .Goto ERRORFOUND
+
+	.EXPORT RESET
+	.LOGOFF
+
+	.REMARK '#### LOTE obtenido con exito'
+	.QUIT 0
+
+	/* ===================== */
+	/* ERRORS TERMINATE HERE */
+	/* ===================== */
+	.Label ERRORFOUND
+	.REMARK '#### Error genera lote'
+	.EXIT 12
+
+	/*
+	* Fin de la script
+	*/
+EOF
+}
+
+#  name: funSetLogDetalle
+#  desc: actualiza los registros en la Log_td_detalle
+#  @param
+#  @return
+#
+funSetLogDetalle(){
+bteq << EOF
+.logon ${Logon};
+.SET WIDTH 254
+CALL ${BDDATOS}.SP_EXECSTRING_DES($Lote
+								,CAST(CAST(CAST(CURRENT_DATE AS DATE FORMAT 'YYYY-MM-DD')AS VARCHAR(10))||''||CAST(current_Time AS VARCHAR(8) ) as timestamp(6) format 'yyyy-mm-ddhh:mi:ss')
+								,'$PROCESO'
+								,${V_CADENA}
+								,${PASO}
+								,P_ERROR); 
+.QUIT
+EOF
+}
+
+#  name: funGenerateLote
+#  desc: Ejecuta SP PRO_BATCH_VALFORMAT
+#  @param
+#  @return
+#
+fncExecSP() {
+echo ""
+echo "PASO 6: Ejecucion SP - " $(date +%Y%m%d_%H%M%S)
+
+bteq << EOF
+.logon ${LOGONP};
+.SET WIDTH 254
+INSERT INTO $BDMTDAT.log_td (Lote, Fecha_Hora_Inicio, Nombre_Proceso, Tabla_Origen_Stage, Tabla_Destino_Prod, USuario_BD, Estado_Ejecucion)
+SELECT $lote  Lote
+	   ,CURRENT_TIMESTAMP(6) Fecha_Inicio
+	   ,'P0037_BATCH_VFORNOM' Nombre_Proceso
+	   ,'batch_valform_st1' Tabla_Origen_Stage
+	   ,'batch_valform_st4' Tabla_Destino_Prod
+	   ,User Usuario_BD
+	   ,'Ejectuando SP' Estado_Ejecucion;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+
+ CALL $BDDATOS.PRO_BATCH_VALFORMAT($lote				 
+				 ,CAST(CAST(CURRENT_DATE AS DATE FORMAT 'YYYY-MM-DD')AS VARCHAR(10))||''||CAST(current_Time AS VARCHAR(8) )
+				 ,'P0037_BATCH_VFORNOM'
+				 ,'$BDDATOS'
+				 ,'$BDVISTA'
+				 ,'$BDSTAGE'	
+				 ,$id_solicitud
+				 ,P_ERROR );
+				 
+.if Errorcode <> 0 Then .Goto ERRORFOUND1
+
+.QUIT 0;
+.Label ERRORFOUND
+/*Se presento un fallo al insertar el lote*/
+.Label ERRORFOUND1
+/*Fallo al ejecutar el procedimiento/
+.LOGOFF
+.EXIT 13
+EOF
+
+logSP=$LOGS/"SOLICITUD_"${id_solicitud}"_ExecSPValformat.val"
+if [ -f  $logSP ];then 
+   rm -f $logSP
+fi
+
+bteq << EOF
+.logon ${LOGON};
+.SET FORMAT OFF
+.SET FOLDLINE OFF
+.SET SIDETITLES OFF
+.SET RECORDMODE OFF
+.SET WIDTH 900
+.SET TITLEDASHES OFF
+.SET UNDERLINE OFF
+.SET SESSION CHARSET 'ASCII'
+.EXPORT REPORT FILE=$logSP
+    select ( Max(Descripcion_Teradata_Error) )(title '')  from rec_mtdat.log_td_detalle where lote = $lote and Descripcion_Teradata_Error <>  'Finalizo Exitosamente';
+.EXPORT RESET
+.QUIT;
+EOF
+
+err=$(cat $logSP|sed 's/ //g'|awk '{print length($0)}')
+msg=$(cat $logSP|sed 's/ //g')
+
+}
+
+funValNom() {
+echo ""
+echo "PASO 8: Validacion de nombres - " $(date +%Y%m%d_%H%M%S)
+# ================================================================
+# Ejecucion de proceso carga identificaciones batch
+# ================================================================
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${LOGONP};
+	DATABASE ${BDDATOS};
+	
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	
+	INSERT INTO ${BDMTDAT}.log_td (Lote, Fecha_Hora_Inicio, Nombre_Proceso, Tabla_Origen_Stage, Tabla_Destino_Prod, USuario_BD, IP_Maquina)
+	SELECT $lote  Lote
+	   ,CURRENT_TIMESTAMP(6) Fecha_Inicio
+	   ,'${VPROCESO}' Nombre_Proceso
+	   ,'BATCH_VALFORM_ST4' Tabla_Origen_Stage
+	   ,'BATCH_IDENTIFICACIONES_VALIDAS, BATCH_IDENTIFICACIONES_INCONS' Tabla_Destino_Prod
+	   ,User Usuario_BD
+	   ,'dbc' IP_Maquina ;
+
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+	
+	CALL PRO_BATCH_VALNOMBRE
+	(
+		${lote}
+		,CAST(CAST(CURRENT_DATE AS DATE FORMAT 'YYYY-MM-DD')AS VARCHAR(10))||''||CAST(current_Time AS VARCHAR(8) )
+		,'${VPROCESO}'
+		,'${BDVISTA}'
+		,'${BTTVISTA}'
+		,'${BDSTAGE}'
+		,'${BDMTDAT}'
+		,P_ERROR
+	) ;
+
+.if Errorcode <> 0 Then .Goto ERRORFOUND
+
+
+	SELECT Descripcion_Teradata_Error
+	FROM ${BDMTDAT}.LOG_TD_DETALLE
+	WHERE descripcion_teradata_error LIKE 'SQLCODE%'
+	AND  Lote = ${lote};
+
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+
+	UPDATE ${BDMTDAT}.log_td
+	SET Estado_Ejecucion = 'Finalizado OK', Fecha_Hora_Fin = CURRENT_TIMESTAMP(6)
+	WHERE Lote = ${lote};
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+
+	UPDATE ${BDMTDAT}.log_td
+	SET Estado_Ejecucion = 'Fallo Proceso', Fecha_Hora_Fin = CURRENT_TIMESTAMP(6)
+	WHERE Lote = ${lote};
+	
+.REMARK '#### FALLO PROCESO.....'
+.EXIT 104
+	
+.EXPORT reset
+BTEQ
+
+# if [ $? -ne 0 ]
+	# then echo 'Error en ejecucion'
+	# exit 3
+# else
+   # echo "Ejecutado Satisfactoriamente"
+# fi
+
+}
+
+# ================================================================
+# INICIO DEL PROCESO
+# ================================================================
+echo "###############################################################################"
+echo "Inicio proceso de la validacion de formatos - " $(date +%Y%m%d_%H%M%S)
+
+echo ""
+echo "Archivo log: "${LOGFILE}
+
+echo ""
+echo "PASO 1: Validando tipo de solicitud $id_solicitud - " $(date +%Y%m%d_%H%M%S)
+fncGetSolicitud >> ${LOGFILE}
+if [ -f $LOGS/SOLICITUD_$id_solicitud.val ];then
+    valReg=$(cat $LOGS/SOLICITUD_$id_solicitud.val|wc -l)
+	
+	if [ $valReg -gt 0 ]; then  	 
+	 TIPO_SOLICITUD=$(cat $LOGS/SOLICITUD_$id_solicitud.val|sed 's/ //g')
+	 
+		if [ $TIPO_SOLICITUD = "?" ]; then
+			echo "  El id de solicitud no existe en Teradata"
+			exit 1
+		else
+			echo "  El tipo de solicitud es: "$TIPO_SOLICITUD
+		fi	  
+	else 
+	  echo "  El id de solicitud no existe en Teradata"
+	  exit 1
+	fi  
+	rm -f $LOGS/SOLICITUD_$id_solicitud.val
+	
+else  
+ echo "##### "$(date +%Y%m%d_%H%M%S)": El id de solicitud no existe en Teradata"
+ exit 1 
+fi
+
+echo "  Actualizar patrón en la solicitud "
+fncActPatron >> ${LOGFILE}
+
+echo ""
+echo "PASO 2: Actualiza id en archivo parametros - " $(date +%Y%m%d_%H%M%S)
+fncSetPar >> ${LOGFILE}
+
+echo ""
+echo "PASO 3: Creando archivo para Load - " $(date +%Y%m%d_%H%M%S)
+fncGetFileLoad
+
+echo ""
+echo "PASO 4: Ejecutando Carga el archivo insumo en la tabla BATCH_VALFORM_ST2 - " $(date +%Y%m%d_%H%M%S)
+echo "" >> ${LOGFILE}
+echo "PASO 4: Ejecutando Shell genera Load - " $(date +%Y%m%d_%H%M%S) >> ${LOGFILE}
+sh $HOMER/fuentes/macros/Build_Load_Batch_ValFormato.sh >> ${LOGFILE}
+if [ $? -eq 0 ]
+then
+	echo "  La ejecución de Build_Load_Batch_ValFormato se realizó correctamente - " $(date +%Y%m%d_%H%M%S)
+else
+	echo "  Error en Build_Load_Batch_ValFormato - " $(date +%Y%m%d_%H%M%S)
+	exit 1
+fi
+
+echo ""
+echo "PASO 5: Generando Lote para invocar el SP - " $(date +%Y%m%d_%H%M%S)
+funGenerateLote >> ${LOGFILE}
+if [ $? -eq 0 ]
+then
+	lote=$(cat $HOMER/logs/LOTE-VALFORM.batch|sed 's/ //g')
+	echo "  La generación del lote se realizó correctamente "
+	echo "  No Lote: " $lote
+else
+	echo "  Error en la generación del lote "
+	exit 1
+fi
+
+echo ""
+echo "PASO 6: Ejecucion SP - " $(date +%Y%m%d_%H%M%S)
+fncExecSP >> ${LOGFILE}
+if [ $err -gt 1 ]
+then 
+	echo "  Error en la ejecucion del SP PRO_BATCH_VALFORMAT, revisar el log de base de datos "
+	echo "  Msg Error - ["${msg}"]"
+	exit 4
+else
+	echo "  La ejecución del SP PRO_BATCH_VALFORMAT se realizo correctamente"
+fi 
+
+echo ""
+echo "PASO 7: Genera Export - " $(date +%Y%m%d_%H%M%S)
+echo "" >> ${LOGFILE}
+echo "PASO 7: Genera Export - " $(date +%Y%m%d_%H%M%S) >> ${LOGFILE}
+sh $HOMER/fuentes/macros/Build_Export_Batch_ValFormato.sh >> ${LOGFILE}
+if [ $? -eq 0 ]
+then
+	echo "  La ejecución de exportación Build_Export_Batch_ValFormato se realizó correctamente, ruta: $SALIDAS1 "
+	
+	cantRegVal=$(cat $SALIDAS1/$DATAFILE|wc -l)
+	cantRegINC=$(cat $SALIDAS1/$DATAFILE1|wc -l)
+	echo "  - Registros válidos ($DATAFILE): " $cantRegVal
+	echo "  - Registros inconsistentes ($DATAFILE1): " $cantRegINC
+	if [ $cantRegVal -eq 0 ]
+	then
+		echo "  Error - La validación de formatos no genero registros validos por lo tanto el proceso se detiene "
+		exit 1
+	fi
+	
+else
+	echo "  Error en Build_Export_Batch_ValFormato"
+	exit 1
+fi
+
+echo ""
+echo "PASO 8: Validacion de nombres - " $(date +%Y%m%d_%H%M%S)
+funValNom >> ${LOGFILE}
+if [ $? -eq 0 ]
+then
+	echo "  La ejecución de validación de nombres SP(PRO_BATCH_VALNOMBRE) se realizó correctamente "
+else
+	echo "  Error en la ejecución de validación de nombres SP(PRO_BATCH_VALNOMBRE)"
+	exit 1
+fi
+
+exit 0
+
+

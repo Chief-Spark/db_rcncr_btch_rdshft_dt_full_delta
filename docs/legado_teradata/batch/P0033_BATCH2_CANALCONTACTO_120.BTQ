@@ -1,0 +1,282 @@
+# ################################################################################
+# 
+# Objetivo:			Extrae Datos de Cubos
+# Fecha:			2017-12-29
+# Realizado por:	Holmer Alfonso H
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:			P0033_BATCH2_CANALCONTACTO_120.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha				Objetivo						Realizado por
+#
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+
+varSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varARCHIVOS_PN_PJ=`grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varTIPO_SALIDA=`grep TIPO_SALIDA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+ARCHIVO_ALERTAS=`grep ARCHIVO_ALERTAS ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+
+
+#############################################################
+#     SQUEMA DINAMICO 
+#############################################################
+##  INICIO EXPORT 
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w1_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w2_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_W.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w1_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w2_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w1_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w2_W.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_w1.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_w2.txt
+
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+
+----------------  EXPORTs
+
+---------------  Materializacion
+	-- Materializar SQUEMA 1 - tabla_w1 - Telefono
+	--  EXPORTANDO
+	--	SQUEMA
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w1_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 10000
+	.SET SEPARATOR '|'
+
+	Select 
+		CASE
+			when columnid = 1027 then ' '
+		else
+			','
+		END
+		||
+		TRIM(columnname) 
+		||
+		CASE
+			when columnname in ('Secuencia','ID') then '  INTEGER '
+		 else
+			'  VARCHAR(100) '
+		END
+	From dbc.columns where tablename='tabla_w1' and databasename='REC_STAGE'
+	and trim(columnname) not in ('Secuencia','ID')
+	Order by columnid ;
+
+	.EXPORT RESET
+
+
+	-- Materializar SQUEMA 2 - tabla_w2 - Direccion
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w2_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 10000
+	.SET SEPARATOR '|'
+
+
+	Select 
+		CASE
+			when columnid = 1027 then ' '
+		else
+			','
+		END
+		||
+		TRIM(columnname) 
+		||
+		CASE
+			when columnname in ('Secuencia','ID') then '  INTEGER '
+		 else
+			'  VARCHAR(100) '
+		END
+	From dbc.columns where tablename='tabla_w2' and databasename='REC_STAGE'
+	and trim(columnname) not in ('Secuencia','ID')
+	Order by columnid 	;
+
+	.EXPORT RESET
+
+
+	-- Materializar SELECT - tabla_w2/tabla_w2
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 10000
+	.SET SEPARATOR '|'
+
+
+	select ' '' select  /* */ ' ;
+
+	.EXPORT RESET
+
+
+	-- Materializar Sentencia - tabla_w1 - Telefono
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w1_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 10000
+	.SET SEPARATOR '|'
+
+
+	Select
+		CASE
+			when alfa = 1 then ' '
+		else
+			','
+		END
+		||
+		TRIM(A.codigo_campo)
+	From (Select codigo_campo, camponuevo, orden, q as alfa From rec_stage.v_Telefono_tmp1 B where serie = 1) A 
+	Order By alfa ;
+
+	.EXPORT RESET
+
+
+	-- Materializar Sentencia - tabla_w2 - Direccion
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w2_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 10000
+	.SET SEPARATOR '|'
+
+
+	Select
+		CASE
+			when alfa = 1 then ' '
+		else
+			','
+		END
+		||
+		TRIM(A.codigo_campo)
+	From (Select codigo_campo, camponuevo, orden, q as alfa From rec_stage.v_Direccion_tmp1 B where serie = 1) A 
+	Order By alfa ;
+
+	.EXPORT RESET
+
+
+	-- Materializar From - tabla_w1 - Telefono
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w1_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 10000
+	.SET SEPARATOR '|'
+
+
+	select '/* */ From REC_STAGE.tabla_w1 ; '' ' ;
+
+	.EXPORT RESET
+
+
+	-- Materializar From - tabla_w2 - Direccion
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w2_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 10000
+	.SET SEPARATOR '|'
+
+
+	select '/* */ From REC_STAGE.tabla_w2 ; '' ' ;
+
+	.EXPORT RESET
+
+
+
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creación del Squema/Sentencia.'
+	.EXIT ERRORCODE
+
+
+	.LOGOFF
+	.EXIT
+BTEQ
+
+
+
+# Recorte de la primera linea de titulos
+
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w1_W.txt    > ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w1.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w2_W.txt    > ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w2.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_W.txt       > ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w1_W.txt > ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w1.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w2_W.txt > ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w2.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w1_W.txt      > ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w1.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w2_W.txt      > ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w2.txt
+
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w1_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w2_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_W.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w1_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w2_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w1_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w2_W.txt
+
+
+
+cat ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla.txt       >  ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_w1.txt
+cat ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w1.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_w1.txt
+cat ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w1.txt      >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_w1.txt
+
+cat ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla.txt       >  ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_w2.txt
+cat ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w2.txt >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_w2.txt
+cat ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w2.txt      >> ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_w2.txt
+
+
+
+# Cierto si el fichero existe y no está vacío
+if [ -s ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w1.txt ]
+	then
+		echo 'Original 1 '
+	else 
+		echo 'Id_Auto Integer ' > ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w1.txt
+		echo " ' Select Id_Auto From rec_stage.batch_cubo_persona where Id_Auto = -69 ; ' " > ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_w1.txt
+fi
+
+if [ -s ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w2.txt ]
+	then
+		echo 'Original 2 '
+	else 
+		echo 'Id_Auto Integer ' > ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w2.txt
+		echo " 'Select Id_Auto From rec_stage.batch_cubo_persona where Id_Auto = -69 ; ' " > ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla_w2.txt
+fi
+
+
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Select_tabla.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w1.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/Sentencia_tabla_w2.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w1.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CANALCONTACTO/From_tabla_w2.txt
+
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion Canal Contacto 120 BTEQ '
+	exit 3
+fi
+exit 0
+

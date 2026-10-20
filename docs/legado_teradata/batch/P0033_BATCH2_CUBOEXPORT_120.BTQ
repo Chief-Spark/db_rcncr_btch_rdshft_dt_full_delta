@@ -1,0 +1,1269 @@
+# ##############################################################################################################################
+# 
+# Objetivo:			Extrae Datos de Cubos
+# Fecha:			2017-11-30
+# Realizado por:	Holmer Alfonso H
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:		    P0033_BATCH2_CUBOEXPORT_120.BTQ
+# 
+# BITACORA
+# ------------------------------------------------------------------------------------------------------------------------------
+# Fecha:2018-09-25	Objetivo: Ajuste formato fecha_ultima_actualizacion	Realizado por: CARLOS CASTILLO
+# Fecha:2018-12-18	Objetivo: #1 Ajuste Orden salida					Realizado por: CARLOS CASTILLO
+# Fecha:2019-03-12  Objetivo: Ajustar los campos de contactabilidad para  
+#                   que se vean Reflejados en los cubos.                Realizado Por: FERNANDO GARRIDO 
+# Fecha:2019-05-16  Objetivo: Ajustar la posicion de los Datos en los   Realizado Por: FERNANDO GARRIDO
+#                   cubos
+# Fecha:2020-12-01  Objetivo: Eliminar mosaic salida reconocer master batch       Realizado por: jeimmy Chavez
+# ------------------------------------------------------------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ##############################################################################################################################
+
+
+varSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varDIRECTORIO=`grep DIRECTORIO ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT.par|awk -F "'" '{print $3}'`
+
+
+#############################################################
+#     T E L E F O N O
+#############################################################
+##  INICIO EXPORT TELEFONO
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Sql_Create_Tel.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_Tel.txt
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_Borrar_001' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA
+	
+	DROP TABLE ${BDSTAGE}.w_Borrar_001 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+
+   .LABEL CREA
+	CREATE SET TABLE ${BDSTAGE}.w_Borrar_001
+(
+	Secuencia	INTEGER
+	,Linea		VARCHAR(5000)
+	,Nada		INTEGER
+)
+	PRIMARY INDEX (Secuencia) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	SELECT
+	1,
+	' '' 
+	CREATE MULTISET TABLE REC_STAGE.w_cubo_telefono AS (
+	Select  Id_Buro_Persona, MAX(POR_SIM_TEL) as POR_SIM_TEL /*  */
+	'
+	,0  ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + B.Secuencia
+		,
+		CASE
+			when W.TipoCampo = 'ANSIDATE' then ', MAX(Case when Num = ' || Num || ' then to_char( ' ||  Valor_Ini || ', ''''dd/mm/yyyy'''')/*#1*/  End) ' || CampoNuevo || chr(13) 
+		ELSE
+			', MAX(Case when Num = ' || Num || ' then ' ||  Valor_Ini || ' End) ' || CampoNuevo || chr(13)	
+		END
+		, row_number() over(order by W.Contador) Q1 
+		
+	from
+	(
+		select A.*, Right( CampoNuevo,3) Num
+		, row_number() over(order by A.Ordenamiento, A.CampoNuevo) Contador 
+		from	${BDSTAGE}.v_BA2_CamposBase A
+		where UPPER(A.cubo) = 'TELEFONO'
+	) AS W
+	,
+	${BDSTAGE}.w_Borrar_001 B
+	;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+	10000
+	,
+	' 
+		,MAX(Filtro_B) Filtro_B 
+		,MAX(Filtro_C) Filtro_C 
+		,MAX(Filtro_D) Filtro_D 
+		,MAX(Filtro_E) Filtro_E 
+		,MAX(Filtro_F) Filtro_F 
+		,MAX(Filtro_G) Filtro_G 
+		,MAX(Filtro_H) Filtro_H 
+	/*  */
+	FROM
+		(Select
+			 Id_Buro_Persona 
+			,Cod_DW_Agenda_Batch 
+			,Cod_DW_Persona_Ubic 
+			,Numero 
+			,ROW_NUMBER()OVER(PARTITION BY ID_BURO_PERSONA ORDER BY ORDEN_PRIORIDAD ASC,Fecha_ultima_actualizacion DESC,CHAR(TIPO)
+							  ,CHAR(Numero) DESC ,Cod_Dane_Ciudad DESC, CIUDAD DESC,DEPARTAMENTO DESC, REC_VISTA.hash_md5(Numero) ASC ) as Num /*#1*/ 
+			,Ciudad 
+			,Departamento 
+			,Cod_Dane_Ciudad 
+			,Cod_Dane_Departamento 
+			,Indicativo 
+			,Tipo
+			,Fecha_ultima_actualizacion 
+			,Numero_de_entidades_reporta 
+			,Fuente
+			,Reportado_por_el_Suscriptor 
+			,Meses_desde_el_ultimo_Reporte 
+			,Contactabilidad 
+			,Medio_Acceso
+			,Mejor_dia_para_gestion 
+			,Mejor_hora_para_gestion 
+			,Mejor_Resultado_3Meses 
+			,Mejor_Resultado_6Meses 
+			,Reportado_por Fuente_Gestion_Telefono
+			,POR_SIM_TEL 
+			,Orden_Prioridad
+			,ID_AUTO
+			,Filtro_B 
+			,Filtro_C 
+			,Filtro_D 
+			,Filtro_E 
+			,Filtro_F 
+			,Filtro_G 
+			,Filtro_H 
+			/*  */
+			From	REC_STAGE.BATCH_Cubo_Telefono 
+			Where	Numero is not null 
+				/*and	COALESCE(Filtro_D,0) <> 1*/ 
+			/*  */
+			Group by 1,2,3,4,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33 
+		) AS X 
+		/*  */
+	Group by 1 
+	 /*  */ 
+	) WITH DATA /*  */
+	PRIMARY INDEX (Id_Buro_Persona) 
+	'''
+	,0 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	--  EXPORTANDO
+	--	Cabeza
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select linea from ${BDSTAGE}.w_borrar_001 order by secuencia ;
+
+	.EXPORT RESET	
+ 
+ 
+ 
+   -- CREACION DINAMICA SQUEMA
+	REPLACE VIEW ${BDSTAGE}.v_Tempo_Borrar AS
+	LOCK ROW FOR ACCESS
+	(
+		Select 
+			 TRIM(CampoNuevo) || ' ' || TRIM(TIPOCAMPO) CAMPO
+			,row_number() OVER(order by ordenamiento, camponuevo) Orden 
+		from
+			(
+				select A.*, Right( CampoNuevo,3) Num
+				, row_number() over(order by A.Ordenamiento, A.CampoNuevo) Contador 
+				from	${BDSTAGE}.v_BA2_CamposBase A
+				where UPPER(A.cubo) = 'TELEFONO'
+			) AS W
+	) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	Delete ${BDSTAGE}.w_Borrar_001 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	Insert Into ${BDSTAGE}.w_Borrar_001
+		SELECT 1, 'Id_Buro_Persona  INTEGER ',0 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	Insert Into ${BDSTAGE}.w_Borrar_001
+	select	SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + B.Secuencia,
+	',' || CAMPO || ' ' , 0
+	from ${BDSTAGE}.v_Tempo_Borrar
+		,
+		${BDSTAGE}.w_Borrar_001 B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+
+	--  EXPORTANDO
+	--	Squema
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	select linea from ${BDSTAGE}.w_borrar_001 order by secuencia ;
+
+	.EXPORT RESET	
+
+
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_cubo_telefono' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO SIGUE_Tel
+
+	DROP TABLE ${BDSTAGE}.w_cubo_telefono ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	.LABEL SIGUE_Tel
+	Select date ;
+
+
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creación de la tabla w_cubo_telefono.'
+	.EXIT ERRORCODE
+
+	
+	.LOGOFF
+	.EXIT
+BTEQ
+ 
+
+# Recorte de la primera linea de titulos
+
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt  >  ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Sql_Create_Tel.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt  >  ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_Tel.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+
+
+
+#############################################################
+#     C E L U L A R
+#############################################################
+##  INICIO EXPORT CELULAR
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Sql_Create_Cel.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_Cel.txt
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_Borrar_001' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA
+	
+	DROP TABLE ${BDSTAGE}.w_Borrar_001 ;
+	
+
+   .LABEL CREA
+	CREATE SET TABLE ${BDSTAGE}.w_Borrar_001
+(
+	Secuencia	INTEGER
+	,Linea		VARCHAR(5000)
+	,Nada		INTEGER
+)
+	PRIMARY INDEX (Secuencia) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	SELECT
+	1,
+	' '' 
+	CREATE MULTISET TABLE REC_STAGE.w_cubo_celular AS (
+	Select  Id_Buro_Persona, MAX(POR_SIM_CEL) as POR_SIM_CEL /*  */
+	'
+	,0  ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + B.Secuencia
+		,
+		CASE
+			when W.TipoCampo = 'ANSIDATE' then ', MAX(Case when Num = ' || Num || ' then to_char( ' ||  Valor_Ini || ', ''''dd/mm/yyyy'''')/*#1*/  End) ' || CampoNuevo || chr(13) 
+		ELSE
+			', MAX(Case when Num = ' || Num || ' then ' ||  Valor_Ini || ' End) ' || CampoNuevo || chr(13)	
+		END
+		, row_number() over(order by W.Contador) Q1 
+		
+	from
+	(
+		select A.*, Right( CampoNuevo,3) Num
+		, row_number() over(order by A.Ordenamiento, A.CampoNuevo) Contador 
+		from	${BDSTAGE}.v_BA2_CamposBase A
+		where UPPER(A.cubo) = 'CELULAR'
+	) AS W
+	,
+	${BDSTAGE}.w_Borrar_001 B
+	;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+	10000
+	,
+	' 
+	,MAX(Filtro_B) Filtro_B 
+	,MAX(Filtro_C) Filtro_C 
+	,MAX(Filtro_D) Filtro_D 
+	,MAX(Filtro_E) Filtro_E 
+	,MAX(Filtro_F) Filtro_F 
+	,MAX(Filtro_G) Filtro_G 
+	,MAX(Filtro_H) Filtro_H 
+	/*  */
+	FROM
+		(Select
+			 Id_Buro_Persona 
+			,Cod_DW_Agenda_Batch 
+			,Cod_DW_Persona_Ubic 
+			,Numero 
+			,ROW_NUMBER()OVER(PARTITION BY ID_BURO_PERSONA ORDER BY ORDEN_PRIORIDAD ASC,Fecha_ultima_actualizacion DESC  
+							  ,CHAR(Numero) DESC,REC_VISTA.hash_md5(Numero) ASC ) as Num			
+			,Fecha_ultima_actualizacion 
+			,Numero_de_entidades_reporta 
+			,Fuente
+			,Reportado_por_el_Suscriptor 
+			,Meses_desde_el_ultimo_Reporte 
+			,Contactabilidad 
+			,Medio_Acceso
+			,Mejor_dia_para_gestion 
+			,Mejor_hora_para_gestion 
+			,Mejor_Resultado_3Meses 
+			,Mejor_Resultado_6Meses 
+			,Reportado_por Fuente_gestion_celular
+			,POR_SIM_CEL 
+			,Orden_Prioridad
+			,ID_AUTO
+			,Filtro_B 
+			,Filtro_C 
+			,Filtro_D 
+			,Filtro_E 
+			,Filtro_F 
+			,Filtro_G 
+			,Filtro_H 
+			/*  */
+			From	REC_STAGE.BATCH_Cubo_Celular 
+			Where	Numero is not null 
+				/*and	(Coalesce(Filtro_B,0) + Coalesce(Filtro_C,0) + Coalesce(Filtro_D,0) + Coalesce(Filtro_E,0) + Coalesce(Filtro_F,0) + Coalesce(Filtro_G,0)) = 0 */ 
+			/*  */
+			Group by 1,2,3,4,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27
+		) AS X 
+		/*  */
+	Group by 1 
+	 /*  */ 
+	) WITH DATA /*  */
+	PRIMARY INDEX (Id_Buro_Persona) 
+	'''
+	,0 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	--  EXPORTANDO
+	--	Cabeza
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select linea from ${BDSTAGE}.w_borrar_001 order by secuencia ;
+
+	.EXPORT RESET	
+ 
+ 
+ 
+ -- CREACION DINAMICA SQUEMA
+REPLACE VIEW ${BDSTAGE}.v_Tempo_Borrar AS LOCK ROW FOR ACCESS
+(
+	Select 
+		 TRIM(CampoNuevo) || ' ' || TRIM(TIPOCAMPO) CAMPO
+		,row_number() OVER(order by ordenamiento, camponuevo) Orden 
+	from
+		(
+			select A.*, Right( CampoNuevo,3) Num
+			, row_number() over(order by A.Ordenamiento, A.CampoNuevo) Contador 
+			from	${BDSTAGE}.v_BA2_CamposBase A
+			where UPPER(A.cubo) = 'CELULAR'
+		) AS W
+) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	Delete ${BDSTAGE}.w_Borrar_001 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	Insert Into ${BDSTAGE}.w_Borrar_001
+		SELECT 1, 'Id_Buro_Persona  INTEGER ',0 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	Insert Into ${BDSTAGE}.w_Borrar_001
+	select	SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + B.Secuencia,
+	',' || CAMPO || ' ' , 0
+	from ${BDSTAGE}.v_Tempo_Borrar
+		,
+		${BDSTAGE}.w_Borrar_001 B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+
+	--  EXPORTANDO
+	--	Squema
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	select linea from ${BDSTAGE}.w_borrar_001 order by secuencia ;
+
+	.EXPORT RESET	
+
+
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_cubo_celular' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO SIGUE_Cel
+
+	DROP TABLE ${BDSTAGE}.w_cubo_celular ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	.LABEL SIGUE_Cel
+	Select date ;
+
+
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creación de la tabla w_cubo_celular.'
+	.EXIT ERRORCODE
+
+	
+	.LOGOFF
+	.EXIT
+BTEQ
+
+
+# Recorte de la primera linea de titulos
+
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt  >  ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Sql_Create_Cel.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt  >  ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_Cel.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt
+
+
+
+#############################################################
+#     D I R E C C I O N
+#############################################################
+##  INICIO EXPORT DIRECCION
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Sql_Create_Dir.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_Dir.txt
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_Borrar_001' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA
+	
+	DROP TABLE ${BDSTAGE}.w_Borrar_001 ;
+	
+
+   .LABEL CREA
+	CREATE SET TABLE ${BDSTAGE}.w_Borrar_001
+(
+	Secuencia	INTEGER
+	,Linea		VARCHAR(5000)
+	,Nada		INTEGER
+)
+	PRIMARY INDEX (Secuencia) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	SELECT
+	1,
+	' '' 
+	CREATE MULTISET TABLE REC_STAGE.w_cubo_direccion AS (
+	Select  Id_Buro_Persona, MAX(POR_SIM_DIR) as POR_SIM_DIR /*  */
+	'
+	,0  ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + B.Secuencia
+		,
+		CASE
+			when W.TipoCampo = 'ANSIDATE' then ', MAX(Case when Num = ' || Num || ' then to_char( ' ||  Valor_Ini || ', ''''dd/mm/yyyy'''')/*#1*/  End) ' || CampoNuevo || chr(13) 
+		ELSE
+			', MAX(Case when Num = ' || Num || ' then ' ||  Valor_Ini || ' End) ' || CampoNuevo || chr(13)	
+		END
+		, row_number() over(order by W.Contador) Q1 
+		
+	from
+	(
+		select A.*, Right( CampoNuevo,3) Num
+		, row_number() over(order by A.Ordenamiento, A.CampoNuevo) Contador 
+		from	${BDSTAGE}.v_BA2_CamposBase A
+		where UPPER(A.cubo) = 'DIRECCION'
+	) AS W
+	,
+	${BDSTAGE}.w_Borrar_001 B
+	;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+	10000
+	,
+	' 
+	,MAX(Filtro_B) Filtro_A 
+	,MAX(Filtro_B) Filtro_B 
+	,MAX(Filtro_C) Filtro_C 
+	,MAX(Filtro_D) Filtro_D 
+	,MAX(Filtro_E) Filtro_E 
+	,MAX(Filtro_F) Filtro_F 
+	,MAX(Filtro_G) Filtro_G 
+	,MAX(Filtro_H) Filtro_H 
+	/*  */
+	FROM
+		(Select
+			 Id_Buro_Persona 
+			,Cod_DW_Agenda_Batch 
+			,Cod_DW_Persona_Ubic 
+			,Direccion
+			,ROW_NUMBER()OVER(PARTITION BY ID_BURO_PERSONA ORDER BY ORDEN_PRIORIDAD ASC,Fecha_ultima_actualizacion DESC  , CHAR(TIPO) DESC
+							,CHAR(DIRECCION) DESC ,Cod_Dane_Ciudad DESC, CIUDAD DESC,DEPARTAMENTO DESC, REC_VISTA.hash_md5(DIRECCION) ASC ) Num			
+			,Ciudad
+			,Departamento
+			,Cod_Dane_Ciudad
+			,Cod_Dane_Departamento
+			,Tipo
+			,Localidad
+			,Barrio
+			,Zona 
+			,Estrato
+			,Fecha_ultima_actualizacion 
+			,Numero_de_entidades_reporta 
+			,Fuente
+			/*,Grupo_Mosaic 
+			,Tipo_Mosaic 
+			,Descripcion_Mosaic*/
+			,Contactabilidad 
+			,Medio_Acceso
+			,Mejor_dia_para_gestion 
+			,Mejor_hora_para_gestion 
+			,Mejor_Resultado_3Meses 
+			,Mejor_Resultado_6Meses 
+			,Reportado_por Fuente_gestion_DF
+			,Reportado_por_el_Suscriptor 
+			,Meses_desde_el_ultimo_Reporte 
+			,POR_SIM_DIR 
+			,Orden_Prioridad
+			,ID_AUTO
+			,Filtro_A 
+			,Filtro_B 
+			,Filtro_C 
+			,Filtro_D 
+			,Filtro_E 
+			,Filtro_F 
+			,Filtro_G 
+			,Filtro_H 
+			/*  */
+			From	REC_STAGE.BATCH_Cubo_direccion 
+			Where	Direccion is not null 
+				/* and	(Coalesce(Filtro_A,0) + Coalesce(Filtro_B,0) + Coalesce(Filtro_C,0) + Coalesce(Filtro_D,0) + Coalesce(Filtro_E,0) + Coalesce(Filtro_F,0) + Coalesce(Filtro_G,0)) = 0 */ 
+			Group By 1,2,3,4,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37 
+				) AS X 
+		/*  */
+	Group by 1 
+	 /*  */ 
+	) WITH DATA /*  */
+	PRIMARY INDEX (Id_Buro_Persona) 
+	'''
+	,0 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	--  EXPORTANDO
+	--	Cabeza
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select linea from ${BDSTAGE}.w_borrar_001 order by secuencia ;
+
+	.EXPORT RESET	
+ 
+ 
+ 
+ -- CREACION DINAMICA SQUEMA
+REPLACE VIEW ${BDSTAGE}.v_Tempo_Borrar AS LOCK ROW FOR ACCESS
+(
+	Select 
+		 TRIM(CampoNuevo) || ' ' || TRIM(TIPOCAMPO) CAMPO
+		,row_number() OVER(order by ordenamiento, camponuevo) Orden 
+	from
+		(
+			select A.*, Right( CampoNuevo,3) Num
+			, row_number() over(order by A.Ordenamiento, A.CampoNuevo) Contador 
+			from	${BDSTAGE}.v_BA2_CamposBase A
+			where UPPER(A.cubo) = 'DIRECCION'
+		) AS W
+) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	Delete ${BDSTAGE}.w_Borrar_001 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	Insert Into ${BDSTAGE}.w_Borrar_001
+		SELECT 1, 'Id_Buro_Persona  INTEGER ',0 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	Insert Into ${BDSTAGE}.w_Borrar_001
+	select	SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + B.Secuencia,
+	',' || CAMPO || ' ' , 0
+	from ${BDSTAGE}.v_Tempo_Borrar
+		,
+		${BDSTAGE}.w_Borrar_001 B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+
+	--  EXPORTANDO
+	--	Squema
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	select linea from ${BDSTAGE}.w_borrar_001 order by secuencia ;
+
+	.EXPORT RESET	
+
+
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_cubo_direccion' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO SIGUE_Dir
+
+	DROP TABLE ${BDSTAGE}.w_cubo_direccion ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	.LABEL SIGUE_Dir
+	Select date ;
+
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creación de la tabla w_cubo_direccion.'
+	.EXIT ERRORCODE
+
+	
+	
+	.LOGOFF
+	.EXIT
+BTEQ
+
+
+# Recorte de la primera linea de titulos
+
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt  >  ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Sql_Create_Dir.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt  >  ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_Dir.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt
+
+
+
+#############################################################
+#     C O R R E O
+#############################################################
+##  INICIO EXPORT DIRECCION
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Sql_Create_Cor.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_Cor.txt
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_Borrar_001' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA
+	
+	DROP TABLE ${BDSTAGE}.w_Borrar_001 ;
+	
+
+   .LABEL CREA
+	CREATE SET TABLE ${BDSTAGE}.w_Borrar_001
+(
+	Secuencia	INTEGER
+	,Linea		VARCHAR(5000)
+	,Nada		INTEGER
+)
+	PRIMARY INDEX (Secuencia) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	SELECT
+	1,
+	' '' 
+	CREATE MULTISET TABLE REC_STAGE.w_cubo_correo AS (
+	Select  Id_Buro_Persona, MAX(POR_SIM_MAIL) as POR_SIM_MAIL /*  */
+	'
+	,0  ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + B.Secuencia
+		,
+		CASE
+			when W.TipoCampo = 'ANSIDATE' then ', MAX(Case when Num = ' || Num || ' then to_char( ' ||  Valor_Ini || ', ''''dd/mm/yyyy'''')/*#1*/  End) ' || CampoNuevo || chr(13) 
+		ELSE
+			', MAX(Case when Num = ' || Num || ' then ' ||  Valor_Ini || ' End) ' || CampoNuevo || chr(13)	
+		END
+		, row_number() over(order by W.Contador) Q1 
+		
+	from
+	(
+		select A.*, Right( CampoNuevo,3) Num
+		, row_number() over(order by A.Ordenamiento, A.CampoNuevo) Contador 
+		from	${BDSTAGE}.v_BA2_CamposBase A
+		where UPPER(A.cubo) = 'CORREO'
+	) AS W
+	,
+	${BDSTAGE}.w_Borrar_001 B
+	;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+	10000
+	,
+	'
+	,MAX(Filtro_B) Filtro_B 
+	,MAX(Filtro_C) Filtro_C 
+	,MAX(Filtro_D) Filtro_D 
+	,MAX(Filtro_E) Filtro_E 
+	,MAX(Filtro_F) Filtro_F 
+	,MAX(Filtro_G) Filtro_G 
+	,MAX(Filtro_H) Filtro_H 
+	/*  */
+	FROM
+		(Select
+			 Id_Buro_Persona 
+			,Cod_DW_Agenda_Batch 
+			,Cod_DW_Persona_Ubic 
+			,Correo 
+			,ROW_NUMBER()OVER(PARTITION BY ID_BURO_PERSONA ORDER BY ORDEN_PRIORIDAD ASC,Fecha_ultima_actualizacion DESC  
+										  ,CHAR(Correo) DESC,REC_VISTA.hash_md5(Correo) ASC ) as Num /*#1*/
+			,Fecha_ultima_actualizacion 
+			,Numero_de_entidades_reporta 
+			,Fuente
+			,Reportado_por_el_Suscriptor 
+			,Meses_desde_el_ultimo_Reporte 
+			,Contactabilidad 
+			,Medio_Acceso
+			,Mejor_dia_para_gestion 
+			,Mejor_hora_para_gestion 
+			,Mejor_Resultado_3Meses 
+			,Mejor_Resultado_6Meses 
+			,Reportado_por Fuente_gestion_correo
+			,POR_SIM_MAIL 
+			,Orden_Prioridad 
+			,ID_AUTO
+			,Filtro_B 
+			,Filtro_C 
+			,Filtro_D 
+			,Filtro_E 
+			,Filtro_F 
+			,Filtro_G 
+			,Filtro_H 
+			/*  */
+			From	REC_STAGE.BATCH_Cubo_correo 
+			Where Correo is not null 
+				/* and	(Coalesce(Filtro_B,0) + Coalesce(Filtro_C,0) + Coalesce(Filtro_D,0) + Coalesce(Filtro_E,0) + Coalesce(Filtro_F,0) + Coalesce(Filtro_G,0)) = 0 */ 
+			/*  */
+			Group by 1,2,3,4,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27
+			) AS X 
+		/*  */
+	Group by 1 
+	 /*  */ 
+	) WITH DATA /*  */
+	PRIMARY INDEX (Id_Buro_Persona) 
+	'''
+	,0 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	--  EXPORTANDO
+	--	Cabeza
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select linea from ${BDSTAGE}.w_borrar_001 order by secuencia ;
+
+	.EXPORT RESET	
+ 
+ 
+ 
+ -- CREACION DINAMICA SQUEMA
+REPLACE VIEW ${BDSTAGE}.v_Tempo_Borrar AS LOCK ROW FOR ACCESS
+(
+	Select 
+		 TRIM(CampoNuevo) || ' ' || TRIM(TIPOCAMPO) CAMPO
+		,row_number() OVER(order by ordenamiento, camponuevo) Orden 
+	from
+		(
+			select A.*, Right( CampoNuevo,3) Num
+			, row_number() over(order by A.Ordenamiento, A.CampoNuevo) Contador 
+			from	${BDSTAGE}.v_BA2_CamposBase A
+			where UPPER(A.cubo) = 'CORREO'
+		) AS W
+) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	Delete ${BDSTAGE}.w_Borrar_001 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	Insert Into ${BDSTAGE}.w_Borrar_001
+		SELECT 1, 'Id_Buro_Persona  INTEGER ',0 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	Insert Into ${BDSTAGE}.w_Borrar_001
+	select	SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + B.Secuencia,
+	',' || CAMPO || ' ' , 0
+	from ${BDSTAGE}.v_Tempo_Borrar
+		,
+		${BDSTAGE}.w_Borrar_001 B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+
+	--  EXPORTANDO
+	--	Squema
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	select linea from ${BDSTAGE}.w_borrar_001 order by secuencia ;
+
+	.EXPORT RESET	
+
+
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_cubo_correo' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO SIGUE_Cor
+
+	DROP TABLE ${BDSTAGE}.w_cubo_correo ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	.LABEL SIGUE_Cor
+	Select date ;
+
+
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creación de la tabla w_cubo_correo.'
+	.EXIT ERRORCODE
+
+	
+	
+	.LOGOFF
+	.EXIT
+BTEQ
+
+
+# Recorte de la primera linea de titulos
+
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt  >  ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Sql_Create_Cor.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt  >  ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_Cor.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt
+
+
+
+#############################################################
+#     C I  I  U
+#############################################################
+##  INICIO EXPORT DIRECCION
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Sql_Create_Cii.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_Cii.txt
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_Borrar_001' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA
+	
+	DROP TABLE ${BDSTAGE}.w_Borrar_001 ;
+	
+
+   .LABEL CREA
+	CREATE SET TABLE ${BDSTAGE}.w_Borrar_001
+(
+	Secuencia	INTEGER
+	,Linea		VARCHAR(5000)
+	,Nada		INTEGER
+)
+	PRIMARY INDEX (Secuencia) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	SELECT
+	1,
+	' '' 
+	CREATE MULTISET TABLE REC_STAGE.w_cubo_ciiu AS (
+	Select  Id_Buro_Persona /*  */
+	'
+	,0  ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	
+	INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+		SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + B.Secuencia
+		,
+		CASE
+			when W.TipoCampo = 'ANSIDATE' then ', MAX(Case when Num = ' || Num || ' then to_char( ' ||  Valor_Ini || ', ''''dd/mm/yyyy'''')/*#1*/  End) ' || CampoNuevo || chr(13) 
+		ELSE
+			', MAX(Case when Num = ' || Num || ' then ' ||  Valor_Ini || ' End) ' || CampoNuevo || chr(13)	
+		END
+		, row_number() over(order by W.Contador) Q1 
+		
+	from
+	(
+		select A.*, Right( CampoNuevo,3) Num
+		, row_number() over(order by A.Ordenamiento, A.CampoNuevo) Contador 
+		from	${BDSTAGE}.v_BA2_CamposBase A
+		where UPPER(A.cubo) = 'CIIU'
+	) AS W
+	,
+	${BDSTAGE}.w_Borrar_001 B
+	;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+INSERT INTO ${BDSTAGE}.w_Borrar_001
+	Select 
+	10000
+	,
+	'
+	,MAX(Filtro_D) Filtro_D 
+	,MAX(Filtro_G) Filtro_G 
+	,MAX(Filtro_H) Filtro_H 
+	/*  */
+	FROM
+		(Select
+			 Id_Buro_Persona 
+			,CIIU 
+			,RANK() OVER (PARTITION BY Id_Buro_Persona ORDER BY Id_Buro_Persona, fecha_actualizacion DESC, Ciiu ) as Num 
+			,Actividad_Economica 
+			,FECHA_ACTUALIZACION 
+			,Version 
+			,Filtro_D 
+			,Filtro_G 
+			,Filtro_H 
+			/*  */
+			From	REC_STAGE.BATCH_Cubo_ciiu 
+			Where ciiu is not null 
+				/* and	( Coalesce(Filtro_D,0) + Coalesce(Filtro_G,0)) = 0 */ 
+			/*  */
+			Group by 1,2,4,5,6,7,8,9 
+			) AS X 
+		/*  */
+	Group by 1
+	 /*  */ 
+	) WITH DATA /*  */
+	PRIMARY INDEX (Id_Buro_Persona) 
+	'''
+	,0 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	--  EXPORTANDO
+	--	Cabeza
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+
+	Select linea from ${BDSTAGE}.w_borrar_001 order by secuencia ;
+
+	.EXPORT RESET	
+ 
+ 
+ 
+ -- CREACION DINAMICA SQUEMA
+REPLACE VIEW ${BDSTAGE}.v_Tempo_Borrar AS LOCK ROW FOR ACCESS
+(
+	Select 
+		 TRIM(CampoNuevo) || ' ' || TRIM(TIPOCAMPO) CAMPO
+		,row_number() OVER(order by ordenamiento, camponuevo) Orden 
+	from
+		(
+			select A.*, Right( CampoNuevo,3) Num
+			, row_number() over(order by A.Ordenamiento, A.CampoNuevo) Contador 
+			from	${BDSTAGE}.v_BA2_CamposBase A
+			where UPPER(A.cubo) = 'CIIU'
+		) AS W
+) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	Delete ${BDSTAGE}.w_Borrar_001 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	Insert Into ${BDSTAGE}.w_Borrar_001
+		SELECT 1, 'Id_Buro_Persona  INTEGER ',0 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	Insert Into ${BDSTAGE}.w_Borrar_001
+	select	SUM(1) OVER( ROWS UNBOUNDED PRECEDING ) + B.Secuencia,
+	',' || CAMPO || ' ' , 0
+	from ${BDSTAGE}.v_Tempo_Borrar
+		,
+		${BDSTAGE}.w_Borrar_001 B ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+
+	--  EXPORTANDO
+	--	Squema
+	.EXPORT FILE = '${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt'
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET HEADING '';
+	.SET WIDTH 30000
+	.SET SEPARATOR '|'
+	
+	select linea from ${BDSTAGE}.w_borrar_001 order by secuencia ;
+
+	.EXPORT RESET	
+
+
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_cubo_ciiu' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO SIGUE_Cii
+
+	DROP TABLE ${BDSTAGE}.w_cubo_ciiu ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	.LABEL SIGUE_Cii
+	Select date ;
+
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la Creación de la tabla w_cubo_ciiu.'
+	.EXIT ERRORCODE
+
+
+	.LOGOFF
+	.EXIT
+BTEQ
+
+
+# Recorte de la primera linea de titulos
+
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt  >  ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Sql_Create_Cii.txt
+sed -e '1d' ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt  >  ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_Cii.txt
+
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Cabeza_W.txt
+rm -f ${PARAMETROS}/P0033_BATCH2_CUBOEXPORT/Squema_W.txt
+
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+exit 0
+

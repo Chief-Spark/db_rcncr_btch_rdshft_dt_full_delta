@@ -1,0 +1,104 @@
+# ################################################################################
+# 
+# Objetivo:		Creacion de vista VstgCargaIndicadorMovilidad
+# Fecha:		2017-08-15
+# Realizado por:	Holmer Alfonso
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:		P0029_INDICADORES_MOVILIDAD_111.BTQ 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha			Objetivo							 Realizado por
+# 2018-08-21	#1 AJUSTE CALCULO MAX_ID			CARLOS CASTILLO			
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+	
+/*Crear la vista VstgCargaIndicadorMovilidad*/
+
+	REPLACE VIEW ${BDSTAGE}.VstgCargaIndicadorMovilidad
+	AS 
+	LOCK ROW FOR ACCESS
+	SELECT
+		   CAST(CASE
+			WHEN PIM.Cod_DW_Indicador_Movilidad IS NULL AND Severidad_Proceso=1
+					THEN SeqId.ID + SUM (CASE WHEN PIM.Cod_DW_Indicador_Movilidad IS NULL AND Severidad_Proceso=1 THEN 1 ELSE 0 END) OVER (ORDER BY STG.Cod_Pin_Persona, STG.Id_Buro_Persona, STG.Contador, PIM.Cod_DW_Indicador_Movilidad ROWS UNBOUNDED PRECEDING)  /*#1*/
+		   END  AS INTEGER) Cod_DW_Persona_Ind_Movil
+		 , STG.Id_Buro_Persona as Id_Buro_Persona
+		 , STG.Cod_Pin_Persona as Cod_Pin_Persona
+		 , CURRENT_DATE as Fecha_Inicio
+		 , CAST(NULL as DATE) as Fecha_Eliminado
+		 , STG.Cod_DW_Indicador_Movilidad as Cod_DW_Indicador_Movilidad
+		 , CURRENT_DATE as Fecha_Modificacion
+		 ,CAST( ${lote} AS INTEGER) as Lote
+		 ,CAST(NULL as INTEGER) as Lote_Actualizacion
+		 ,CAST(
+		 CASE 
+			when PIM.Cod_DW_Indicador_Movilidad is NOT NULL then 3 
+			when Row_Pim > 1 then 5
+			ELSE 1
+		  END AS INTEGER) Severidad_Proceso
+		 ,CAST(USER AS VARCHAR(30)) AS Usuario_BD
+		 ,CASE
+			when PIM.Cod_DW_Indicador_Movilidad is NOT NULL then '002901'
+			when Row_Pim > 1 then '002902'
+		  END Cod_Rechazo
+		 ,STG.Row_Pim
+			
+	FROM
+			( SELECT STG.*,row_number() over(partition by STG.Cod_Pin_Persona, STG.ID_Buro_Persona, STG.Cod_Dw_Indicador_Movilidad order by STG.Cod_Pin_Persona, STG.ID_Buro_Persona, STG.Orden_Prioridad) Row_Pim /*#1*/ FROM (
+				select * from ${BDSTAGE}.MTCalcularIndicadoresMovilidad where Contador = 1 and CambioDir = 1 and Descripcion_Indicador_Movilida='Cambio de Direccion'
+				UNION ALL
+				select * from ${BDSTAGE}.MTCalcularIndicadoresMovilidad where Contador = 1 and CambioDir = 1 and CambioEstrato = 1 and Descripcion_Indicador_Movilida='Cambio de Estrato'
+				UNION ALL
+				select * from ${BDSTAGE}.MTCalcularIndicadoresMovilidad where Contador = 1 and CambioDir = 1 and CambioCiudad = 1 and Descripcion_Indicador_Movilida='Cambio de Ciudad'
+				UNION ALL
+				select * from ${BDSTAGE}.MTCalcularIndicadoresMovilidad where Contador = 1 and CambioDir = 1 and CambioComuna = 1 and Descripcion_Indicador_Movilida='Cambio de Localidad') AS STG
+			) as STG
+		left join ${BDDATOS}.PERSONA_INDICADOR_MOVILIDAD PIM
+			on	STG.Cod_Pin_Persona = PIM.Cod_Pin_Persona
+			and	STG.Id_Buro_Persona = PIM.Id_Buro_Persona
+			and	STG.Cod_DW_Indicador_Movilidad = PIM.Cod_DW_Indicador_Movilidad
+			and	PIM.Fecha_Inicio = date
+			
+		join ${BDMTDAT}.MAX_ID SeqId ON SeqId.Nombre_Tabla = 'PERSONA_INDICADOR_MOVILIDAD'
+	
+	--order by STG.Cod_Pin_Persona, STG.Id_Buro_Persona, STG.Contador, PIM.Cod_DW_Indicador_Movilidad 
+
+	;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+	
+	.LABEL SALIR
+	.exit 0
+	
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la creacion de la vista VstgCargaIndicadorMovilidad'
+	.EXIT ERRORCODE
+
+	.LOGOFF;
+	.QUIT;
+BTEQ
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+
+tableIn=Consolida_Estandarizacion
+
+exit 0

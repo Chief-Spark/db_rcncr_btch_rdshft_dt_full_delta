@@ -1,0 +1,37 @@
+AMBIENTE=`echo $AMBIENTESVR |tr [:upper:] [:lower:]`
+
+bteq << EOF
+.logon dbc/\$tdwallet(ucargareconocer),\$tdwallet(pcargareconocer);
+.set width 254
+REPLACE FUNCTION REC_VISTA.DataMasking (
+		dato VARCHAR(200)
+/*
+ * ############################################################################
+ * 
+ * Objetivo:  Funcion  que realiza el enmascaramiento de datos numericos.
+ * Fecha:	  2018/06/05
+ * Realizado por: Fernando Garrido(Stefanini) 
+ * Proyecto:	  Experian - Reconocer
+ * Script:	  DataMasking.BTQ
+ * 
+ * 
+ * 
+ * BITACORA
+ * ---------------------------------------------------------------------------
+ * Fecha		Objetivo			Realizado por
+ * 2018-06-05          Version Inicial             Fernando Garrido 
+ * ---------------------------------------------------------------------------
+ * ############################################################################
+ */
+ )
+        RETURNS VARCHAR(500) 	
+	LANGUAGE C
+	NO SQL
+	SPECIFIC DataMasking 
+	EXTERNAL  NAME 'CS!DataMasking!/reconocer/$AMBIENTE/fuentes/udfs/DataMasking/DataMasking.c'
+	PARAMETER STYLE TD_GENERAL
+;
+.QUIT
+EOF
+exit $?
+

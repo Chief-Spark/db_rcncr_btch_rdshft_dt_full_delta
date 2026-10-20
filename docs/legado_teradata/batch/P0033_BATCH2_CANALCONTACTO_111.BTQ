@@ -1,0 +1,216 @@
+# ################################################################################
+# 
+# Objetivo:			Extrae Datos de Cubos
+# Fecha:			2017-12-28
+# Realizado por:	Holmer Alfonso H
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:			P0033_BATCH2_CANALCONTACTO_111.BTQ
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha				Objetivo						Realizado por
+#
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+set -x
+
+varSOLICITUD=`grep IDSOLICITUD ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varPLANTILLA=`grep IDPLANTILLA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varARCHIVOS_PN_PJ=`grep ARCHIVOS_PN_PJ ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varTIPO_SALIDA=`grep TIPO_SALIDA ${PARAMETROS}/P0033_BATCH2_EXPORT.par|awk -F " " '{print $3}'`
+varSECUENCIA_ITERADOR=`grep SECUENCIA_ITERADOR ${PARAMETROS}/P0033_BATCH2_EXPORTPLANO.par|awk -F "'" '{print $2}'`
+
+
+
+BTQ=`echo $0 | awk -F"/" '{print $(NF)}'`
+export REPORTE=${LOGS}/${BTQ}.log
+
+rm -r ${REPORTE} 2>/dev/null
+
+# Ejecuta SP
+bteq<<BTEQ
+	.logon ${Logon};
+
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_Borrar_001' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA
+	
+	DROP TABLE ${BDSTAGE}.w_Borrar_001 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+
+   .LABEL CREA
+	CREATE MULTISET TABLE ${BDSTAGE}.w_Borrar_001
+(
+	Secuencia	INTEGER
+	,Linea		VARCHAR(5000)
+	,Nada		INTEGER
+	,Tipo		VARCHAR(100)
+	,SubTipo	VARCHAR(100)
+)
+	PRIMARY INDEX (Secuencia) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_borrar_002' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA2
+	
+	DROP TABLE ${BDSTAGE}.w_Borrar_002 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+	
+
+   .LABEL CREA2
+	CREATE MULTISET TABLE ${BDSTAGE}.w_Borrar_002
+(
+	 Secuencia	INTEGER
+	,Detalle	VARCHAR(10000)
+) PRIMARY INDEX (Secuencia) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'w_Ejecutor' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO CREA3
+
+	DROP TABLE ${BDSTAGE}.w_Ejecutor ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+   .LABEL CREA3
+	CREATE MULTISET TABLE ${BDSTAGE}.w_Ejecutor
+	(
+	 Secuencia	INTEGER
+	 ,Campo varchar(10000)
+	 ) PRIMARY INDEX(Secuencia) ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+	/*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'tabla_w1' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO SEGUIR1
+	Drop Table ${BDSTAGE}.tabla_w1 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+   .LABEL SEGUIR1
+	select date ;
+
+
+   /*	Create de la Tabla Temporal  */
+	-- Busca la tabla Si existe y la borra
+	SELECT tablename 
+	FROM dbc.tables 
+	WHERE databasename = '${BDSTAGE}'
+	AND tablename = 'tabla_w2' ;
+	
+	.IF ACTIVITYCOUNT = 0 THEN .GOTO SEGUIR2
+	Drop Table ${BDSTAGE}.tabla_w2 ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+   .LABEL SEGUIR2
+	select date ;
+
+
+	Update ${BDSTAGE}.BATCH2_shells_planejecucion
+	Set	estado_ejecutado = NULL
+	Where	orden_id = '${varSECUENCIA_ITERADOR}' ;
+
+	.IF ERRORCODE <> 0 THEN .GOTO ERRORFOUND
+
+
+
+
+	DATABASE ${BDDATOS};
+
+	.SET DEFAULTS
+	.SET TITLEDASHES OFF
+	.SET WIDTH 254
+	.SET SEPARATOR '|'
+	
+	.EXPORT REPORT FILE=${REPORTE}
+
+
+	CALL PRO_Batch2_Completitud_Canal
+	(
+		${lote}
+		,'${dateTimeStartPro}'
+		,'${process}'
+		,'${BDVISTA}'
+		,'${BDSTAGE}'
+		,'${BDMTDAT}'
+		,${varPLANTILLA}
+		,${varSOLICITUD}
+		,P_ERROR
+	) ;
+	
+SEL Descripcion_Teradata_Error
+FROM ${BDMTDAT}.LOG_TD_DETALLE
+WHERE Descripcion_Teradata_Error <> 'Finalizo Exitosamente'
+and  Lote = ${lote};
+	
+.IF  ACTIVITYCOUNT > 0 THEN .Goto ERRORFOUND
+
+
+
+	
+.Label DONE
+.QUIT 0
+
+/* ===================== */
+/* ERRORS                */
+/* ===================== */
+
+.Label ERRORFOUND
+.REMARK '#### FALLO CanalContacto LOG_TD_DETALLE.'
+.EXIT 104
+	
+	
+	.EXPORT reset
+BTEQ
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+else
+   echo "BTEQ Procedure Ejecutado Satisfactoriamente"
+fi

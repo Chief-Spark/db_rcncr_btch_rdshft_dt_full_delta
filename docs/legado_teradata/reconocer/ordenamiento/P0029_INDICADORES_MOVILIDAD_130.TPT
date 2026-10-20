@@ -1,0 +1,273 @@
+/*#############################################################################
+#  
+#  Objetivo: Carga sobre las tablas finales 
+#  Fecha:	2017-08-15
+#  Realizado por:	Holmer Alfonso
+#  PARAMETROS:	
+#  Proyecto: Experian Reconocer	
+#  Script:		P0029_INDICADORES_MOVILIDAD_130.TPT
+#  
+#  BITACORA
+#  ---------------------------------------------------------------------------
+#  Fecha		Objetivo			Realizado por
+#  		 	
+#  ---------------------------------------------------------------------------
+#  
+#  Copyright 2017 Equipo Teradata - Capgemini #
+#  
+#   Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+#  		se encuentra protegido por las leyes de derechos de autor
+#  
+#  ############################################################################*/
+
+
+DEFINE JOB Job_CalcularIndicadorMovilidad
+DESCRIPTION 'Paso del Proceso de carga sobre tabla final INDICADOR_MOVILIDAD a partir de la vista VstgCargaIndicadorMovilidad Paso 130'
+(  
+DEFINE SCHEMA INDICADOR_MOVILIDAD
+    DESCRIPTION 'Schema Estructura de la Vista'
+        
+    (
+	
+	 IN_Cod_DW_Persona_Ind_Movil	INTEGER
+	,IN_Id_Buro_Persona	INTEGER
+	,IN_Cod_Pin_Persona 	INTEGER
+	,IN_Fecha_Inicio	ANSIDATE
+	,IN_Fecha_Eliminado	ANSIDATE
+	,IN_Cod_DW_Indicador_Movilidad	INTEGER
+	,IN_Fecha_Modificacion	ANSIDATE
+	,IN_Lote	INTEGER
+	,IN_Lote_Actualizacion	INTEGER
+	,IN_Severidad	INTEGER
+	,IN_Usuario_BD	VARCHAR(30)
+	,IN_Cod_Rechazo	VARCHAR(30)
+	,IN_Row_Pim	INTEGER
+	  	  
+    );    
+
+
+    /* ================================================================
+       Definición del Operador "Fexp" (Vista)
+       ================================================================ */
+    
+    DEFINE OPERATOR FEXP_OPERATOR 
+    TYPE EXPORT                   
+    SCHEMA INDICADOR_MOVILIDAD    
+    ATTRIBUTES                    
+    (                          
+      VARCHAR UserName     = @UserName      
+     ,VARCHAR UserPassword = @UserPassword  
+     ,VARCHAR TdpId        = @TdpId         
+     ,INTEGER MaxSessions                   
+     ,INTEGER MinSessions                   
+     ,VARCHAR AccountID                                    
+     ,VARCHAR PrivateLogName                               
+     ,VARCHAR TraceLevel                                   
+     ,VARCHAR WorkingDatabase                              
+     ,VARCHAR ErrorTable   = @BDTEMPO||'.'||@LogTable
+     ,INTEGER TenacityHours
+     ,INTEGER TenacitySleep
+     ,VARCHAR SelectStmt    = 'SELECT * FROM  '||@BDSTAGE||'.VstgCargaIndicadorMovilidad order by Cod_Pin_Persona, Id_Buro_Persona, Cod_DW_Indicador_Movilidad;'); 
+				
+							  
+    
+	
+    /* ================================================================
+       Definición de (Tabla(s) Destino)
+       ================================================================  */
+    
+    DEFINE OPERATOR OPERATOR_130
+    DESCRIPTION 'TERADATA WAREHOUSE BUILDER UPDATE OPERATOR'
+    TYPE UPDATE 
+	 SCHEMA INDICADOR_MOVILIDAD   
+    ATTRIBUTES  
+    (       /* Si son varias: VARCHAR ARRAY TargetTable = ['Trans','Accounts','Customer'] */ 
+      VARCHAR UserName          = @UserName     
+     ,VARCHAR UserPassword      = @UserPassword 
+     ,VARCHAR TdpId             = @TdpId        
+                     
+     ,VARCHAR ARRAY TargetTable = [@BDDATOS ||'.'||@TablaDestino1 ,@BDSTAGE ||'.'||@LAYOUT||'_IN' ,@BDSTAGE ||'.'||@LAYOUT||'_DUP' ]
+     ,VARCHAR ARRAY ErrorTable1 = [@BDTEMPO ||'.'||@Wktb		  ,@BDTEMPO ||'.'||@Wktb||'2'	  ,@BDTEMPO ||'.'||@Wktb||'3'	  ]
+     ,VARCHAR ARRAY ErrorTable2 = [@BDTEMPO ||'.'||@Err1		  ,@BDTEMPO ||'.'||@Err1||'2'	  ,@BDTEMPO ||'.'||@Err1||'3'	  ]
+     ,VARCHAR ARRAY WorkTable   = [@BDTEMPO ||'.'||@Err2		  ,@BDTEMPO ||'.'||@Err2||'2'	  ,@BDTEMPO ||'.'||@Err2||'3'	  ]
+	 
+     ,VARCHAR LogTable     = @BDTEMPO||'.'||@LogTable
+     ,INTEGER TenacityHours =@TenacityHours
+     ,INTEGER TenacitySleep =@TenacitySleep
+    );
+    
+	
+		
+    DEFINE OPERATOR DDL_OPERATOR
+    DESCRIPTION 'TERADATA PARALLEL TRANSPORTER DDL OPERATOR'
+    TYPE DDL
+    ATTRIBUTES
+       (
+        VARCHAR UserName = @UserName,
+        VARCHAR UserPassword = @UserPassword,
+        VARCHAR TdpId = @TdpId,
+        VARCHAR AccountID,
+        VARCHAR ARRAY ErrorList = ['3803','3807','5978']
+       );
+
+	
+
+	
+ /* ====================================================================
+     Apply Upsert Usando Mload Desde lo que entregó el Fexp
+    ====================================================================  */
+    
+    STEP Load_RPU
+    (             
+     APPLY    
+		
+	 CASE   
+			 
+              WHEN ( IN_Severidad = 1 ) 
+              THEN (	/*INDICADOR_MOVILIDAD '*/
+                      'UPDATE '||@BDDATOS ||'.'||@TablaDestino1||'
+                          SET     
+                                 LOTE_ACTUALIZACION =  '|| @LOTE ||'
+								,Fecha_Modificacion = :IN_Fecha_Modificacion
+                          
+                          WHERE   
+                                 Cod_DW_Persona_Ind_Movil = :IN_Cod_DW_Persona_Ind_Movil;
+                      '	
+                     ,'INSERT INTO ' || @BDDATOS || '.'||@TablaDestino1||' 
+                             (
+								 Cod_DW_Persona_Ind_Movil
+								,Id_Buro_Persona
+								,Cod_Pin_Persona
+								,Fecha_Inicio
+								,Fecha_Eliminado
+								,Cod_DW_Indicador_Movilidad
+								,Fecha_Modificacion
+								,Lote
+								,Lote_Actualizacion
+								,Usuario_BD
+								,Severidad
+								
+                        	  )
+                        VALUES
+                           (
+							     :IN_Cod_DW_Persona_Ind_Movil
+								,:IN_Id_Buro_Persona
+								,:IN_Cod_Pin_Persona
+								,:IN_Fecha_Inicio
+								,:IN_Fecha_Eliminado
+								,:IN_Cod_DW_Indicador_Movilidad
+								,:IN_Fecha_Modificacion
+								,:IN_Lote
+								,:IN_Lote_Actualizacion
+								,:IN_Usuario_BD
+								,:IN_Severidad
+                   					   
+                         	);'	                
+	    )
+				INSERT FOR MISSING UPDATE ROWS
+            END  
+			
+           				
+	,CASE   
+              WHEN ( IN_Severidad = 3 )
+              THEN (
+			            /*_IN   Inconsistentes*/
+                     
+                      'INSERT INTO ' || @BDSTAGE || '.'||@LAYOUT||'_IN 
+                             (	 
+								 Cod_DW_Persona_Ind_Movil
+								,Id_Buro_Persona
+								,Cod_Pin_Persona
+								,Fecha_Inicio
+								,Fecha_Eliminado
+								,Cod_DW_Indicador_Movilidad
+								,Fecha_Modificacion
+								,Lote
+								,Lote_Actualizacion
+								,Usuario_BD
+								,Severidad
+								,Cod_Rechazo
+ 
+                        	  )
+                        VALUES
+                           ( 
+						   
+						     :IN_Cod_DW_Persona_Ind_Movil
+							,:IN_Id_Buro_Persona
+							,:IN_Cod_Pin_Persona
+							,:IN_Fecha_Inicio
+							,:IN_Fecha_Eliminado
+							,:IN_Cod_DW_Indicador_Movilidad
+							,:IN_Fecha_Modificacion
+							,:IN_Lote
+							,:IN_Lote_Actualizacion
+							,:IN_Usuario_BD
+							,:IN_Severidad						   
+							,:IN_Cod_Rechazo
+						   
+                         	  );'
+						)
+                   			
+					END 	 
+
+	,CASE WHEN ( IN_Severidad = 5 )					
+              THEN (
+			            /*'_DUP   Duplicados*/	   
+                      'INSERT INTO ' || @BDSTAGE || '.'||@LAYOUT||'_DUP 
+                             (	 
+								 Cod_DW_Persona_Ind_Movil
+								,Id_Buro_Persona
+								,Cod_Pin_Persona
+								,Fecha_Inicio
+								,Fecha_Eliminado
+								,Cod_DW_Indicador_Movilidad
+								,Fecha_Modificacion
+								,Lote
+								,Lote_Actualizacion
+								,Usuario_BD
+								,Severidad
+								,Cod_Rechazo
+ 
+                        	  )
+                        VALUES
+                           (  
+							 :IN_Cod_DW_Persona_Ind_Movil
+							,:IN_Id_Buro_Persona
+							,:IN_Cod_Pin_Persona
+							,:IN_Fecha_Inicio
+							,:IN_Fecha_Eliminado
+							,:IN_Cod_DW_Indicador_Movilidad
+							,:IN_Fecha_Modificacion
+							,:IN_Lote
+							,:IN_Lote_Actualizacion
+							,:IN_Usuario_BD
+							,:IN_Severidad						   
+							,:IN_Cod_Rechazo	   
+						   
+                         	  );'
+							  
+							  )
+                   			
+					END
+                   		
+     TO OPERATOR (OPERATOR_130 [1])
+     SELECT * FROM OPERATOR (FEXP_OPERATOR);      
+    );
+	
+	
+		
+	STEP Update_Table_MaxID
+       (
+        APPLY
+            
+		 ('UPDATE '|| @BDMTDAT ||'.MAX_ID
+               SET    ID = (SELECT COALESCE(MAX(Cod_DW_Persona_Ind_Movil),0) FROM '||@BDDATOS||'.'||@TablaDestino1||')
+               WHERE  Nombre_Tabla = '''||@TablaDestino1||'''
+               ;')
+
+
+         TO OPERATOR (DDL_OPERATOR);
+       );
+	
+	
+); 

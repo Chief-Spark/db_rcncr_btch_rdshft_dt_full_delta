@@ -1,0 +1,114 @@
+/* # ################################################################################
+# 
+# Objetivo:			Extrae Datos de CELULAR
+# Fecha:			2017-12-29
+# Realizado por:	Holmer Alfonso H
+# Parametros:		reconocer/desarrollo/.tdenv
+# Proyecto:			Nuevo Reconocer
+# Script:		    P0033_BATCH2_CANALCONTACTO130.TPT 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		Objetivo			Realizado por
+# 
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################ */
+
+
+DEFINE JOB ExportarArchivos
+DESCRIPTION 'Exporta Registros a Alertas'
+( 
+ 
+ DEFINE SCHEMA Account_Schema_w1
+	( 
+		INCLUDE ''||@PARAMETROS || '/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w1.txt' ;
+	);
+	
+ DEFINE SCHEMA Account_Schema_w2
+	( 
+		INCLUDE ''||@PARAMETROS || '/P0033_BATCH2_CANALCONTACTO/Squema_tabla_w2.txt' ;
+	);
+
+
+DEFINE OPERATOR Data_Connector_w1
+	TYPE DATACONNECTOR CONSUMER
+	SCHEMA Account_Schema_w1
+	ATTRIBUTES
+	( VARCHAR 	
+		DirectoryPath 		  = @SALIDAS1,
+		FileName 			  = @ARCHIVO_ALERTAS||'_w1',
+		Format 				  = 'DELIMITED', 
+		TextDelimiter		  = ',',
+		IndicatorMode 		  = 'N',
+		OpenMode 			  = 'Write',
+		FileDataName		  = ''
+	);
+
+DEFINE OPERATOR Data_Connector_w2
+	TYPE DATACONNECTOR CONSUMER
+	SCHEMA Account_Schema_w2
+	ATTRIBUTES
+	( VARCHAR 	
+		DirectoryPath 		  = @SALIDAS1,
+		FileName 			  = @ARCHIVO_ALERTAS||'_w2',
+		Format 				  = 'DELIMITED', 
+		TextDelimiter		  = ',',
+		IndicatorMode 		  = 'N',
+		OpenMode 			  = 'Write',
+		FileDataName		  = ''
+	);
+
+
+DEFINE OPERATOR Select_Accounts_w1
+ TYPE SELECTOR
+ SCHEMA Account_Schema_w1
+ ATTRIBUTES
+ (
+ VARCHAR UserName 	  = @UserName,
+ VARCHAR UserPassword = @UserPassword,
+ VARCHAR TdpId = @TdpId,
+ VARCHAR SelectStmt =  INCLUDE ''||@PARAMETROS || '/P0033_BATCH2_CANALCONTACTO/Select_tabla_w1.txt' 
+ );
+
+DEFINE OPERATOR Select_Accounts_w2
+ TYPE SELECTOR
+ SCHEMA Account_Schema_w2
+ ATTRIBUTES
+ (
+ VARCHAR UserName 	  = @UserName,
+ VARCHAR UserPassword = @UserPassword,
+ VARCHAR TdpId = @TdpId,
+ VARCHAR SelectStmt =  INCLUDE ''||@PARAMETROS || '/P0033_BATCH2_CANALCONTACTO/Select_tabla_w2.txt' 
+ );
+
+ 
+STEP Generacion_Tabla_Salida_w1
+	 (
+		APPLY
+			TO OPERATOR
+			(Data_Connector_w1[1])
+	 
+		SELECT  *
+		FROM OPERATOR (Select_Accounts_w1[1]);
+	 ); 
+
+	 STEP Generacion_Tabla_Salida_w2
+	 (
+		APPLY
+			TO OPERATOR
+			(Data_Connector_w2[1])
+	 
+		SELECT  *
+		FROM OPERATOR (Select_Accounts_w2[1]);
+	 ); 
+
+ ); 
+ 
+ 

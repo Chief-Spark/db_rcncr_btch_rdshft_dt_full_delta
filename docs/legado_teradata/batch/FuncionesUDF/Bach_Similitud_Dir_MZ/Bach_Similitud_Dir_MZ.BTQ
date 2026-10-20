@@ -1,0 +1,83 @@
+REPLACE FUNCTION REC_VISTA.Bach_Similitud_Dir_MZ  (
+		DirInsumoIn VARCHAR(500)
+		,DirBodegaIn VARCHAR(500)
+		
+		,PorHitMz0In INTEGER
+		,PorDisMz0In INTEGER
+		,PorHitMz1In INTEGER
+		,PorDisMz1In INTEGER
+		,PorHitMz2In INTEGER
+		,PorDisMz2In INTEGER
+		,PorHitMz3In INTEGER
+		,PorDisMz3In INTEGER
+/*
+ * ############################################################################
+ * 
+ * Objetivo:	  Aplicar el algoritmo de comparacion de direcciones fisicas de tipo
+ *		  manzana
+ * Fecha:	  2017/04/24
+ * Realizado por: Luis E Ramirez (Capgemini)
+ * Parametros:	  DirInsumoIn ,DirBodegaIn ,PorHitMz0In ,PorDisMz0In ,PorHitMz1In
+ *		  ,PorDisMz1In ,PorHitMz2In ,PorDisMz2In ,PorHitMz3In ,PorDisMz3In
+ *		  retorna INTEGER
+ * Proyecto:	  Experian - Reconocer
+ * Script:	  Bach_Similitud_Dir_MZ.BTQ
+ * 
+ * 
+ * 
+ * BITACORA
+ * ---------------------------------------------------------------------------
+ * Fecha		Objetivo			Realizado por
+ * 
+ * ---------------------------------------------------------------------------
+ * 
+ * Copyright 2016 Equipo Teradata - Capgemini
+ * 
+ *  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+ * 		se encuentra protegido por las leyes de derechos de autor
+ * 
+ * 
+ * ############################################################################
+ */
+ )
+	RETURNS INTEGER
+	LANGUAGE C
+	NO SQL
+	SPECIFIC BachSimilitudDirMZ
+	EXTERNAL  NAME 'CI!operationsString!/reconocer/pruebas/fuentes/udfs/library/operationsString.h!CI!loadParamsAcepAut!/reconocer/pruebas/fuentes/udfs/library/loadParamsAcepAut.h!CS!BachSimilitudDirMZ!/reconocer/pruebas/fuentes/udfs/Bach_Similitud_Dir_MZ/BachSimilitudDirMZ.c'
+	PARAMETER STYLE TD_GENERAL
+;
+
+
+
+
+/*
+.run file Bach_Similitud_Dir_MZ.BTQ
+
+SELECT cast('KR 9 161B 23' as varchar(500)) DirInsumoIn
+	, cast('KR 9 161B 23' as varchar(500)) DirBodegaIn
+	,0  PorHitMz0In
+	,100  PorDisMz0In
+	,20  PorHitMz1In
+	,80  PorDisMz1In
+	,50  PorHitMz2In
+	,50  PorDisMz2In
+	,70  PorHitMz3In
+	,30  PorDisMz3In
+	, REC_VISTA.Bach_Similitud_Dir_MZ(
+				DirInsumoIn
+				,DirBodegaIn
+				,PorHitMz0In
+				,PorDisMz0In
+				,PorHitMz1In
+				,PorDisMz1In
+				,PorHitMz2In
+				,PorDisMz2In
+				,PorHitMz3In
+				,PorDisMz3In
+		) SIMILITUD
+;
+
+
+
+*/

@@ -1,0 +1,81 @@
+# ################################################################################
+# 
+# Objetivo:		Paso 140, para borrar tablas temporales.
+# Fecha:		2017-23-03
+# Realizado por:	Luis Eduardo Ramirez
+# Parametros:		/reconocer/desarrollo/.tdenv
+# Proyecto:		Nuevo Recnocer
+# Script:		P0020_UNIFICACION_DIRECCION_111.BTQ 
+# 
+# BITACORA
+# ---------------------------------------------------------------------------
+# Fecha		Objetivo			Realizado por
+# 
+# ---------------------------------------------------------------------------
+# 
+# Copyright 2017 Equipo Teradata - Capgemini
+# 
+#  Este componente fue realizado bajo la metodologia de desarrollo de Capgemini S.A.S y
+# 		se encuentra protegido por las leyes de derechos de autor
+# 
+# 
+# ################################################################################
+
+
+# INICIA BTEQ
+bteq<<BTEQ
+	.logon ${Logon};
+	
+/*Borra tablas temporales */
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_WT;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR1;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR2;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_LOG1;
+    
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_WT_4;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR1_5;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR2_6;
+	
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_WT_7;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR1_8;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR2_9;
+	
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_WT_10;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR1_11;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR2_12;
+
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_WT_MI;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR1_MI;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_ERR2_MI;
+	DROP TABLE ${BDTEMPO}.UNIFICACIONR2_LOG1_MI;
+
+	RELEASE MLOAD ${BDDATOS}.UNIFICACION_DIRECCION; 
+	RELEASE MLOAD ${BDDATOS}.REPORTE_UNIFICACION_DIRECCION;
+	RELEASE MLOAD ${BDDATOS}.DIRECCION_FISICA;
+	RELEASE MLOAD ${BDDATOS}.RELACION_PERSONA_UBICACION	;
+	
+	RELEASE MLOAD ${BDDATOS}.UNIFICACION_DIRECCION in apply;
+	RELEASE MLOAD ${BDDATOS}.REPORTE_UNIFICACION_DIRECCION in apply;
+	RELEASE MLOAD ${BDDATOS}.DIRECCION_FISICA in apply;
+	RELEASE MLOAD ${BDDATOS}.RELACION_PERSONA_UBICACION	in apply;
+	
+	
+		
+	.LABEL SALIR
+	.exit 0
+	
+	.LABEL ERRORFOUND
+	.REMARK '#### ERROR en la creacion de la vista VstgCargaUnificacionDir'
+	.EXIT ERRORCODE
+
+	.LOGOFF;
+	.QUIT;
+BTEQ
+
+
+if [ $? -ne 0 ]
+	then echo 'Error en ejecucion BTEQ'
+	exit 3
+fi
+
+exit 0
