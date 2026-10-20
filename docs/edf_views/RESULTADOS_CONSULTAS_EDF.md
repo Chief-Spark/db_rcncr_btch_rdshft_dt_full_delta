@@ -527,6 +527,35 @@ Distribución del tipo 8: 0.30 → 40.935 · 0.50 → 1.841 · 0.65 → 2.198 ·
 
 **Atajo:** según "19. BusinessIdStatus" (CCBR 251263885), los catálogos están en Redshift como `catalogs_collibra.catalogs_output`. Ese esquema **no aparece** en el volcado de `svv_all_tables` de DEV. **C32** comprueba si el clúster lo ve; si lo ve, el 124, el 180 y el 28 se leen sin preguntar a nadie.
 
+### Segunda lectura: páginas de Alpha (2026-10-20)
+
+Alpha es el pipeline de ingesta que llena el XPM. Lectura de solo consulta; no se copió ningún dato personal.
+
+| Tema | Qué dice | Grado | Página |
+|---|---|---|---|
+| Estado del documento de NIT | `idStatus` y `businessIdStatus` = `T-ESTADO` de BDIIDIAN (DIAN), sin pasar por el catálogo 124. *"Tiene 1 o 0 donde 1 es activo. Estado de la matricula"*. Si no viene, se pone `0` por defecto | `01` = matrícula activa: CONFIRMADO. `00` = no activa **o sin dato**: sin resolver | Alpha Release BEST IDENTIFICATIONS (251259555); XPM to BDIIDIAN (251217796); XPM - BDIIDIAN (251228985) |
+| Sector `C` | Alpha copia `economicSector` de `subscribers.json`. La documentación de negocio del legado trae cuatro sectores: financiero, cooperativo, comunicaciones y real, y aclara que el real *"incluye Telecomunicaciones"*. La tabla que daba C = Telecomunicaciones es un error de esa página | **C = Cooperativo: PROBABLE alto** (legado + nombres en DEV) | Alpha Release COUNTERPARTIES (251259560); Reglas de Negocio (EASL 297468581) |
+| `contactType` 7, 8 y 12 | 7: solo la dirección judicial del WS de Bogotá. 8: dirección comercial de cuatro fuentes de Cámara de Comercio. 12: la "Dirección Notificación" del prestador turístico en el RNT (hoja 5, campo 24), con departamento y municipio en texto y **sin `cityCode`**. Ningún sistema (ICBDIR, HDC, API de Reconocer Master) mapea el 12 | CONFIRMADO | Alpha Release LOCATION (251259585); RNT Fields mapping (251247040); Reconocer Master (351572939) |
+| Score de los tipos 1, 2 y 3 | La librería se añadió para ICBDIR (tipos 1, 2 y 3) en septiembre de 2026; antes solo puntuaba Cámara de Comercio (tipo 8). Probablemente no ha llegado a DEV | la fecha es CONFIRMADO; que falte en DEV es INFERENCIA | Implementacion de la libreria estandarizacion Alpha (514819903) |
+| Umbral del score | *"La HU no define un umbral mínimo formal"*. La misma página dice que la librería replica, campo por campo, la estandarización de Reconocer (`REC_DATOS.NOMENCLATURA`, `REGLA_EST_UBICACION`) y habla de "Gestión Registro VÁLIDA/INVÁLIDA" como concepto | CONFIRMADO | Pruebas Locales (480411714) |
+| `blockSeverity` | se calcula del indicador de bloqueo de la cuenta: **1-7 → 1, 8-9 → 2, 0 → 0** | CONFIRMADO | 03.1_bestAccounts_campo_de_primer_nivel (479779233) |
+| `blockStatus` del suscriptor | **0 = bloqueado, 1 = activo**. Una sola página dice lo contrario y la contradicen el legado y los datos de DEV | CONFIRMADO | ICBCLA e ICBSUS (297468584); Business rules 3.3 (335677857) |
+| Regla "estado 0 y razón 2 o 5" | es para **los cálculos agregados del XPM** (*"exclude inactive subscriber data from any aggregate computations"*), no para mostrar datos. El legado excluía de todo, salvo del cálculo de scores, a los suscriptores con bloqueo temporal o por solicitud | CONFIRMADO | getXPM filter by subscriber status (251228163); Reglas de Negocio (297468581) |
+| `catalogs_collibra` | esquema **externo** de Spectrum sobre Glue, no un datashare. Existe en el clúster de Procesos Batch (`dba_batch`), no en el de Reconocer | CONFIRMADO | Carga de XPM y Catálogos de Collibra a Redshift (344854805); Redshift (350060570) |
+
+**Las tres severidades de cuenta, frente al catálogo del legado** (`catalogos/BDM_VISTA - V_Razon_Bloqueo.csv`, columna `Cod_Razon_Bloqueo_Fte`):
+
+| `blockSeverity` | Indicador | En el legado | ¿Se muestra en la historia de crédito? |
+|---|---|---|---|
+| 1 | 1-7 | bloqueo histórico, caducidad, eliminación Novedat, eliminación lógica, obligación cerrada hace 4 años, registro frenado | **no** (las siete) |
+| 2 | 8-9 | 8 = reclamo sin solución; 9 = cuenta sin validar ante la Registraduría | 8 no, 9 **sí** |
+| 0 | 0 | activo | sí |
+
+**Lo que cambia en las preguntas a Experian:**
+- **Sector `C`: no hace falta preguntar.** Queda PROBABLE alto.
+- **`contactType` 12: baja prioridad.** En DEV no hay ninguna fila de 7, 12, 13 ni 14 (C24).
+- **`catalogs_collibra`:** la C32 se corre desde la conexión de Procesos Batch (`dba_batch_DEV`), no desde la de Reconocer.
+
 ## 13. Lo que sigue
 
 1. Correr **C17 a C20** (al final de `consultas_perfilado_edf_2026-10-20.sql`); con ellas se cierran las hipótesis de las brechas 2 a 5.
