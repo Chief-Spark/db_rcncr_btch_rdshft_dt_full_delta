@@ -378,6 +378,27 @@ Entregado por el productor ("Official catalog of contactType"; los campos se lle
 - Si los fijos 4 y 5 traen celulares. Se mide con la **C23**, al final de `consultas_perfilado_edf_2026-10-20.sql`.
 - **Esto NO es lo mismo que el catálogo `Cod_DW_Tipo_Ubic`** (1 Dirección, 2 Teléfono, 3 Correo, 4 Sitio web, 5 Apartado postal, 6 Red social), que también llegó el 2026-10-20. Ese es un catálogo de clases de Teradata: no tiene `Celular` y no es el que lee el código, que usa `Geografica`, `Telefono`, `Celular` y `Mail` (`NOV` 8367-8370).
 
+### C23: forma de los teléfonos sin el relleno (DEV y QA, 2026-10-20)
+
+Celular = 10 dígitos que empiezan por 3. Fijo = de 7 a 10 dígitos que no empiezan por 3. El resto es "otra forma": menos de 7 dígitos o más de 10.
+
+| Tipo | DEV filas | DEV celular | DEV fijo | DEV otra | QA filas | QA celular | QA fijo | QA otra |
+|---|---|---|---|---|---|---|---|---|
+| 4 Residence Telephone | 4.349 | **533 (12,3 %)** | 3.416 | 400 | 69.019 | **7.301 (10,6 %)** | 50.894 | 10.824 |
+| 5 Labor Telephone | 3.032 | **333 (11,0 %)** | 2.465 | 234 | 52.865 | **3.827 (7,2 %)** | 39.715 | 9.323 |
+| 6 Business Telephone | 135.084 | 104.851 | 27.229 | 3.004 | 16.927 | 13.684 | 2.267 | 976 |
+| 9 Mobile | 3.184 | **3.184 (100 %)** | 0 | 0 | 39.453 | **39.453 (100 %)** | 0 | 0 |
+| 11 Fax | 135.084 | 4 | 957 | 134.123 | 16.924 | 0 | 9 | 16.915 |
+
+"Otra" incluye los vacíos: 42 del 6 en DEV y 23 en QA, y casi todo el 11.
+
+**Lectura:**
+- **El 9 es celular en el 100 %** en los dos ambientes. Confirma la normalización de D-EDF-10.
+- **Uno de cada diez fijos 4 y 5 es un celular:** 866 en DEV y 11.128 en QA. Hoy se van a TEL.
+- **El 6 cuadra con C18** en celulares. Los fijos suben porque C23 cuenta de 7 a 10 dígitos y no solo de 7 a 8.
+- **El 11 viene vacío** en el 99 % (DEV) y el 99,9 % (QA): no leerlo es correcto.
+- Una parte del 4 y del 5 no tiene ninguna de las dos formas: 8-18 %, más en QA. Se queda en TEL como hoy, y la regla de `descripcion_gestion` del SP marca `NO VALIDA` lo que tiene menos de 7 dígitos.
+
 ## 13. Lo que sigue
 
 1. Correr **C17 a C20** (al final de `consultas_perfilado_edf_2026-10-20.sql`); con ellas se cierran las hipótesis de las brechas 2 a 5.
