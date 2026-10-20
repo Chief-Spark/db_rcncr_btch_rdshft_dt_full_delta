@@ -80,6 +80,12 @@ verde local puede caer igual en Jenkins:
   Postgres exige el orden de dependencias que Redshift tolera: por eso la fase
   `strct` da varias pasadas y por eso el veredicto de esa fase lo da
   `verifica.py` sobre el estado final, no archivo a archivo.
+  La misma causa hace que, en la segunda pasada, un `DROP VIEW IF EXISTS` choque
+  con vistas que otros archivos crearon encima en la primera ("cannot drop view
+  ... because other objects depend on it"). Desde 2026-10-20 la regla **T11** de
+  `transpila.py` lo compensa: salta el `DROP` si hay dependientes y deja que el
+  `CREATE OR REPLACE VIEW` siguiente reemplace en sitio, que es lo que ocurre en
+  Redshift. Antes de T11 la fase `strct` terminaba sin `v_xpm_ciiu_persona`.
 - `DROP TABLE IF EXISTS` sobre una **vista** aqui falla con "is not a table";
   en Redshift es un no-op. `04_vistas_insumo_ordenamiento_edf_views.sql:44-55`
   se apoya en ese no-op, y lo dice en un comentario.

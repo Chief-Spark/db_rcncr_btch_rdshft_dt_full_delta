@@ -24,6 +24,8 @@ Queda solo lo que no admite shim porque difiere la SINTAXIS, no el nombre:
   T6  LISTAGG(e, s) WITHIN GROUP (ORDER BY k)  ->  string_agg(e, s ORDER BY k)
   T7  DATEADD / DATEDIFF     la unidad va como palabra desnuda, no como texto
   T8  REGEXP_REPLACE de 3 argumentos          ->  cuarto argumento 'g'
+  T11 DROP VIEW IF EXISTS v;  ->  el mismo DROP, pero que no aborta si v
+      tiene dependientes (ver la nota junto a la regla)
 
 T8 es el unico que corrige un COMPORTAMIENTO y no una sintaxis, y por eso es el
 mas peligroso de los ocho: Redshift reemplaza TODAS las ocurrencias por
@@ -306,6 +308,20 @@ SIMPLES = [
     # "current_aws_account" does not exist' -- precisamente porque Postgres lo
     # leia como una referencia a columna.
     ('T10-aws',      r'\bCURRENT_AWS_ACCOUNT\b(?!\s*\()', 'rs.current_aws_account()'),
+    # T11. En Redshift las vistas son WITH NO SCHEMA BINDING: nadie depende de
+    # nadie y un DROP VIEW nunca choca. En Postgres si, y la fase strct da
+    # varias pasadas: en la segunda, 02_vistas_insumo_edf_views.sql intenta
+    # borrar una vista sobre la que 03/04/06 ya crearon las suyas en la
+    # primera, y aborta con 'cannot drop view ... because other objects
+    # depend on it'. Lo que Redshift hace en ese caso es borrar y recrear sin
+    # tocar a los dependientes; aqui el equivalente es saltarse el DROP y
+    # dejar que el CREATE OR REPLACE VIEW de la linea siguiente reemplace en
+    # sitio. Solo aparece a nivel de archivo, nunca dentro de un $$, asi que
+    # el DO es legal. Es compensacion del motor: el repo no cambia.
+    ('T11-dropview', r'\bDROP\s+VIEW\s+IF\s+EXISTS\s+([A-Za-z_]\w*\.[A-Za-z_]\w*)\s*;',
+     lambda mm: ('DO $t11$ BEGIN DROP VIEW IF EXISTS %s; '
+                 'EXCEPTION WHEN dependent_objects_still_exist THEN NULL; END $t11$;'
+                 % mm.group(1))),
 ]
 
 
@@ -318,7 +334,7 @@ def simples(s, cuenta):
             if not mm:
                 break
             cuenta[nombre] = cuenta.get(nombre, 0) + 1
-            nuevo = iguala_lineas(rep, mm.group(0))
+            nuevo = iguala_lineas(rep(mm) if callable(rep) else rep, mm.group(0))
             s = s[:mm.start()] + nuevo + s[mm.end():]
             pos = mm.start() + len(nuevo)
     return s
