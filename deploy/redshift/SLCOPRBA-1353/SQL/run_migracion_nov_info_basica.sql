@@ -1,0 +1,13 @@
+-- ============================================================
+-- run_migracion_nov_info_basica.sql
+-- 2026-10-20 (D-NOV-04). Migra mat_info_ubicacion.info_basica a BIGINT en los
+-- ambientes donde la tabla ya existe en INTEGER, conservando los datos.
+-- UTF-8 sin BOM.
+--
+-- Va PRIMERA en deploy.par: corre despues de strct y pgm (orden de
+-- despliegue) y antes que nada de dt. Es idempotente: si la columna ya es
+-- BIGINT, el SP solo informa y sale. Por eso no estorba a la segunda pasada
+-- de DPLY del pipeline.
+-- Toca una tabla de la via REAL; el mock usa mat_info_ubicacion_mock.
+-- ============================================================
+CALL bdm_datos.sp_rcn_ctl_nov_migrar_info_basica();

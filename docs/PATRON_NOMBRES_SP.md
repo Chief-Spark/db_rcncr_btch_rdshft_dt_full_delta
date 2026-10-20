@@ -111,6 +111,7 @@ Además:
 | `unif_traza_inicio` / `_fin` | `sp_rcn_ctl_unif_traza_inicio` / `_fin` | `unif_traza_mock_inicio` / `_fin` |
 | `ord_control_abrir` / `_cerrar` | `sp_rcn_ctl_ord_abrir` / `_cerrar` | (en línea dentro del mock) |
 | `ord_traza_inicio` / `_fin` | `sp_rcn_ctl_ord_traza_inicio` / `_fin` | (en línea) |
+| — (nuevo, 2026-10-20) | `sp_rcn_ctl_nov_migrar_info_basica` | — (solo vía real) · **ya nace con el patrón**: migra `mat_info_ubicacion.info_basica` a BIGINT si sigue en INTEGER (D-NOV-04); lo invoca dt |
 | `nov_control_abrir` / `_cerrar` / `_etapa_marcar` | `sp_rcn_ctl_nov_abrir` / `_cerrar` / `_etapa_marcar` | `nov_control_mock_*` |
 
 ## Impacto fuera de este repo

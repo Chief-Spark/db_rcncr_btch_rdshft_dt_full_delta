@@ -50,6 +50,19 @@ Evidencia AS-IS en `docs/legado_teradata/`: `SPS` = `batch/Sps_Batch.sql`, `CE12
 | Solo contactos **vigentes**: no bloqueados (D-EDF-01) y no hijos de Unificación | `NOV:7590-7595` | filtro en la vista |
 | Formatos de la salida real: fecha `dd/mm/aaaa`, DANE de 8 dígitos, tipo multivalor `RES - LAB - CRR` | `legado_teradata/salida_real_esencial/` | el formato final lo aplica el Batch; entregamos `DATE` y códigos en texto |
 
+
+### Qué `contacttype` alimenta cada cubo (medido en DEV y QA, 2026-10-20)
+
+Lo decide la columna `canal` de `v_xpm_contacto_canal`. Evidencia en `edf_views/RESULTADOS_CONSULTAS_EDF.md` §14-§15.
+
+| Cubo | `contacttype` | Forma del dato | Grado |
+|---|---|---|---|
+| DIRECCION | 1, 2, 3, 7, 8 | texto de dirección; el 8 con `standardizedtipo` VIA, RURAL, MANZANA… | PROBABLE (falta el catálogo; el 8 es CONFIRMADO por su `standardizedtipo`) |
+| TELEFONO | 4, 5 y el 6 sin forma de celular | 12 dígitos rellenados con ceros (4, 5) o limpio (6). **Se entrega sin el relleno** | PROBABLE |
+| CELULAR | 9 y el 6 con forma de celular (10 dígitos que empiezan por 3) | igual: **sin el relleno** | PROBABLE |
+| CORREO | 10 | el 100 % con `@` | CONFIRMADO por la forma |
+| — | 11 | vacío | no se lee |
+
 ---
 
 ## BATCH_CUBO_PERSONA · una fila por persona
@@ -89,7 +102,7 @@ Evidencia AS-IS en `docs/legado_teradata/`: `SPS` = `batch/Sps_Batch.sql`, `CE12
 |---|---|---|---|---|---|---|
 | `Cod_DW_Persona_Ubic` | — | llave del contacto (RPU) | `RPU.Cod_DW_Persona_Ubic` | PROBABLE | `ci.id` + `ci.index` | CORREGIR (D-UNI-02) |
 | `Direccion` | `DD_DIR` | dirección estandarizada + complemento | `TEXTO_UBICACION ‖ ' ' ‖ COMPLEMENTO` (`NOV:7772`) | PROBABLE | `ci.standardizedtextoubicacion` + `ci.standardizedcomplemento` | OK · solo direcciones **padre** (Unificación) |
-| `Ciudad` | `DD_CIUDAD` | nombre del centro poblado | `V_GEOGRAFIA.DESCRIPCION_CIUDAD` | PROBABLE | DANE → Divipola; respaldo `ci.cityname` | CORREGIR (hoy es el municipio) |
+| `Ciudad` | `DD_CIUDAD` | nombre del centro poblado | `V_GEOGRAFIA.DESCRIPCION_CIUDAD` | PROBABLE | DANE → Divipola; sin DANE: `citycode` (cabecera) o el nombre contra Divipola | DERIVAR: el código ya sale en `cod_dw_ciudad` (D-EDF-02, corregido en local); el nombre se toma de Divipola en la vista de entrega (F7) |
 | `Departamento` | `DD_DEPARTA` | departamento | `V_GEOGRAFIA.DESCRIPCION_DEPARTAMENTO` | PROBABLE | `ci.standardizeddepartment` / DANE State Code | OK |
 | `Cod_Dane_Ciudad` | `DD_DAN_CIU` | DANE de 8 dígitos, en texto | `V_GEOGRAFIA.COD_DANE_CIUDAD` | PROBABLE | `ci.standardizeddanecode` con relleno a 8 | CORREGIR (D-EDF-02) |
 | `Cod_Dane_Departamento` | `DD_DAN_DEP` | DANE de 2 dígitos | `V_GEOGRAFIA` | PROBABLE | primeros 2 dígitos del de 8 | DERIVAR |
@@ -111,7 +124,7 @@ Mismas reglas que DIRECCION, con estas diferencias:
 
 | Columna | Campo | Origen AS-IS | Grado | EDF | Estado |
 |---|---|---|---|---|---|
-| `Numero` | `DT_NUM` | `TEXTO_UBICACION` de tipo Teléfono | PROBABLE | `ci.contactasreportedstandardized` con `contacttype` de teléfono | PEDIR el catálogo `contacttype` (hoy el `'8'` cae en dos canales) |
+| `Numero` | `DT_NUM` | `TEXTO_UBICACION` de tipo Teléfono | PROBABLE | `ci.contactasreported` (el estandarizado viene vacío), tipos 4, 5 y 6 fijo, sin el relleno de ceros | OK en local (D-EDF-08, -10 y -11); el catálogo `contacttype` lo confirmaría |
 | `Indicativo` | según plantilla | `V_TELEFONO_FIJO.COD_AREA` (`NOV:7966`) | PROBABLE | — | PEDIR |
 | `Tipo` | `DT_TIPO` | `RES` / `LAB` (`RES - LAB`) | PROBABLE | `ci.contacttype` | PEDIR |
 | `Ciudad`, `Departamento`, `Cod_Dane_*`, `Fecha_ultima_actualizacion`, `Numero_de_entidades_reporta` | `DT_*` | igual que DIRECCION | PROBABLE | igual | igual |
@@ -120,8 +133,8 @@ Mismas reglas que DIRECCION, con estas diferencias:
 
 | Cubo.Columna | Campo | Origen AS-IS | Grado | EDF | Estado |
 |---|---|---|---|---|---|
-| CELULAR.`Numero` | `DC_NUMERO` | `TEXTO_UBICACION` de tipo Celular | PROBABLE | `ci.contactasreportedstandardized`, `contacttype` celular | PEDIR el catálogo · **sale del celular, nunca del correo** (error del prototipo) |
-| CORREO.`Correo` | `CE_CORREO` | `TEXTO_UBICACION` de tipo Mail | PROBABLE | ídem, `contacttype` correo | PEDIR el catálogo |
+| CELULAR.`Numero` | `DC_NUMERO` | `TEXTO_UBICACION` de tipo Celular | PROBABLE | `ci.contactasreported`, tipos 9 y 6 con forma de celular, sin el relleno de ceros | OK en local (D-EDF-10 y -11) · **sale del celular, nunca del correo** (error del prototipo) |
+| CORREO.`Correo` | `CE_CORREO` | `TEXTO_UBICACION` de tipo Mail | PROBABLE | `contacttype` 10 (100 % con `@`) | OK |
 | `Orden_Prioridad` | (posición) | Ordenamiento CEL / EMA, **por RPU** | PROBABLE | Ordenamiento | CORREGIR (D-ORD-10) |
 | `Fecha_ultima_actualizacion`, `Numero_de_entidades_reporta` | — | igual que DIRECCION | PROBABLE | igual | igual |
 

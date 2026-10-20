@@ -13,6 +13,7 @@ Las consultas se corren en el consumidor DEV (`dba_batch_DEV`), solo en modo lec
 | C17 a C20 · verificación de las hipótesis de §4-§11 | 2026-10-20 | §14 |
 | C21 · forma del valor estandarizado de teléfonos y celulares | 2026-10-20 | §14 |
 | C22 · largo y prefijo de 2 dígitos de los teléfonos de suscriptor | 2026-10-20 | §14 |
+| C18, C19, C20 y C22 repetidas en **QA** | 2026-10-20 | §15 |
 
 ## 1. Lo que dice el catálogo
 
@@ -311,6 +312,38 @@ Todos tienen exactamente 12 dígitos y ninguno trae caracteres que no sean dígi
 | A | **Leer el tipo 6** y repartirlo por forma: 3 + 9 dígitos → CEL; si no → TEL | +104.851 celulares y +23.044 fijos | `v_xpm_contacto_canal` y los filtros de canal |
 | B | **Normalizar los teléfonos** (tipos 4, 5, 6, 9 y 11): solo dígitos y **sin los ceros de relleno** (C21, C22). *Reemplaza la propuesta del prefijo 57, que C21 desmintió* | **el canal CEL deja de quedar vacío**: 3.184 celulares de suscriptor recuperan su operador | `v_xpm_contacto_canal` (el SP no se toca) |
 | C | **Ciudad de respaldo**: `citycode` para el tipo 8; Divipola por nombre para 1, 2 y 3 | ciudad en ~55k direcciones que hoy quedan en NULL | `v_xpm_contacto_direccion` + catálogo Divipola en strct |
+
+## 15. QA: las mismas consultas sobre otro ambiente (C18, C19, C20, C22)
+
+**QA confirma las formas de DEV y desmiente sus proporciones.** DEV no es representativo del volumen ni de la mezcla de fuentes.
+
+| | DEV | QA |
+|---|---|---|
+| Reportes de suscriptor (`typeofdata` 1, 2, 3, 17) | 6.983 (5 %) | 118.120 (87,5 %) |
+| Reportes de la fuente 6 | 135.084 (95 %) | 16.927 (12,5 %) |
+| Contraparte de la persona con número | 1.889 de 95.701 (2 %) | 21.581 de 33.881 (64 %), 1.489 distintas |
+| Suscriptores distintos en los reportes | 296 | 1.251 |
+
+**Por tipo de contacto, en QA (C18):**
+
+| Tipo | Filas | Forma | Ciudad |
+|---|---|---|---|
+| 1 | 92.350 | dirección (93 % con letras) | **DANE en el 74 %**; `cityname` en todas |
+| 3 | 88.829 | dirección | DANE en el 76 % |
+| 2 | 61.312 | dirección con algo de basura numérica (68 % con letras) | DANE en el 54 % |
+| 4 · 5 | 69.019 · 52.865 | fijos de 12 dígitos rellenados (C22) | `cityname` |
+| 9 | 39.453 | celulares de 12 dígitos rellenados: el **100 %** empieza por `00` (C22) | — |
+| 10 | 68.809 | correo (68.769 con `@`) | — |
+| 6 | 16.927 | **teléfono**: 13.684 celulares y 2.075 fijos | — |
+| 8 | 16.927 | dirección | DANE 15.940; **`citycode` de 5 dígitos** en 16.915 |
+| 11 | 16.924 | vacío | — |
+| **7** | **9** | dirección (fuente 6) | `cityname` |
+
+**Qué cambia respecto de §14:**
+- Las direcciones de suscriptor **sí traen DANE** en QA (54-76 %). Aun así faltan ~74k, y para ellas está la ciudad de respaldo por Divipola.
+- **El tipo 7 existe** (9 filas): se mantiene en la lista de direcciones.
+- **La contraparte de la persona sí parece un suscriptor** (NIT, 64 % con número, cifra del orden de los suscriptores de los reportes). El nivel 2 de la regla de suscriptor se queda.
+- La fuente 6 sigue sin suscriptor ni tipo de cuenta (C20 en QA: 0 de 16.927).
 
 ## 13. Lo que sigue
 
