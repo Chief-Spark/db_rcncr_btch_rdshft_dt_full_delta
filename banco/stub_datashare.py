@@ -89,6 +89,31 @@ def emite(tablas):
            '']
     for t in sorted(tablas):
         cols = sorted(tablas[t].items(), key=lambda kv: (kv[1] != 'BIGINT', kv[0]))
+        # POSTGRES TRUNCA LOS IDENTIFICADORES A 63 BYTES Y REDSHIFT ADMITE 127.
+        # Las cuatro
+        # "chamberofcommerce.val.detailofmercantileregistrations.secondaryisiccodeN"
+        # comparten los primeros 63 caracteres, de modo que el CREATE TABLE
+        # declaraba cuatro columnas que colapsan en una sola y Postgres lo
+        # rechazaba con "column ... specified more than once". En Redshift los
+        # cuatro nombres son distintos y validos: lo comprobamos en el catalogo
+        # real (docs/edf_views/svv_all_columns_2026-10-20.csv), asi que ESTO ES
+        # UNA LIMITACION DEL BANCO, NO UN DEFECTO DEL CODIGO. Nunca recortar
+        # los nombres en las vistas para contentar a Postgres.
+        #
+        # Se deja UNA columna por nombre truncado. Las referencias de la vista
+        # a los otros tres nombres resuelven a esa misma columna, porque
+        # Postgres trunca tambien al parsear la consulta. Las tablas van
+        # vacias, asi que fundirlas no cambia ningun resultado: lo unico que
+        # el stub tiene que permitir es que la vista se CREE.
+        vistos = {}
+        unicas = []
+        for c, ty in cols:
+            clave = c.strip('"')[:63]
+            if clave in vistos:
+                continue
+            vistos[clave] = c
+            unicas.append((c, ty))
+        cols = unicas
         out.append('CREATE TABLE IF NOT EXISTS edf_views.%s (' % t)
         out.append(',\n'.join('  %-74s %s' % (c, ty) for c, ty in cols))
         out.append(');')
