@@ -192,3 +192,39 @@ columna da 11,9 % en A y 0,005 % en B. Antes de usar cualquiera de las tres hay
 que saber cual de los dos ambientes es el que va a produccion. Las 568.657 filas
 de A coinciden con la cifra de DEV ya documentada (568.657 filas para 142.067
 ids), de modo que A parece DEV; **no esta confirmado**.
+
+## Lo que el mock de Movilidad (d6) NO ejercita, medido 2026-10-21
+
+**Tres indicadores implementados, UNO ejercitado.** Medido en el banco con dos
+pasadas de `fase dt`:
+
+| Indicador | Eventos en el mock | Por que |
+|---|---|---|
+| `Cambio de Direccion` | **100** | es el ARQ 97, que cambia de texto antes del DELTA2 (paso 3b del e2e). El detector encuentra **exactamente** los 100 sembrados y ninguno mas |
+| `Cambio de Ciudad` | **0** | ningun arquetipo cambia de ciudad |
+| `Cambio de Estrato` | **0** | el mock no siembra estrato: `con_estrato = 0` en las 9.700 fotos |
+
+**Y hay que decirlo con la misma regla que se aplico al ciclo GEO y a `NOV-AE`:
+una rama que sale en cero no esta probada.** Las dos de ciudad y estrato estan
+cableadas y compilan, pero no hay evidencia de que detecten nada. Lo que SI esta
+probado, y es lo que sostiene el diseno entero, es el mecanismo:
+
+- **la foto es insert-only y el grano es correcto**: 9.700 filas para 9.600
+  ubicaciones, o sea 100 ubicaciones con DOS fotos -- de nuevo el ARQ 97 exacto;
+- **la comparacion no produce falsos positivos**: 9.500 ubicaciones sin cambio
+  no emitieron ningun evento;
+- **y la segunda pasada no hereda**: los mismos 100 eventos, no 200. El reset
+  borra la foto, que era el riesgo real de este dominio.
+
+**Para ejercitar las otras dos ramas haria falta un arquetipo que cambie de
+ciudad y otro con estrato sembrado**, y ninguno de los dos se anade a la ligera:
+cambiar la ciudad de un arquetipo mueve el DANE y toca el insumo de la Regla 3 y
+de DIR. Queda anotado como trabajo, no como defecto.
+
+**UN DETALLE DE LA FECHA QUE NO ES UN DEFECTO:** las 9.700 fotos llevan UNA
+sola `fecha_foto`, porque la bateria entera corre en un dia y la fecha sale de
+`TRUNC(GETDATE())`. Es lo que hace el legado -- `PIM.FECHA_INICIO` es
+`CURRENT_DATE` (`P0029_INDICADORES_MOVILIDAD_111.BTQ:40`) --, de modo que la
+`FECHA` del evento es **la de la corrida que lo detecto**, no la del dia en que
+la persona se mudo. En produccion, con corridas en dias distintos, las fechas se
+separan solas.
