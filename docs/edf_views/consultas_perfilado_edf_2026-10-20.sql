@@ -456,3 +456,63 @@ WHERE code IN ('124_REGISTRADURIA_STATUS_OF_PERSON_HO',
                '170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH',
                '93_GENDER_HO')
 ORDER BY code, "code/text";
+
+-- ============================================================
+-- C32b (2026-10-21): catalogs_collibra.catalogs_output EXISTE en dba_batch
+-- pero la C32 no devolvio filas con esos siete codigos. Antes de pedir nada:
+-- cuantas filas tiene, como se llaman de verdad los codigos, y si la copia
+-- local bdm_datos.collibra_catalogs_output trae lo mismo. Son catalogos.
+-- Correr en dba_batch_DEV.
+-- ============================================================
+SELECT 'catalogs_collibra.catalogs_output' AS tabla, COUNT(*) AS filas, COUNT(DISTINCT code) AS catalogos
+  FROM catalogs_collibra.catalogs_output
+UNION ALL
+SELECT 'bdm_datos.collibra_catalogs_output', COUNT(*), COUNT(DISTINCT code)
+  FROM bdm_datos.collibra_catalogs_output;
+
+SELECT code, COUNT(*) AS filas
+FROM catalogs_collibra.catalogs_output
+WHERE code ILIKE '%GENDER%' OR code ILIKE '%REGISTRADURIA%' OR code ILIKE '%ECONOMIC_SECTOR%'
+   OR code ILIKE '%BLOCK%'  OR code ILIKE '%INFORMATION_SOURCES%' OR code ILIKE '%DEBTOR%'
+   OR code ILIKE '%CONTACT%' OR code ILIKE '%THIRD_PARTY%'
+GROUP BY 1
+ORDER BY 1;
+
+-- ============================================================
+-- C33 (2026-10-21): LA LLAVE DE CUENTA CASA? C31 dio que solo 278 de los
+-- 6.850 reportes de suscriptor (typeofdata 1 y 2) casan con una cuenta. Antes
+-- de dar por bueno el bloqueo de cuenta hay que saber si es porque la persona
+-- no tiene cuentas en EDF o porque la llave no casa (ceros a la izquierda,
+-- otro formato). Por reporte: tiene cuentas la persona, casa la llave
+-- completa, casa solo el numero de cuenta, casa sin ceros a la izquierda.
+-- Solo conteos.
+-- ============================================================
+SELECT r.typeofdata, r.persona_con_cuentas, r.casa_llave, r.casa_numero, r.casa_sin_ceros,
+       COUNT(*) AS reportes
+FROM (
+  SELECT loc.id, loc."index",
+         MAX(loc."location.val.typeofdata"::VARCHAR) AS typeofdata,
+         MAX(CASE WHEN ba.id IS NOT NULL THEN 1 ELSE 0 END) AS persona_con_cuentas,
+         MAX(CASE WHEN NULLIF(TRIM(ba."bestaccounts.val.businesslinecode"), '') = NULLIF(TRIM(loc."location.val.businesslinecode"), '')
+                   AND NULLIF(TRIM(ba."bestaccounts.val.accounttype"), '')      = NULLIF(TRIM(loc."location.val.accounttype"), '')
+                   AND NULLIF(TRIM(ba."bestaccounts.val.accountnumber"), '')    = NULLIF(TRIM(loc."location.val.accountnumber"), '')
+                   AND ba."bestaccounts.val.personidtype"                       = loc."location.val.personidtype"
+                   AND NULLIF(TRIM(ba."bestaccounts.val.personidnumber"), '')   = NULLIF(TRIM(loc."location.val.personidnumber"), '')
+                  THEN 1 ELSE 0 END) AS casa_llave,
+         MAX(CASE WHEN NULLIF(TRIM(ba."bestaccounts.val.accountnumber"), '') = NULLIF(TRIM(loc."location.val.accountnumber"), '')
+                  THEN 1 ELSE 0 END) AS casa_numero,
+         MAX(CASE WHEN NULLIF(LTRIM(TRIM(ba."bestaccounts.val.accountnumber"), '0'), '') = NULLIF(LTRIM(TRIM(loc."location.val.accountnumber"), '0'), '')
+                   AND NULLIF(LTRIM(TRIM(ba."bestaccounts.val.accounttype"), '0'), '')   = NULLIF(LTRIM(TRIM(loc."location.val.accounttype"), '0'), '')
+                  THEN 1 ELSE 0 END) AS casa_sin_ceros
+  FROM ds_dba_rncr_batch.edf_views.xpm x
+  JOIN ds_dba_rncr_batch.edf_views.xpm_location loc
+    ON loc.id = x."location"
+   AND loc."index" IS NOT NULL
+  LEFT JOIN ds_dba_rncr_batch.edf_views.xpm_bestaccounts ba
+    ON ba.id = x."bestaccounts"
+   AND ba."index" IS NOT NULL
+  WHERE loc."location.val.typeofdata" IN (1, 2)
+  GROUP BY 1, 2
+) r
+GROUP BY 1, 2, 3, 4, 5
+ORDER BY 1, 6 DESC;

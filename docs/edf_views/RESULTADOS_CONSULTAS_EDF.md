@@ -556,6 +556,22 @@ Alpha es el pipeline de ingesta que llena el XPM. Lectura de solo consulta; no s
 - **`contactType` 12: baja prioridad.** En DEV no hay ninguna fila de 7, 12, 13 ni 14 (C24).
 - **`catalogs_collibra`:** la C32 se corre desde la conexión de Procesos Batch (`dba_batch_DEV`), no desde la de Reconocer.
 
+### C31 y C32 en DEV (2026-10-21)
+
+**C31: reportes de `location` frente a la cuenta del reporte.**
+
+| `typeofdata` | Sin cuenta que case | Severidad 0 | **Severidad 1 (se ocultan)** | Severidad 2 (se muestran) |
+|---|---|---|---|---|
+| 1 (crédito) | 4.204 | 172 | **24** | 17 |
+| 2 (corriente y ahorro) | 2.368 | 49 | **11** | 5 |
+| 3, 6, 17 | 135.217 | — | — | — |
+
+- **El bloqueo de cuenta oculta 35 reportes en DEV.** La severidad 2 deja pasar 22 hasta que Experian responda.
+- 3, 6 y 17 no tienen cuenta, como se esperaba: Cámara de Comercio, cliente y contactos.
+- **Solo casan 278 de los 6.850 reportes de suscriptor (4 %).** Puede ser que DEV traiga pocas cuentas (§11: 7.759 cuentas reales) o que la llave no case por formato. **C33** lo distingue antes de dar el bloqueo por bueno.
+
+**C32: el esquema existe, pero en `dba_batch`, y los siete códigos no devolvieron filas.** En `dba_batch` hay varias copias: `catalogs_collibra.catalogs_output` (la externa de Spectrum), `bdm_datos.collibra_catalogs_output`, `bdm_tempo.catalogs_output` y cinco más en `bdm_stage`. **C32b** cuenta filas, lista los códigos parecidos y compara la copia de `bdm_datos`.
+
 ## 13. Lo que sigue
 
 1. Correr **C17 a C20** (al final de `consultas_perfilado_edf_2026-10-20.sql`); con ellas se cierran las hipótesis de las brechas 2 a 5.
