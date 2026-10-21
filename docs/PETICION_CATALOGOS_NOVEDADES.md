@@ -286,6 +286,20 @@ catálogo, no después.
 >
 > La llave de la tabla final es **`(ID, SECTOR, UBICACION_ID)`**.
 >
+> **`V_CONTACTABILIDAD` no es un catálogo: es un log de eventos de gestión**, una fila por intento de contacto (`COD_DW_CONTACTABILIDAD`). De ella leemos ocho columnas: `COD_DW_CONTACTABILIDAD`, `COD_DW_PERSONA_UBIC`, `FECHA_GESTION`, `TIPO_UBICACION`, `INDICADOR_EFECTIVIDAD`, `GESTION`, `COD_DW_TIPO_ENVIO_CONTACTO` e `ID_BURO_SUSCRIPTOR`.
+>
+> **Y con la vista sola no basta**: el mismo SP cruza cinco objetos más, y sin ellos las columnas calculadas salen nulas. Los pedimos en el mismo paquete:
+>
+> | Objeto | Para qué | Cita |
+> |---|---|---|
+> | `V_CONTACTO_EFECTIVO` | decide si un intento cuenta como contacto efectivo: cruza `DESCRIPCION_TIPO_UBICACION` + `INDICADOR_REAL_EFECTIVIDAD`. **Es un `INNER JOIN`**: sin él no sale ni una fila | `Novedad.sql:360-361, :431-432, :617` |
+> | `V_PRIORIDAD_GESTION_DIR` | `ORDEN_PRIORIDAD_GESTION` por código de gestión, canal dirección | `:362` |
+> | `V_PRIORIDAD_GESTION_EMAIL` | lo mismo, canal correo | `:363` |
+> | `V_PRIORIDAD_GESTION_TEL` | lo mismo, canal teléfono | `:364` |
+> | `V_PRIORIDAD_GESTION_CEL` | lo mismo, canal celular | `:365` |
+>
+> (El sexto, `TMP_NCONTACT_AGR_SECTOR`, es una temporal del propio proceso y la construimos nosotros.)
+>
 > **Ya verificamos que no está en el datashare.** Buscamos en `svv_all_columns` de `ds_dba_rncr_batch.edf_views` por `contact`, `gestion`, `effect`, `result`, `call` y `attempt`, y ninguna columna corresponde a estos datos de gestión.
 >
 > **Nos sirve cualquiera de estas tres respuestas:**
