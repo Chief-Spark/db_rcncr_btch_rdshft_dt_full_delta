@@ -146,12 +146,36 @@ espera de un estrato 1..6 mas centinela --, de modo que la columna no esta mal
 mapeada: esta **vacia**. Con 0,08 % y 0,75 % de cobertura, comparar el estrato
 de una persona antes y despues compara NULL con NULL en el 99 % de los casos.
 
-**CONSECUENCIA, Y ES UNA DECISION: `CambioEstrato` de Movilidad (d6) NO se
-porta.** Con esa cobertura el indicador diria "no cambio de estrato" para todo
-el universo, que es falso: la verdad es "no se sabe". Es el mismo error que
-`NOV-UB-12` y que las columnas `por_*` del censo de Ordenamiento. **Movilidad se
-queda en 2 de 4 indicadores** (Cambio de Direccion y Cambio de Ciudad), no en 3
-de 4 como se dijo antes de medir.
+**~~CONSECUENCIA: `CambioEstrato` de Movilidad (d6) NO se porta, porque el
+indicador diria "no cambio de estrato" para todo el universo.~~ ESA CONCLUSION
+ERA FALSA Y SE CORRIGE AQUI (2026-10-21, misma sesion).** Dos errores, y el
+segundo es el que importa:
+
+1. **La medicion es de DEV y QA, no de produccion.** Son ambientes con una
+   tajada del dato y enmascarado; que una columna este vacia aqui no dice que lo
+   este alla. No podemos medir produccion desde este lado, de modo que la
+   cobertura real de `stratum` es **desconocida**, no cero.
+
+2. **Y el argumento de que "mentiria" NO SE SOSTIENE, porque esta tabla es de
+   EVENTOS y no de banderas.** `P0029_INDICADORES_MOVILIDAD_111.BTQ:62-68` son
+   cuatro ramas `UNION ALL` y cada una filtra por SU propio cambio
+   (`CambioDir = 1`, `... AND CambioEstrato = 1`, `... AND CambioCiudad = 1`,
+   `... AND CambioComuna = 1`): **una fila existe solo cuando ese cambio se
+   detecto**. No hay ninguna fila que diga "no cambio de estrato" y pueda ser
+   falsa: la ausencia de fila es "no se detecto", que es exactamente lo que el
+   legado emite cuando tampoco tiene el dato. Un estrato esparcido produce
+   MENOS FILAS, no filas equivocadas.
+
+**CONSECUENCIA CORREGIDA: `CambioEstrato` SI es portable, y Movilidad llega a
+3 de 4 indicadores.** El unico hueco real es `CambioComuna`, porque
+`LOCALIDAD` no existe en EDF por ninguna via.
+
+**Y un detalle del legado que lo abarata: las CUATRO ramas exigen
+`CambioDir = 1`.** Ningun indicador se dispara sin un cambio de direccion
+previo, de modo que el disparador es siempre la senal que ya tenemos y ya esta
+certificada -- la segunda fila en `ubicacion_atributo_hash` (ARQ 97 / 98). Los
+otros tres indicadores son atributos que se comparan **sobre ese mismo evento**,
+no deltas independientes.
 
 **LO QUE SI VALE LA PENA CABLEAR: `contactneighborhood`.** 15,9 % en el
 ambiente A es dato esparcido pero real, y hoy escribimos NULL en
