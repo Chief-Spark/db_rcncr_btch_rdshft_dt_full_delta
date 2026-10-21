@@ -442,7 +442,7 @@ El rango de edad viene como `18 - 21` … `66 años o más`, con espacios y text
 | vacío | 93.858 | — | sin sector |
 | F | 1.775 | ACTUAR TOLIMA, UTRAHUILCA MICROCREDITO | **Financiero** · CONFIRMADO (§18) |
 | R | 852 | ABL CAPITAL, YANBAL DE COLOMBIA S.A. | **Real** · CONFIRMADO (§18) |
-| C | 50 | AVANCOP COOPERATIVA, FORJAR COOP | **Cooperativo** · PROBABLE: Confluence se contradice (Telecomunicaciones o Cooperativas) y los nombres apoyan Cooperativas (§18) |
+| C | 50 | AVANCOP COOPERATIVA, FORJAR COOP | ~~Cooperativo~~ **Telecomunicaciones · CONFIRMADO por catálogo (C32c, §18)**; los nombres de DEV no cuadran. Antes decía: PROBABLE: Confluence se contradice (Telecomunicaciones o Cooperativas) y los nombres apoyan Cooperativas (§18) |
 
 - **Puede reemplazar al `sector_financiero` de hoy**, que es una cubeta de hash (ver `CLAUDE.md`, "`sector_financiero` no es un catálogo provisional: hoy es ruido"): el reporte trae el NIT del suscriptor, la contraparte con ese NIT tiene sus líneas de negocio y cada línea su sector.
 - Dos ejemplos por código son poco. La **C29** saca los diez nombres más frecuentes de cada uno, y la **C30** mide cuántos reportes encontrarían sector por ese camino.
@@ -534,7 +534,7 @@ Alpha es el pipeline de ingesta que llena el XPM. Lectura de solo consulta; no s
 | Tema | Qué dice | Grado | Página |
 |---|---|---|---|
 | Estado del documento de NIT | `idStatus` y `businessIdStatus` = `T-ESTADO` de BDIIDIAN (DIAN), sin pasar por el catálogo 124. *"Tiene 1 o 0 donde 1 es activo. Estado de la matricula"*. Si no viene, se pone `0` por defecto | `01` = matrícula activa: CONFIRMADO. `00` = no activa **o sin dato**: sin resolver | Alpha Release BEST IDENTIFICATIONS (251259555); XPM to BDIIDIAN (251217796); XPM - BDIIDIAN (251228985) |
-| Sector `C` | Alpha copia `economicSector` de `subscribers.json`. La documentación de negocio del legado trae cuatro sectores: financiero, cooperativo, comunicaciones y real, y aclara que el real *"incluye Telecomunicaciones"*. La tabla que daba C = Telecomunicaciones es un error de esa página | **C = Cooperativo: PROBABLE alto** (legado + nombres en DEV) | Alpha Release COUNTERPARTIES (251259560); Reglas de Negocio (EASL 297468581) |
+| Sector `C` | Alpha copia `economicSector` de `subscribers.json`. La documentación de negocio del legado trae cuatro sectores: financiero, cooperativo, comunicaciones y real, y aclara que el real *"incluye Telecomunicaciones"*. La tabla que daba C = Telecomunicaciones es un error de esa página | ~~C = Cooperativo: PROBABLE alto~~ **FALSO (C32c): C = Telecomunicaciones.** El legado dice SC = Comunicaciones y SO = Cooperativo; se leyó la C de SC como cooperativo | Alpha Release COUNTERPARTIES (251259560); Reglas de Negocio (EASL 297468581) |
 | `contactType` 7, 8 y 12 | 7: solo la dirección judicial del WS de Bogotá. 8: dirección comercial de cuatro fuentes de Cámara de Comercio. 12: la "Dirección Notificación" del prestador turístico en el RNT (hoja 5, campo 24), con departamento y municipio en texto y **sin `cityCode`**. Ningún sistema (ICBDIR, HDC, API de Reconocer Master) mapea el 12 | CONFIRMADO | Alpha Release LOCATION (251259585); RNT Fields mapping (251247040); Reconocer Master (351572939) |
 | Score de los tipos 1, 2 y 3 | La librería se añadió para ICBDIR (tipos 1, 2 y 3) en septiembre de 2026; antes solo puntuaba Cámara de Comercio (tipo 8). Probablemente no ha llegado a DEV | la fecha es CONFIRMADO; que falte en DEV es INFERENCIA | Implementacion de la libreria estandarizacion Alpha (514819903) |
 | Umbral del score | *"La HU no define un umbral mínimo formal"*. La misma página dice que la librería replica, campo por campo, la estandarización de Reconocer (`REC_DATOS.NOMENCLATURA`, `REGLA_EST_UBICACION`) y habla de "Gestión Registro VÁLIDA/INVÁLIDA" como concepto | CONFIRMADO | Pruebas Locales (480411714) |
@@ -552,7 +552,7 @@ Alpha es el pipeline de ingesta que llena el XPM. Lectura de solo consulta; no s
 | 0 | 0 | activo | sí |
 
 **Lo que cambia en las preguntas a Experian:**
-- **Sector `C`: no hace falta preguntar.** Queda PROBABLE alto.
+- **Sector `C`: no hace falta preguntar.** ~~Queda PROBABLE alto~~ Cerrado por catálogo (C32c): es Telecomunicaciones.
 - **`contactType` 12: baja prioridad.** En DEV no hay ninguna fila de 7, 12, 13 ni 14 (C24).
 - **`catalogs_collibra`:** la C32 se corre desde la conexión de Procesos Batch (`dba_batch_DEV`), no desde la de Reconocer.
 
@@ -573,6 +573,29 @@ Alpha es el pipeline de ingesta que llena el XPM. Lectura de solo consulta; no s
 **C32: el esquema existe, pero en `dba_batch`, y los siete códigos no devolvieron filas.** En `dba_batch` hay varias copias: `catalogs_collibra.catalogs_output` (la externa de Spectrum), `bdm_datos.collibra_catalogs_output`, `bdm_tempo.catalogs_output` y cinco más en `bdm_stage`. **C32b** cuenta filas, lista los códigos parecidos y compara la copia de `bdm_datos`.
 
 **C32b (2026-10-21): los catálogos están.** 321 catálogos y 70.899 filas, idénticos en `catalogs_collibra.catalogs_output` y en `bdm_datos.collibra_catalogs_output`. Ahí están el 124 (21 filas), el 28 (21), el 27 (11), el 170 (29), el 93 (7), el 180 (51), el 308 (50) y el 219 (6), y aparecen cuatro que no conocíamos: `11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH`, `236_SUBSCRIBER_BLOCK_REASON_NH`, `173_EXPERIAN_CONTACT_TYPE_NH` y `320_CATALOG_OF_CONTACTASREPORTED_LOCATION`. **La C32 dio cero con un `IN` exacto sobre códigos que sí existen**: HIPÓTESIS, el código trae espacios o un fin de línea. La **C32c** compara con `TRIM` y saca el contenido.
+
+### C32c: los catálogos oficiales (Collibra, `dba_batch`, 2026-10-21)
+
+El CSV no se guarda en el repo: Collibra marca varias filas como *Confidential* o *Internal Only* y este repo es público. Aquí queda solo lo que decide algo, sin los nombres de los responsables de datos.
+
+**Corrección: la `C` del sector es Telecomunicaciones, no Cooperativo.** Lo dicen tres catálogos:
+- `219_ECONOMIC_SECTOR_HO`, el que usa el código de EDF: 1 Financiero → F, 2 Cooperativo → **O**, 3 Real → R, 4 Telcos → **C**, `-` no reporta.
+- `180_…_PER_ACCOUNT_NH` y `308_…_BY_CUENTA_NH`: los tipos de cuenta 06 y 27 son C, Telecomunicaciones.
+
+En el legado, SC es Comunicaciones y SO es Cooperativo; la lectura anterior tomó la C de SC por cooperativo. Que en DEV aparezcan cooperativas con C es un dato que no cuadra, pero no cambia la regla.
+
+| Catálogo | Lo que cierra | Para qué |
+|---|---|---|
+| `124_REGISTRADURIA_STATUS_OF_PERSON_HO` (21) | **`01` = Vigente** (y `00` también). Homologación: 12 y 14 → 00; 51 → 21; 52 → 26; 21-28 y 53-56 quedan igual; 88 y 99 = en trámite | estado del documento de CC (D-EDF-13). En NIT el valor sale de la DIAN y `01` = matrícula activa |
+| `27_SUBSCRIBER_BLOCK_TYPE_NH` (11) | tipo de bloqueo de la cuenta: 0 activo, 1 histórico, 2 caducidad, 3 reclamo en trámite (anterior a Novedat), 4 calidad, 5 Novedat, 6 prescripción, 7 frenados, **8 no solución de reclamo, 9 cuentas sin validar** | con la regla de Alpha (1-7 → severidad 1, 8-9 → 2), la severidad 1 son siete bloqueos que no se muestran. La 2 es la única duda que queda |
+| `28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH` (21) | 0-9 y A-J; Collibra lo describe como *"razones de los bloqueos por cuentas"* | lo que trae `location.blockReason`. La regla actual (razón ≠ 0) no depende de qué catálogo sea |
+| `236_SUBSCRIBER_BLOCK_REASON_NH` (8) | razones del bloqueo 2 (caducidad): física, lógica, insolutas, inconsistencia, moras de más de 8 años, a pedido de la fuente, fallecido | `expiredBlockReason`; no hace falta hoy |
+| `170_…_INFORMATION_SOURCES_NH` (29) | la lista completa de 1 a 28: 1 crédito, 2 cuentas, 3 cliente, 6 Cámara de Comercio, 17 teléfonos y direcciones, 19 y 20 Cámara RUP y RNT, … | fuente de Novedades (D-NOV-03): 1, 2, 3 y 17 → SUS y 6, 19 y 20 → CAM (PROBABLE). CIU sigue sin origen |
+| `198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH` (42) | códigos de línea 999700-999741: Cámara de Comercio, DIAN, Registraduría, Migración, Supersociedades… | son fuentes de terceros, no suscriptores; Experian no les aplica el filtro de suscriptor inactivo |
+| `320_CATALOG_OF_CONTACTASREPORTED_LOCATION` (15) | el `contactType` de XPM con el campo de origen de cada uno. El **12, el 13 y el 14 salen solo del RNT** | confirma §16. No dice a qué RES/LAB/CRR/CCL/JUD va el 12 |
+| `173_EXPERIAN_CONTACT_TYPE_NH` (8) | es la numeración del **archivo de reporte** de Datacrédito (1 dirección residencia … 7 celular), **no** el `contactType` de XPM | no confundirlo con el 320 |
+| `93_GENDER_HO` (7) | 0 desconocido, 1 → **M**, 2 → **F**, **3 No Binario → O**, **4 Indefinido → `-`**, 9 no aplica | género del Batch: aparecen dos códigos nuevos, 3 y 4 |
+| `15`, `16`, `17_…_TYPE_OF_DEBTOR_…` | 00 principal, 01 codeudor/amparador, 04 avalista, 05 deudor (solidario), 06 coarrendatario, 07 otro, 08 fiador, 96 cotitular, 97 comunal. El 16 es para tarjeta (02) y el 17 para sobregiro (48) | tipo de relación de la Fase 2 real |
 
 ## 13. Lo que sigue
 
