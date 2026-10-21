@@ -259,3 +259,46 @@ comparación de Severidad da falso. **El día que llegue
 una fila nueva en cada corrida.** Lo reproducimos literal, como el resto, pero
 esta es la decisión funcional que hay que tomar **antes** de entregar el
 catálogo, no después.
+
+
+---
+
+## Petición: `V_CONTACTABILIDAD` (bloquea la tabla dominio d5)
+
+*Añadida el 2026-10-21. Redactada para poder enviarse tal cual.*
+
+### El texto a enviar
+
+> **Asunto: equivalente en EDF de `REC_VISTA.V_CONTACTABILIDAD`**
+>
+> Estamos migrando Reconocer de Teradata a Redshift. Nos falta una sola fuente para poder construir **`MAT_INFO_CONTACTABILIDAD`**, que es una de las siete tablas dominio que consume el producto Batch.
+>
+> En Teradata esa tabla se construye en `PRO_Novedad_Linea_Contact` y **toda su información sale de `REC_VISTA.V_CONTACTABILIDAD`**, con llave `COD_DW_CONTACTABILIDAD` (`Novedad.sql:287, :357, :432, :570, :614`). Su contrato son estas **12 columnas** (`P0035_Extractor_Novedades_120.TPT:266-305`):
+>
+> | Columna | | Columna |
+> |---|---|---|
+> | `ID` | | `SECTOR` |
+> | `CONTACTABILIDAD` | | `UBICACION_ID` |
+> | `FECHA_ULTIMO_CONTACTO` | | `PESO` |
+> | `FECHA_GESTION` | | `MEJOR_RESULTADO_3MESES` |
+> | `MEJOR_DIA_GESTION` | | `MEJOR_RESULTADO_6MESES` |
+> | `MEJOR_HORA_GESTION` | | `REPORTADO_POR` |
+>
+> La llave de la tabla final es **`(ID, SECTOR, UBICACION_ID)`**.
+>
+> **Ya verificamos que no está en el datashare.** Buscamos en `svv_all_columns` de `ds_dba_rncr_batch.edf_views` por `contact`, `gestion`, `effect`, `result`, `call` y `attempt`, y ninguna columna corresponde a estos datos de gestión.
+>
+> **Nos sirve cualquiera de estas tres respuestas:**
+>
+> 1. **Existe en EDF con otro nombre** → díganos cuál y publicamos la vista contra él.
+> 2. **No está en EDF porque vive en otro sistema** → díganos cuál y cómo se accede.
+> 3. **No se va a migrar** → nos sirve igual, pero necesitamos que quede dicho: en ese caso la tabla dominio `MAT_INFO_CONTACTABILIDAD` **no se entrega** y el Batch tendrá que contar con seis.
+>
+> **El mismo objeto desbloquea otra cosa**, por si ayuda a priorizar: el Ordenamiento usa la contactabilidad para dos reglas que hoy no podemos portar — la sobrescritura a prioridad `999999` de un celular verificado (`Caracteristicas.txt` CR2907) y el filtro `CO01TEL022_cat > 0` del ranking de teléfonos (`:1213`). Una respuesta cierra las tres cosas.
+
+### Por qué está redactada así
+
+- **Nombra el objeto y la llave**, no "los datos de contactabilidad". Una pregunta vaga vuelve con una respuesta vaga.
+- **Lista las 12 columnas**: permite que el del otro lado busque por contenido y no por nombre.
+- **Dice lo que ya verificamos**, para que no nos devuelvan "búsquenlo en el datashare".
+- **Ofrece el "no se va a migrar" como respuesta válida.** Es la que más probablemente es cierta, y si no se ofrece explícitamente nadie la da: se queda el hilo abierto para siempre. Y para nosotros cierra el alcance, que es lo que necesitamos.
