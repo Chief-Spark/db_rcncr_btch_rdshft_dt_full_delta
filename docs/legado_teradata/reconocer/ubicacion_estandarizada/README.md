@@ -35,9 +35,32 @@ tendría `Lote`. Para saberlo hace falta leerlo.
 
 ## Lo que falta pedir
 
-| Archivo | Para qué |
-|---|---|
-| `P0001_UBICACION_ESTANDARIZADA_111.TPT` | el `SCHEMA` y las vistas `Vstg_*`: ahí están las columnas de las seis tablas |
-| `P0001_UBICACION_ESTANDARIZADA_130.TPT` | el `CASE` de `Severidad` y el upsert: las reglas de carga |
+La nomenclatura del proceso, confirmada por el usuario el 2026-10-21:
+`_111` = setup (DDL y estructuras de staging), `_120` = carga del insumo,
+`_130` = transformación, `_140` = exportación. El `_131.BTQ` invoca los SPs
+de estandarización.
 
-Son dos archivos y desbloquean dos criterios. Van en el mensaje a Experian.
+| Archivo | Para qué | Prioridad |
+|---|---|---|
+| `PRO_Consolida_Estandarizacion` y `PRO_CARGA_INSUMO_STANDARD_2` | **la regla de validez.** El `_131.BTQ` solo los invoca, y la regla 4 dice que manda el código | **1** |
+| `P0001_UBICACION_ESTANDARIZADA_111.BTQ` | el DDL de las seis tablas destino: ¿alguna lleva `Lote` o `Lote_Actualizacion`? | **2** |
+| `P0001_UBICACION_ESTANDARIZADA_130.TPT` | el `CASE` de `Severidad` y el upsert | 3 |
+| `_120.TPT` y `_140.TPT` | cierran la familia | 4 |
+
+## Por qué la regla de validez importa más que el resto
+
+**Este proceso corre hoy en EDF, no en Redshift** (usuario, 2026-10-21):
+produce las columnas `standardized*` del XPM y es donde se calcula la
+validez o gestión de la dirección — el `NO VALIDA` que no llega en el
+datashare.
+
+Eso toca dos cosas que hoy resolvemos por aproximación:
+
+- **D-EDF-12.** Derivamos `VALIDA` / `NO VALIDA` del score de
+  estandarización con el umbral `>= 0.80` decidido por el usuario, porque
+  Confluence documenta la escala 0-1 pero no el umbral. Si el legado lo trae
+  escrito, dejamos de aproximar.
+- **`F3-10`** está BLOQUEADO con el argumento de que `'NO VALIDA'` no aparece
+  en el legado de F1-F3, y es cierto: buscado en sus 13.826 líneas. **Pero
+  nunca se buscó en P0001**, que es donde se calcula. El criterio puede no
+  estar bloqueado, sino mal buscado.
