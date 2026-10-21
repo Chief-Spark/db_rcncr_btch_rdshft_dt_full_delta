@@ -572,6 +572,8 @@ Alpha es el pipeline de ingesta que llena el XPM. Lectura de solo consulta; no s
 
 **C32: el esquema existe, pero en `dba_batch`, y los siete códigos no devolvieron filas.** En `dba_batch` hay varias copias: `catalogs_collibra.catalogs_output` (la externa de Spectrum), `bdm_datos.collibra_catalogs_output`, `bdm_tempo.catalogs_output` y cinco más en `bdm_stage`. **C32b** cuenta filas, lista los códigos parecidos y compara la copia de `bdm_datos`.
 
+**C32b (2026-10-21): los catálogos están.** 321 catálogos y 70.899 filas, idénticos en `catalogs_collibra.catalogs_output` y en `bdm_datos.collibra_catalogs_output`. Ahí están el 124 (21 filas), el 28 (21), el 27 (11), el 170 (29), el 93 (7), el 180 (51), el 308 (50) y el 219 (6), y aparecen cuatro que no conocíamos: `11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH`, `236_SUBSCRIBER_BLOCK_REASON_NH`, `173_EXPERIAN_CONTACT_TYPE_NH` y `320_CATALOG_OF_CONTACTASREPORTED_LOCATION`. **La C32 dio cero con un `IN` exacto sobre códigos que sí existen**: HIPÓTESIS, el código trae espacios o un fin de línea. La **C32c** compara con `TRIM` y saca el contenido.
+
 ## 13. Lo que sigue
 
 1. Correr **C17 a C20** (al final de `consultas_perfilado_edf_2026-10-20.sql`); con ellas se cierran las hipótesis de las brechas 2 a 5.

@@ -516,3 +516,39 @@ FROM (
 ) r
 GROUP BY 1, 2, 3, 4, 5
 ORDER BY 1, 6 DESC;
+
+-- ============================================================
+-- C32c (2026-10-21): CONTENIDO de los catalogos que cierran pedidos. C32b
+-- encontro los 321 catalogos (70.899 filas, la copia de bdm_datos es igual).
+-- La C32 devolvio cero con un IN exacto sobre codigos que SI existen: se
+-- compara con TRIM por si el codigo trae espacios o fin de linea. Quedan
+-- fuera 152 (consulados, 21.430 filas) y 209 (ciudades, 1.173). Son
+-- catalogos, sin datos personales: exportar a CSV. Correr en dba_batch_DEV.
+--   124            estado del documento (D-EDF-13)
+--   180, 308, 219  sector economico (D-ORD-15)
+--   11, 27, 28, 236 bloqueo de suscriptor y de cuenta (D-EDF-01)
+--   198            fuentes de terceros, excepcion del filtro de getXPM
+--   170            typeofdata -> fuente (D-NOV-03)
+--   173, 320       tipos de contacto (D-EDF-06, el 12)
+--   15, 16, 17     tipo de deudor (Fase 2)
+--   93             genero
+-- ============================================================
+SELECT *
+FROM catalogs_collibra.catalogs_output
+WHERE TRIM(code) IN ('124_REGISTRADURIA_STATUS_OF_PERSON_HO',
+                     '180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH',
+                     '308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH',
+                     '219_ECONOMIC_SECTOR_HO',
+                     '11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH',
+                     '27_SUBSCRIBER_BLOCK_TYPE_NH',
+                     '28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH',
+                     '236_SUBSCRIBER_BLOCK_REASON_NH',
+                     '198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH',
+                     '170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH',
+                     '173_EXPERIAN_CONTACT_TYPE_NH',
+                     '320_CATALOG_OF_CONTACTASREPORTED_LOCATION',
+                     '15_SUBSCRIBER_TYPE_OF_DEBTOR_CREDIT_NH',
+                     '16_SUBSCRIBER_TYPE_OF_DEBTOR_CREDITCARD_NH',
+                     '17_SUBSCRIBER_TYPE_OF_DEBTOR_OVERDRAFT_NH',
+                     '93_GENDER_HO')
+ORDER BY code, "code/text";
