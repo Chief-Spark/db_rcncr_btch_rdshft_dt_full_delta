@@ -1,16 +1,18 @@
 # Pendientes de Reconocer: tablero único
 
-Actualizado: 2026-10-21. **Este archivo es la única lista de pendientes.** Se actualiza al cerrar cada tanda; lo que no está aquí no está pendiente. El detalle de cada punto vive en `BITACORA_DIFERENCIAS.md` (por su código D-…) y en `edf_views/RESULTADOS_CONSULTAS_EDF.md`.
+Actualizado: 2026-10-21 (segunda tanda del día). **Este archivo es la única lista de pendientes.** Se actualiza al cerrar cada tanda; lo que no está aquí no está pendiente. El detalle de cada punto vive en `BITACORA_DIFERENCIAS.md` (por su código D-…) y en `edf_views/RESULTADOS_CONSULTAS_EDF.md`.
 
 ## 1. Decisiones tuyas
 
-**Pendiente ahora (bloquea trabajo):**
-
-| # | Decisión | Mi recomendación | Bloquea |
-|---|---|---|---|
-| T5 | Columna `fuente` en `v_xpm_reporte_relacion_persona_ubica`, calculada del `typeOfData` (1, 2, 3 y 17 → SUS; el resto → CAM). La vista mock lleva `'CAM'` fijo | sí: la etapa 2 pasa al grano del legado (una fila por RPU y fuente, `Novedad.sql:8670`) y el tablero mock no se mueve | fuente de Novedades (D-NOV-03) |
+**Pendiente ahora (bloquea trabajo):** nada. Todo lo que bloqueaba está decidido.
 
 **Aprobadas (2026-10-21):**
+
+| # | Decisión | Qué se aprobó | Estado |
+|---|---|---|---|
+| T5 | Columna `fuente` en `v_xpm_reporte_relacion_persona_ubica`, calculada del `typeOfData` (1, 2, 3 y 17 → SUS; el resto → CAM); la vista mock lleva `'CAM'` fijo | sí, con el grano del legado en la etapa 2 (una fila por RPU y fuente, `Novedad.sql:8670`) | **en cola** (§5, punto 3). C35 encontró `172_EXPERIAN_TYPE_OF_SOURCE_NOVEDAT_NH` (13 filas): hay que leerlo antes de escribir el CASE |
+| T6 | ARQ 83: re-sembrar con los prefijos `311` / `320` / `399` | sí, en vez de reescribir las tres expectativas | **hecho**, banco en verificación |
+| T7 | Rama de trabajo: seguir en `codex/ajustes-sp-reales-batch-en-linea` | sí | **hecho** |
 
 | # | Decisión | Qué se aprobó | Estado |
 |---|---|---|---|
@@ -24,15 +26,18 @@ Actualizado: 2026-10-21. **Este archivo es la única lista de pendientes.** Se a
 
 Todas están al final de `edf_views/consultas_perfilado_edf_2026-10-20.sql`. Solo devuelven conteos, sin datos personales.
 
-| # | Qué mide | Conexión | Qué decide |
-|---|---|---|---|
-| ~~C33 v2~~ | **hecha:** la llave completa casa en el 4 % y el número de cuenta en el 81 %. Es formato | — | — |
-| **C33b** | cuál de los cinco campos de la llave viene con otro formato | Reconocer | corregir la llave del bloqueo de cuenta y conectar la F2 real |
-| **C35** | la lista de los 321 catálogos de Collibra (solo nombre y filas) | `dba_batch` | qué pedidos de la §3 se cierran solos, sin preguntar a Experian |
+**No hay ninguna pendiente.** Las tres últimas están corridas y analizadas en `edf_views/RESULTADOS_CONSULTAS_EDF.md` §19.
+
+| # | Qué midió | Resultado |
+|---|---|---|
+| ~~C33 v2~~ | si la llave de cuenta casa | **desmentida por C33b:** dijo "es formato" y no lo es |
+| ~~C33b~~ | cuál de los cinco campos falla | **ninguno es de formato.** Ni un solo `ceros` ni `nulo` en 5.977 pares; mismas longitudes. Fallan a la vez `businesslinecode` y `personidnumber` (95 %). Los 278 que casan en los cinco son los 278 de C31: **no hay nada que normalizar** |
+| ~~C35~~ | la lista de catálogos de Collibra | cierra o da candidato a **seis** pedidos de la §3, y encuentra el `Portafolio`, el `Sector` por cuenta y el tipo de cuenta de la F2, que no pedíamos. **El número del catálogo no es único**: 17 números con dos nombres, que es por qué C32 falló |
+| **C36** | `COUNT(*)` contra `COUNT(DISTINCT id)` en `xpm_bestaccounts` | confirma o tumba la hipótesis de §19.1 (contenedor compartido por varias personas) |
 
 ## 3. Preguntas a Experian (un solo mensaje)
 
-Antes de enviarlo, correr la C35: los puntos 7 y 8 pueden estar ya en Collibra.
+**C35 ya está corrida (§19.3), y recorta el mensaje.** Los puntos 1, 2, 7 y 8 tienen candidato en Collibra: hay que **abrir esos catálogos antes de escribir a Experian**, y preguntar solo por lo que no aparezca. Lo que seguro queda: los puntos 4, 5 y 6, y de la 8 `V_TELEFONO_FIJO`, `V_TIPO_CORREO`, `V_DIRECCION_ELECTRONICA` y `V_Cod_Entrega_Dato`.
 
 1. **Severidad 2 de cuenta.** `blockSeverity = 2` junta los indicadores 8 (reclamo sin solución, el legado no lo muestra) y 9 (cuenta sin validar ante la Registraduría, el legado sí lo muestra). `blockReason` no los distingue (C34: 25 cuentas en DEV, todas con razón 0). ¿En qué campo viene el indicador?
 2. **`businessIdStatus` = `00` en NIT.** `01` es matrícula activa; `00` también es el valor por defecto cuando no viene (31 filas en DEV). ¿Qué significa?
@@ -56,12 +61,13 @@ Antes de enviarlo, correr la C35: los puntos 7 y 8 pueden estar ya en Collibra.
 
 | # | Tanda | Estado | Necesita |
 |---|---|---|---|
-| 1 | Verificar el bloqueo de cuenta y el score en el banco (dos pasadas) | corriendo | — |
+| 1 | Verificar el bloqueo de cuenta y el score en el banco (dos pasadas) | **hecha.** Destapó 9 FAILED del ARQ 83, efecto previsto de D-ORD-11; re-sembrado y en re-verificación | — |
+| 1b | Leer los catálogos de Collibra que C35 encontró (§19.3 y §19.4) antes de escribir a Experian | **siguiente** | — |
 | 2 | Ranking por canal (D-ORD-10) | **en curso** (T1 aprobado); previsión: cero cambios de estado en el tablero | — |
 | 3 | Novedades: ~~ciudad y departamento en `''` (D-NOV-05)~~ **hecho**; fuente (D-NOV-03) y universo de Actividad Económica (D-NOV-06) | en curso | la fuente espera T5 |
 | 3b | Compuerta DIR053 | en cola (T4 aprobado) | medir antes qué mueve |
-| 4 | Llave de cuenta: normalizar el campo que falle en el bloqueo de cuenta; luego conectar la F2 real (`v_xpm_cuenta`) | espera | C33b |
-| 5 | Info Básica (d4): género, estado del documento, tipo de identificación | espera | C35 y la pregunta 2 |
+| 4 | Llave de cuenta: **ya no hay nada que normalizar** (C33b). Queda decidir si 278 reportes bastan para conectar la F2 real (`v_xpm_cuenta`), y antes correr la C36 | espera tu decisión | C36 |
+| 5 | Info Básica (d4): género, estado del documento, tipo de identificación | **desbloqueada en parte** | leer `177_EXPERIAN_NOVEDAT_ID_TYPE_HO` y los tres de estado de registro (§19.3) |
 | 6 | Observabilidad (F3 del plan) | en cola (T3 aprobado) | — |
 | 7 | Renombrado de SP reales al patrón `sp_rcn_*` (F4 del plan) | al final | — |
 
@@ -78,6 +84,8 @@ Antes de enviarlo, correr la C35: los puntos 7 y 8 pueden estar ya en Collibra.
 | `contactType` y fuente (`typeOfData`) | catálogos 320 y 170 | RESULTADOS §16 y §18 |
 | GEO | no bloquea la Unificación; los lotes fallidos o vencidos se reenvían | D-GEO-07 |
 | Ciudad y departamento en Novedades | centinela `''`, como el legado | D-NOV-05 |
+| Llave de cuenta | **no falla por formato**: los cinco campos vienen con dato y con la misma longitud. El 4 % es cobertura real del dato en DEV | C33b, §19.1 |
+| Código de catálogo de Collibra | **no es único**: 17 números con dos nombres. Comparar siempre el `code` completo | §19.2 |
 | Severidad 2 de cuenta | `blockReason` no la separa (C34); se queda como está hasta que Experian responda | D-EDF-01 |
 
 ## Cómo trabajamos

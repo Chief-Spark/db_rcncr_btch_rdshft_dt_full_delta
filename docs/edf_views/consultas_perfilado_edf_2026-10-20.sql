@@ -714,3 +714,28 @@ JOIN ba b
  AND b.num   = r.num
 GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
 ORDER BY 1, 10 DESC;
+
+-- ============================================================
+-- C36 (2026-10-21): ES EL CONTENEDOR bestaccounts DE UNA SOLA PERSONA?
+-- C33b dejo una hipotesis sin verificar: que el id de xpm_bestaccounts lo
+-- comparten varias personas, igual que ya esta medido en
+-- xpm_location_val_contactinformations (568.657 filas / 142.067 ids). Si es
+-- asi, unir por numero de cuenta dentro del contenedor empareja la cuenta de
+-- una persona con el reporte de otra, y eso explica que fallen a la vez el
+-- businesslinecode y el personidnumber en el 95 % de los pares.
+-- La segunda consulta es la que decide. Solo conteos. Conexion de Reconocer.
+-- ============================================================
+SELECT COUNT(*)                 AS filas,
+       COUNT(DISTINCT id)       AS ids_distintos
+FROM ds_dba_rncr_batch.edf_views.xpm_bestaccounts
+WHERE "index" IS NOT NULL;
+
+SELECT z.personas_por_contenedor,
+       COUNT(*) AS contenedores
+FROM ( SELECT x."bestaccounts"      AS ba_id,
+              COUNT(DISTINCT x.pin) AS personas_por_contenedor
+       FROM ds_dba_rncr_batch.edf_views.xpm x
+       WHERE x."bestaccounts" IS NOT NULL
+       GROUP BY 1 ) z
+GROUP BY 1
+ORDER BY 1;

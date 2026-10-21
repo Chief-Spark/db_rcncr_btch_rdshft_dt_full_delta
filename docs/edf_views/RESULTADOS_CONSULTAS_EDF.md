@@ -614,6 +614,62 @@ El contenido de los 16 catálogos está en `catalogos_collibra_2026-10-21.csv` (
 | `93_GENDER_HO` (7) | 0 desconocido, 1 → **M**, 2 → **F**, **3 No Binario → O**, **4 Indefinido → `-`**, 9 no aplica | género del Batch. **DECIDIDO (usuario, 2026-10-21): 1 → M, 2 → F, 3 → O; el resto vacío** (también el 4) |
 | `15`, `16`, `17_…_TYPE_OF_DEBTOR_…` | 00 principal, 01 codeudor/amparador, 04 avalista, 05 deudor (solidario), 06 coarrendatario, 07 otro, 08 fiador, 96 cotitular, 97 comunal. El 16 es para tarjeta (02) y el 17 para sobregiro (48) | tipo de relación de la Fase 2 real |
 
+## 19. C33b y C35 (DEV, 2026-10-21)
+
+### 19.1 La llave de cuenta NO falla por formato
+
+**C33 v2 concluyó "es formato". Es falso, y C33b lo desmiente sin lectura alternativa.**
+
+C33b compara campo por campo los **5.977 pares** (reporte de ubicación, cuenta) que ya casan por número de cuenta dentro del mismo contenedor `bestaccounts`.
+
+| Señal | Qué dice |
+|---|---|
+| `ceros` no aparece **ni una vez** | ningún par se arregla quitando ceros a la izquierda |
+| `nulo` no aparece **ni una vez** | los cinco campos vienen con dato en los dos lados |
+| `len_linea` = 6 y 6; `len_tipo` = 2 y 2 | mismas longitudes en los dos lados |
+| `linea` (`businesslinecode`) distinto | **5.699 de 5.977 (95 %)** |
+| `num_doc` (`personidnumber`) distinto | **5.678 de 5.977 (95 %)** |
+| los cinco iguales | **278** = 213 (`typeofdata` 1) + 65 (`typeofdata` 2) |
+
+Esos 278 son **exactamente** los 278 de C31. O sea: **la llave de cinco campos está bien implementada y no hay ningún campo que normalizar.** El 4 % es la cobertura real del dato en DEV, no un defecto nuestro.
+
+**Lo que rompe el emparejamiento son dos campos a la vez: el suscriptor y el documento.** Que los dos fallen juntos en el 95 % de los pares apunta a que el par (reporte, cuenta) no es el correcto, no a que los valores estén mal escritos.
+
+**HIPÓTESIS, no verificada:** el `id` de `xpm_bestaccounts` es un **contenedor compartido por varias personas**, igual que ya está medido en `xpm_location_val_contactinformations` (568.657 filas para 142.067 `id`, ~4:1). Si lo es, unir por número de cuenta dentro del contenedor empareja la cuenta de una persona con el reporte de otra, y entonces difieren a la vez el `businesslinecode` y el `personidnumber`, que es exactamente lo observado. Se comprueba contando `id` distintos contra filas en `xpm_bestaccounts`; mientras no se haga, es hipótesis.
+
+### 19.2 El código numérico de un catálogo de Collibra NO es único
+
+**Al menos 17 números aparecen con dos nombres distintos** (`1_` con tres): `1`, `2`, `3`, `7`, `8`, `9`, `10`, `11`, `14`, `15`, `16`, `17`, `18`, `20`, `24`, `25` y `275`. Ejemplo: `10_SUBSCRIBER_ACCOUNT_STATUS_VS_EVENT_CREDIT_CARD_NH` (226 filas) y `10_SUBSCRIBER_PERIODICITY_OF_PAYMENTS_NH` (8).
+
+**Esto explica por qué C32 no devolvió filas** buscando los siete códigos: hay que comparar el `code` completo, nunca el número suelto.
+
+### 19.3 Qué pedidos de la §3 cierra C35, sin preguntar a Experian
+
+| Pedido | Catálogo (filas) | Qué desbloquea |
+|---|---|---|
+| 8 · `V_ACTIVIDAD_ECONO_CIIU` | `116_MULTIPLE_CIIU_V3_NH` (2.291), `117_MULTIPLE_CIIU_V4_NH` (717) | `NOV-AE-06` |
+| 8 · reexport de `V_Geografia` | `2_DANE_DIVIPOLA_CITIES_CODES_NH` (1.122), `102_…_STATES_CODES_NH` (34), `166_…_VILLAGES_CODES_NH` (7.979) | el export llegó cortado en 1.000 filas; aquí están las 1.122 |
+| 8 · `V_Tipo_Via` | `230_SUBSCRIBER_ADDRESS_STANDARD_COMPONENT_NH` (794) | **candidato**, hay que abrirlo |
+| 7 · `V_Hom_Fuente_Linea` | `172_EXPERIAN_TYPE_OF_SOURCE_NOVEDAT_NH` (13) | **T5 / D-NOV-03**, la fuente de Novedades |
+| 7 · `V_Hom_Tip_Ident_Linea` | `177_EXPERIAN_NOVEDAT_ID_TYPE_HO` (10) | **el dominio Ubicación Agregada entero** (`NOV-AG-02..08`) |
+| 1 · severidad 2 de cuenta | `11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH` (13), `27_SUBSCRIBER_BLOCK_TYPE_NH` (11), `28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH` (21), `236_SUBSCRIBER_BLOCK_REASON_NH` (8) | la pregunta 1 entera |
+| 2 · `businessIdStatus` = `00` | `49_JURAD_STATUS_OF_REGISTRATION_NH` (17), `88_18_COCS_STATUS_OF_REGIST_NH` (7), `120_COC_BOG_REGISTRATION_STATUS_TYPE_NH` (3) | la pregunta 2 |
+
+Los de las dos últimas filas son **candidatos por nombre**: hay que leerlos antes de darlos por buenos.
+
+### 19.4 Lo que C35 encuentra y no pedíamos, y vale más que varios de los pedidos
+
+| Catálogo (filas) | Por qué importa |
+|---|---|
+| `257_PORTAFOLIOS_HO` (20), `256_SECTORES_HO` (10) | el `Portafolio` y el `Sector` de la **Fase 2**, que hoy no tenemos |
+| `180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH` (51), `308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH` (50) | el **Sector por cuenta** del legado, `{CO, CC, RE, FI, OT}`. Hoy `sector_financiero` es una bandera 0/1 sobre una cubeta de hash: ruido. Desbloquearía `DIR010FI` y `EMA016` |
+| `14_SUBSCRIBER_ACCOUNT_TYPE_NH` (203), `238_SUBSCRIBER_SUB_ACCOUNT_TYPE_NH` (115) | tipo de cuenta: una de las nueve columnas del `Portafolio` de F2, y el insumo de `CEL019` |
+| `233_SUBSCRIBER_MOBILE_PHONE_INITIAL_DIGITS` (33) | **33 prefijos de celular contra los 20 de `V_Operador_Ord_Cel`**: hay 13 prefijos válidos sin valor de operador, que `CEL018` manda a 0 y la compuerta saca del ranking |
+
+### 19.5 Lo que sigue sin catálogo (queda para Experian)
+
+Contactabilidad y gestión (pregunta 5), movilidad y puntos de interés (pregunta 6), el `contactType` 12 (pregunta 4), y de la 8: `V_TELEFONO_FIJO`, `V_TIPO_CORREO`, `V_DIRECCION_ELECTRONICA`, `V_Cod_Entrega_Dato`. De la 7 siguen sin candidato `V_Hom_Zona_Linea` y `V_Hom_TipoUbic_Dir_Linea` (`200_SISBEN_AREAS_NH` y `201_SISBEN_ZONES_NH` son zonas del Sisbén, otra cosa).
+
 ## 13. Lo que sigue
 
 1. Correr **C17 a C20** (al final de `consultas_perfilado_edf_2026-10-20.sql`); con ellas se cierran las hipótesis de las brechas 2 a 5.
