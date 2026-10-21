@@ -1,0 +1,17 @@
+-- ============================================================
+-- run_migracion_observabilidad.sql
+-- 2026-10-21 (observabilidad F3, decision T3 del usuario). Pone al dia las
+-- tablas de control en los ambientes donde ya existen: version_betas,
+-- corrida_id en los Lotes GEO y etapa a VARCHAR(64). UTF-8 sin BOM.
+--
+-- Va con las otras dos migraciones, al principio de deploy.par: corre
+-- despues de strct y pgm y antes de reset_mock y de la bateria.
+--
+-- Es idempotente: cada paso mira el catalogo antes. La segunda pasada de
+-- DPLY no hace nada, que es la regla del job #412.
+--
+-- Las tres cosas son ADITIVAS: ninguna borra ni reescribe dato. El ensanche
+-- de etapa es de VARCHAR(20) y VARCHAR(30) a VARCHAR(64), y Redshift solo
+-- admite ALTER COLUMN TYPE sobre VARCHAR para ensanchar, que es este caso.
+-- ============================================================
+CALL bdm_datos.sp_rcn_ctl_obs_migrar();
