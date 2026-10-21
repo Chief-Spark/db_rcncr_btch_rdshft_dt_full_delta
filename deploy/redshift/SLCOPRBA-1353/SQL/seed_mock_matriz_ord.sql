@@ -183,10 +183,13 @@ WHERE n.i < 1000;
 -- ============================================================
 -- ARQ 82 y 83 -- CANAL CEL
 -- ------------------------------------------------------------
--- ARQ 82: dos celulares con prefijos DISTINTOS pero del MISMO valor de
---         catalogo -- 300 y 301, los dos COMCEL con valor 0.55
---         (02_catalogos_ordenamiento.sql:45). Mismo score: certifica el
---         desempate en un segundo canal.
+-- ARQ 82: dos celulares con prefijos DISTINTOS que caen en la MISMA
+--         categoria de CEL018 -- 300 (0.9037) y 301 (0.8148), los dos por
+--         encima del umbral 73.33 y por tanto categoria 4
+--         (02_catalogos_ordenamiento.sql:55). Mismo score: certifica el
+--         desempate en un segundo canal. Con los valores inventados eran
+--         los dos 0.55; con el catalogo real siguen empatando, por categoria
+--         y no por valor.
 --
 -- ARQ 83 (RE-SEMBRADO, SLCOPRBA-1355): TRES celulares, no dos.
 --
@@ -200,17 +203,27 @@ WHERE n.i < 1000;
 --   de prefijos es la que de verdad discrimina: el legado distingue
 --   operadores por su VALOR de catalogo, no por estar dentro o fuera de el.
 --
---     k=1  310  valor 0.62 -> 62.00 -> categoria 3   (sobrevive)
---     k=2  300  valor 0.55 -> 55.00 -> categoria 2   (sobrevive)
---     k=3  322  NO esta en el catalogo -> 0 -> FUERA DEL RANKING
+--   RE-SEMBRADO OTRA VEZ (2026-10-21, D-ORD-11). Los tres prefijos de abajo
+--   estaban elegidos contra los 16 valores INVENTADOS del catalogo. Con el
+--   V_Operador_Ord_Cel real (20 filas, 02_catalogos_ordenamiento.sql:54-58)
+--   el 310 (1.0000) y el 300 (0.9037) caen los DOS en categoria 4 -- empatan,
+--   y el arquetipo dejaba de medir el escalon -- y el 322 (0.1481) SI esta
+--   catalogado, de modo que pasaba la compuerta y sobraba una tercera fila de
+--   score. Medido en el banco: 9 FAILED (CA-F03, F4-CEL-02 y F4-CEL-04, en
+--   las tres fases). Los prefijos nuevos se eligen para que las DOS
+--   expectativas del evaluador sigan valiendo sin tocar un solo numero.
 --
---   El 322 se mantiene a proposito, pero ya no para medir un score: para
+--     k=1  311  valor 0.6370 -> 63.70 -> categoria 3   (sobrevive)
+--     k=2  320  valor 0.5407 -> 54.07 -> categoria 2   (sobrevive)
+--     k=3  399  NO esta en el catalogo -> 0 -> FUERA DEL RANKING
+--
+--   El 399 se mantiene a proposito, pero ya no para medir un score: para
 --   certificar LA COMPUERTA. Orden_Celular del legado filtra
 --   "WHERE CEl018.CO01CEL018 <> 0" (:899) y nosotros ya la aplicamos
 --   (scoring_cel_edf.sql, WHERE del SELECT final), de modo que de los TRES
 --   celulares sembrados solo DOS tienen fila de score. Eso es F4-CEL-04.
 --
---   Que el 322 entre en el insumo y no en el ranking no contamina el delta:
+--   Que el 399 entre en el insumo y no en el ranking no contamina el delta:
 --   las tres filas comparten ventana (meses_reporte = 0), asi que CEL006 y
 --   CEL020 valen lo mismo para las dos supervivientes -- 1/3 del total de la
 --   persona -- y se cancelan.
@@ -218,8 +231,9 @@ WHERE n.i < 1000;
 -- DELTA ESPERADO ARQ 83: 38.3817 = (3-2)/4 * 153.52697100, el salto de una
 --   sola categoria de CEL018. Las otras diez caracteristicas del canal son
 --   identicas entre los dos celulares: misma fecha, mismo suscriptor, y
---   300 y 310 son los dos PREPAGO en catalogo_tipo_cuenta_tel, de modo que
---   CEL019 tampoco se mueve.
+--   311 y 320 son los dos PREPAGO en catalogo_tipo_cuenta_tel, de modo que
+--   CEL019 tampoco se mueve. El 399 no esta en ninguno de los dos catalogos,
+--   igual que el 322 de antes.
 --
 -- ARQ 82 no cambia: 300 y 301 valen los dos 0.55, los dos sobreviven a la
 --   compuerta y empatan.
@@ -296,9 +310,9 @@ SELECT
 FROM (
   SELECT 9820000 AS base, CAST('300' AS VARCHAR(3)) AS prefijo UNION ALL
   SELECT 9820000, '301' UNION ALL
-  SELECT 9830000, '310' UNION ALL
-  SELECT 9830000, '300' UNION ALL
-  SELECT 9830000, '322'
+  SELECT 9830000, '311' UNION ALL
+  SELECT 9830000, '320' UNION ALL
+  SELECT 9830000, '399'
 ) c
 CROSS JOIN bdm_stage.mock_numeros n
 WHERE n.i < 1000;
