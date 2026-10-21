@@ -739,3 +739,140 @@ FROM ( SELECT x."bestaccounts"      AS ba_id,
        GROUP BY 1 ) z
 GROUP BY 1
 ORDER BY 1;
+-- ============================================================
+-- C38 (2026-10-21): LA LLAVE DE CUENTA EN QA. Las mismas tres medidas que
+-- C31/C33b/C36 dieron en DEV, sobre el ambiente que SI tiene volumen: QA
+-- trae 118.120 reportes de suscriptor contra los 6.983 de DEV (RESULTADOS
+-- seccion 15), de modo que el 4 % de DEV puede ser escasez del ambiente y no
+-- un defecto de la llave. Esta consulta lo decide.
+--
+-- CORRER EN LA CONEXION DE RECONOCER DE **QA**.
+-- Si el datashare se llama distinto en QA, cambiar el prefijo
+-- ds_dba_rncr_batch.edf_views en los cuatro sitios donde aparece.
+--
+-- Solo devuelve CONTEOS. Ningun dato personal sale en el resultado.
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- C38.1  COBERTURA POR NIVEL DE LLAVE
+-- En DEV: 6.850 reportes, 81 % casan por contenedor + numero, 4 % por los
+-- seis campos. Lo que se compara es la PROPORCION, no el volumen.
+-- ------------------------------------------------------------
+WITH rep AS (
+  SELECT loc.id                                                          AS loc_id,
+         loc."index"                                                     AS loc_ix,
+         x."bestaccounts"                                                AS ba_id,
+         NULLIF(TRIM(loc."location.val.businesslinecode"::VARCHAR), '')  AS linea,
+         NULLIF(TRIM(loc."location.val.accounttype"::VARCHAR), '')       AS tipo,
+         NULLIF(TRIM(loc."location.val.accountnumber"::VARCHAR), '')     AS num,
+         NULLIF(TRIM(loc."location.val.personidtype"::VARCHAR), '')      AS tipo_doc,
+         NULLIF(TRIM(loc."location.val.personidnumber"::VARCHAR), '')    AS num_doc
+  FROM ds_dba_rncr_batch.edf_views.xpm x
+  JOIN ds_dba_rncr_batch.edf_views.xpm_location loc
+    ON loc.id = x."location"
+   AND loc."index" IS NOT NULL
+  WHERE loc."location.val.typeofdata" IN (1, 2, 3, 17)
+), ba AS (
+  SELECT DISTINCT
+         ba.id                                                             AS ba_id,
+         NULLIF(TRIM(ba."bestaccounts.val.businesslinecode"::VARCHAR), '') AS linea,
+         NULLIF(TRIM(ba."bestaccounts.val.accounttype"::VARCHAR), '')      AS tipo,
+         NULLIF(TRIM(ba."bestaccounts.val.accountnumber"::VARCHAR), '')    AS num,
+         NULLIF(TRIM(ba."bestaccounts.val.personidtype"::VARCHAR), '')     AS tipo_doc,
+         NULLIF(TRIM(ba."bestaccounts.val.personidnumber"::VARCHAR), '')   AS num_doc
+  FROM ds_dba_rncr_batch.edf_views.xpm_bestaccounts ba
+  WHERE ba."index" IS NOT NULL
+), m AS (
+  SELECT r.loc_id,
+         r.loc_ix,
+         MAX(CASE WHEN b.num IS NOT NULL THEN 1 ELSE 0 END) AS casa_num,
+         MAX(CASE WHEN b.linea    = r.linea
+                   AND b.tipo     = r.tipo
+                   AND b.tipo_doc = r.tipo_doc
+                   AND b.num_doc  = r.num_doc THEN 1 ELSE 0 END) AS casa_todo
+  FROM rep r
+  LEFT JOIN ba b
+    ON b.ba_id = r.ba_id
+   AND b.num   = r.num
+  GROUP BY 1, 2
+)
+SELECT COUNT(*)        AS reportes_suscriptor,
+       SUM(casa_num)   AS casan_contenedor_mas_numero,
+       SUM(casa_todo)  AS casan_los_seis_campos
+FROM m;
+
+-- ------------------------------------------------------------
+-- C38.2  QUE CAMPO ROMPE (el C33b de DEV, igual)
+-- En DEV: 'ceros' y 'nulo' no aparecieron ni una vez, y fallaban a la vez
+-- businesslinecode y personidnumber en el 95 %.
+-- ------------------------------------------------------------
+WITH ba AS (
+  SELECT DISTINCT
+         ba.id                                                             AS ba_id,
+         NULLIF(TRIM(ba."bestaccounts.val.businesslinecode"::VARCHAR), '') AS linea,
+         NULLIF(TRIM(ba."bestaccounts.val.accounttype"::VARCHAR), '')      AS tipo,
+         NULLIF(TRIM(ba."bestaccounts.val.accountnumber"::VARCHAR), '')    AS num,
+         NULLIF(TRIM(ba."bestaccounts.val.personidtype"::VARCHAR), '')     AS tipo_doc,
+         NULLIF(TRIM(ba."bestaccounts.val.personidnumber"::VARCHAR), '')   AS num_doc
+  FROM ds_dba_rncr_batch.edf_views.xpm_bestaccounts ba
+  WHERE ba."index" IS NOT NULL
+), rep AS (
+  SELECT x."bestaccounts"                                                 AS ba_id,
+         loc."location.val.typeofdata"::VARCHAR                           AS typeofdata,
+         NULLIF(TRIM(loc."location.val.businesslinecode"::VARCHAR), '')   AS linea,
+         NULLIF(TRIM(loc."location.val.accounttype"::VARCHAR), '')        AS tipo,
+         NULLIF(TRIM(loc."location.val.accountnumber"::VARCHAR), '')      AS num,
+         NULLIF(TRIM(loc."location.val.personidtype"::VARCHAR), '')       AS tipo_doc,
+         NULLIF(TRIM(loc."location.val.personidnumber"::VARCHAR), '')     AS num_doc
+  FROM ds_dba_rncr_batch.edf_views.xpm x
+  JOIN ds_dba_rncr_batch.edf_views.xpm_location loc
+    ON loc.id = x."location"
+   AND loc."index" IS NOT NULL
+  WHERE loc."location.val.typeofdata" IN (1, 2)
+)
+SELECT r.typeofdata,
+       CASE WHEN r.linea = b.linea THEN 'igual'
+            WHEN LTRIM(r.linea, '0') = LTRIM(b.linea, '0') THEN 'ceros'
+            WHEN r.linea IS NULL OR b.linea IS NULL THEN 'nulo'
+            ELSE 'distinto' END                                AS linea,
+       CASE WHEN r.tipo = b.tipo THEN 'igual'
+            WHEN LTRIM(r.tipo, '0') = LTRIM(b.tipo, '0') THEN 'ceros'
+            WHEN r.tipo IS NULL OR b.tipo IS NULL THEN 'nulo'
+            ELSE 'distinto' END                                AS tipo,
+       CASE WHEN r.tipo_doc = b.tipo_doc THEN 'igual'
+            WHEN LTRIM(r.tipo_doc, '0') = LTRIM(b.tipo_doc, '0') THEN 'ceros'
+            WHEN r.tipo_doc IS NULL OR b.tipo_doc IS NULL THEN 'nulo'
+            ELSE 'distinto' END                                AS tipo_doc,
+       CASE WHEN r.num_doc = b.num_doc THEN 'igual'
+            WHEN LTRIM(r.num_doc, '0') = LTRIM(b.num_doc, '0') THEN 'ceros'
+            WHEN r.num_doc IS NULL OR b.num_doc IS NULL THEN 'nulo'
+            ELSE 'distinto' END                                AS num_doc,
+       LEN(r.linea) AS len_linea_rep, LEN(b.linea) AS len_linea_cta,
+       LEN(r.tipo)  AS len_tipo_rep,  LEN(b.tipo)  AS len_tipo_cta,
+       COUNT(*)                                                AS pares
+FROM rep r
+JOIN ba b
+  ON b.ba_id = r.ba_id
+ AND b.num   = r.num
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
+ORDER BY 1, 10 DESC;
+
+-- ------------------------------------------------------------
+-- C38.3  ES EL CONTENEDOR DE UNA SOLA PERSONA? (el C36, en QA)
+-- La segunda es la que decide: si hay contenedores con mas de una persona,
+-- la llave que falta es de Experian y hay que pedirsela.
+-- ------------------------------------------------------------
+SELECT COUNT(*)           AS filas,
+       COUNT(DISTINCT id) AS ids_distintos
+FROM ds_dba_rncr_batch.edf_views.xpm_bestaccounts
+WHERE "index" IS NOT NULL;
+
+SELECT z.personas_por_contenedor,
+       COUNT(*) AS contenedores
+FROM ( SELECT x."bestaccounts"      AS ba_id,
+              COUNT(DISTINCT x.pin) AS personas_por_contenedor
+       FROM ds_dba_rncr_batch.edf_views.xpm x
+       WHERE x."bestaccounts" IS NOT NULL
+       GROUP BY 1 ) z
+GROUP BY 1
+ORDER BY 1;
