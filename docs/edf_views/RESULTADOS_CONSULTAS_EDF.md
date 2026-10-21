@@ -413,7 +413,7 @@ Celular = 10 dígitos que empiezan por 3. Fijo = de 7 a 10 dígitos que no empie
 | 2 | 25.118 | 15.774 | 130 | 0 | **F** · CONFIRMADO |
 | NULL | 73.526 | 331 | 106 | 70.470 | el 96 % no tiene primer nombre: **personas jurídicas**. Unas 3.000 personas naturales sin género |
 
-**CONFIRMADO con la ficha de Confluence "1. Gender" (APPROVED, jul 24, 2026)**: lookup `93_GENDER_HO` con 0 Not known, 1 Male, 2 Female y 9 Not applicable. En DEV no aparecen ni 0 ni 9; las empresas llegan en NULL. Homologación para el Batch: 1 → M, 2 → F y 0, 9 o NULL → vacío. La misma ficha dice que el valor sale de Registraduría (BDIREGIS, eventos Registraduría HF + Migrated REGI), del evento más reciente que traiga el campo.
+**CONFIRMADO con la ficha de Confluence "1. Gender" (APPROVED, jul 24, 2026)**: lookup `93_GENDER_HO` con 0 Not known, 1 Male, 2 Female y 9 Not applicable. En DEV no aparecen ni 0 ni 9; las empresas llegan en NULL. ~~Homologación para el Batch: 1 → M, 2 → F y 0, 9 o NULL → vacío.~~ **DECIDIDO (usuario, 2026-10-21): 1 → M, 2 → F, 3 → O; el resto (0, 4, 9 y NULL) → vacío.** El catálogo `93_GENDER_HO` (C32c) trae dos códigos que la ficha no tenía: 3 No Binario y 4 Indefinido; el 4 va vacío aunque el catálogo lo homologue a `-`. La misma ficha dice que el valor sale de Registraduría (BDIREGIS, eventos Registraduría HF + Migrated REGI), del evento más reciente que traiga el campo.
 
 El rango de edad viene como `18 - 21` … `66 años o más`, con espacios y texto. La salida del Batch lo pide como `36-45`: hay que homologarlo (quitar espacios y fijar la etiqueta del tramo abierto).
 
@@ -567,6 +567,8 @@ Alpha es el pipeline de ingesta que llena el XPM. Lectura de solo consulta; no s
 | 3, 6, 17 | 135.217 | — | — | — |
 
 - **El bloqueo de cuenta oculta 35 reportes en DEV.** La severidad 2 deja pasar 22 hasta que Experian responda.
+- **Por qué la severidad 2 es la duda:** Alpha mete en ella dos indicadores que el legado trata al revés. El 8 (cuenta bloqueada por un reclamo sin solución) *"no se muestra en la Historia de Crédito"*; el 9 (cuenta sin validar ante la Registraduría) *"sí se muestra"* (`legado_teradata/reconocer/catalogos/BDM_VISTA - V_Razon_Bloqueo.csv`, códigos 8 y 9). Ocultar la severidad 2 entera esconde los 9, que el legado muestra; mostrarla entera deja pasar los 8, que oculta. Con la severidad sola no se pueden separar.
+- **`xpm_bestaccounts` trae además `blockreason`** (`svv_all_columns_2026-10-20.csv:612`). Si ahí viene el indicador de 0 a 9, la severidad 2 se separa sin preguntar a Experian: el 8 se oculta y el 9 se muestra, igual que el legado. **C34** lo mide.
 - 3, 6 y 17 no tienen cuenta, como se esperaba: Cámara de Comercio, cliente y contactos.
 - **Solo casan 278 de los 6.850 reportes de suscriptor (4 %).** Puede ser que DEV traiga pocas cuentas (§11: 7.759 cuentas reales) o que la llave no case por formato. **C33** lo distingue antes de dar el bloqueo por bueno.
 
@@ -584,6 +586,8 @@ El CSV no se guarda en el repo: Collibra marca varias filas como *Confidential* 
 
 En el legado, SC es Comunicaciones y SO es Cooperativo; la lectura anterior tomó la C de SC por cooperativo. Que en DEV aparezcan cooperativas con C es un dato que no cuadra, pero no cambia la regla.
 
+El contenido de los 16 catálogos está en `catalogos_collibra_2026-10-21.csv` (307 filas; cuadra con los conteos de C32b). Es una transcripción del resultado pegado, sin la columna del dueño del dato. La fila `(conjunto)` de cada catálogo lleva la descripción del conjunto.
+
 | Catálogo | Lo que cierra | Para qué |
 |---|---|---|
 | `124_REGISTRADURIA_STATUS_OF_PERSON_HO` (21) | **`01` = Vigente** (y `00` también). Homologación: 12 y 14 → 00; 51 → 21; 52 → 26; 21-28 y 53-56 quedan igual; 88 y 99 = en trámite | estado del documento de CC (D-EDF-13). En NIT el valor sale de la DIAN y `01` = matrícula activa |
@@ -594,7 +598,7 @@ En el legado, SC es Comunicaciones y SO es Cooperativo; la lectura anterior tom�
 | `198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH` (42) | códigos de línea 999700-999741: Cámara de Comercio, DIAN, Registraduría, Migración, Supersociedades… | son fuentes de terceros, no suscriptores; Experian no les aplica el filtro de suscriptor inactivo |
 | `320_CATALOG_OF_CONTACTASREPORTED_LOCATION` (15) | el `contactType` de XPM con el campo de origen de cada uno. El **12, el 13 y el 14 salen solo del RNT** | confirma §16. No dice a qué RES/LAB/CRR/CCL/JUD va el 12 |
 | `173_EXPERIAN_CONTACT_TYPE_NH` (8) | es la numeración del **archivo de reporte** de Datacrédito (1 dirección residencia … 7 celular), **no** el `contactType` de XPM | no confundirlo con el 320 |
-| `93_GENDER_HO` (7) | 0 desconocido, 1 → **M**, 2 → **F**, **3 No Binario → O**, **4 Indefinido → `-`**, 9 no aplica | género del Batch: aparecen dos códigos nuevos, 3 y 4 |
+| `93_GENDER_HO` (7) | 0 desconocido, 1 → **M**, 2 → **F**, **3 No Binario → O**, **4 Indefinido → `-`**, 9 no aplica | género del Batch. **DECIDIDO (usuario, 2026-10-21): 1 → M, 2 → F, 3 → O; el resto vacío** (también el 4) |
 | `15`, `16`, `17_…_TYPE_OF_DEBTOR_…` | 00 principal, 01 codeudor/amparador, 04 avalista, 05 deudor (solidario), 06 coarrendatario, 07 otro, 08 fiador, 96 cotitular, 97 comunal. El 16 es para tarjeta (02) y el 17 para sobregiro (48) | tipo de relación de la Fase 2 real |
 
 ## 13. Lo que sigue

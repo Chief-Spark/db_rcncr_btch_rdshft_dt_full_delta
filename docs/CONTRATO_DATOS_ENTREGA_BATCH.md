@@ -80,7 +80,7 @@ Lo decide la columna `canal` de `v_xpm_contacto_canal`. El catálogo oficial de 
 | fecha de expedición | `DP_FEC_EXP` | fecha de expedición del documento | `VU_PERSONA.FECHA_EXPEDICION` | PROBABLE | `bid.issuedate` (epoch) | CONECTAR |
 | ciudad de expedición | `DP_CIU_EXP` | ciudad de expedición | `V_JERARQUIA_GEOGRAFICA.NOMBRE_CIUDAD` | PROBABLE | `bid.issuingcityname` | CONECTAR |
 | departamento de expedición | `DP_DEP_EXP` | departamento de expedición | `V_JERARQUIA_GEOGRAFICA.NOMBRE_DEPARTAMENTO` | PROBABLE | `bid.issuingstatename` | CONECTAR |
-| `GENERO` | `DP_GENERO` | `M` / `F` | `V_GENERO.COD_GENERO_FTE`, primera letra | PROBABLE | `xpm."bestpersonalinformation.gender"` (bigint) | CONECTAR + **PEDIR el catálogo de códigos** |
+| `GENERO` | `DP_GENERO` | `M` / `F` / `O` | `V_GENERO.COD_GENERO_FTE`, primera letra | CONFIRMADO (catálogo `93_GENDER_HO`) | `xpm."bestpersonalinformation.gender"` (bigint): **1 → M, 2 → F, 3 → O; el resto (0, 4, 9, NULL) → vacío** (DECIDIDO, usuario 2026-10-21; D-EDF-14) | CONECTAR (con Info Básica, d4) |
 | `RANGO_EDAD` | `DP_RAN_EDA` | `'36-45'`, `'66+'` | `V_RANGO_EDAD` | PROBABLE | `xpm."bestpersonalinformation.agerange"` | CONECTAR · comparar el formato (C9) |
 | `CIIU` | `DB_CIIU` | ver cubo CIIU | — | — | — | — |
 | `CATEGORIA_DE_INGRESOS` / `EGRESOS` | según plantilla | categoría de ingresos o egresos | no existe en Reconocer | HIPÓTESIS | `xpm_personalinformation."…income"` / `"…liabilities"` | PEDIR los catálogos `V_CATEGORIA_INGRESO` / `EGRESO` |

@@ -553,3 +553,22 @@ WHERE code LIKE '124_REGISTRADURIA_STATUS_OF_PERSON_HO%'
    OR code LIKE '17_SUBSCRIBER_TYPE_OF_DEBTOR_OVERDRAFT_NH%'
    OR code LIKE '93_GENDER_HO%'
 ORDER BY code, "code/text";
+
+-- ============================================================
+-- C34 (2026-10-21): QUE CODIGO HAY DETRAS DE LA SEVERIDAD 2.
+-- Alpha junta en blockSeverity = 2 los indicadores 8 y 9, y el legado
+-- los trata distinto (V_Razon_Bloqueo): 8 = reclamo sin solucion, NO se
+-- muestra; 9 = cuenta sin validar ante la Registraduria, SI se muestra.
+-- xpm_bestaccounts trae tambien blockreason: si ahi viene el 8 o el 9, la
+-- severidad 2 se parte sin preguntar a Experian. Solo conteos, sin datos
+-- personales. Correr en la conexion de Reconocer (datashare).
+-- ============================================================
+SELECT NULLIF(TRIM(ba."bestaccounts.val.blockseverity"::VARCHAR), '')             AS severidad,
+       NULLIF(TRIM(ba."bestaccounts.val.blockreason"::VARCHAR), '')               AS razon,
+       NULLIF(TRIM(ba."bestaccounts.val.expiredblockreason"::VARCHAR), '')        AS razon_caducidad,
+       NULLIF(TRIM(ba."bestaccounts.val.qualityprocessblockreason"::VARCHAR), '') AS razon_calidad,
+       COUNT(*)                                                                   AS cuentas
+FROM ds_dba_rncr_batch.edf_views.xpm_bestaccounts ba
+WHERE ba."index" IS NOT NULL
+GROUP BY 1, 2, 3, 4
+ORDER BY 1, 2, 3, 4;

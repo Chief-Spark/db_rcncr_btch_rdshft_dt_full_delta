@@ -1,0 +1,308 @@
+catalogo,codigo,nombre,valor_homologado,descripcion
+11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH,,(conjunto),,Contiene las razones de bloqueo validas por tipo de bloqueo. Matriz razon x tipo de bloqueo: no se extrae aqui
+11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH,1,Por solicitud SIC,,
+11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH,2,Por Fuerza Mayor,,
+11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH,3,Insoluta o Prescrita,,
+11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH,4,Inconsistencia en el Sistema,,
+11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH,5,Validación de la entidad,,
+11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH,6,Venta de cartera,,
+11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH,9,9- Fallo por tutela,,
+11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH,A,14 - Crédito reemplazado por otro número de obligación,,
+11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH,B,15 - Duplicidad en el registro,,
+11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH,D,18 - No presenta autorización firmada,,
+11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH,E,21 - Se presento fraude,,
+11_SUBSCRIBER_BLOCK_TYPE_TO_REASON_MAPPING_NH,I,39 - Cancelado por prescripción,,
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,,(conjunto),,Catálogo con los códigos y datos que identifican el estado de vigencia de la Cédula de Ciudadanía reportado por Registraduría Nacional del Estado Civil. Tabla: WEBSERVICEREGIS. Columna: ESTADO_VIG_WEB_REG
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,00,Vigente 00,00,Identificación activa/vigente/válida.
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,01,Vigente 01,01,Vigente
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,12,Baja por Pérdida o Suspensión de los Derechos Políticos,00,
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,14,Baja por Interdicción Judicial por demencia,00,
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,21,Cancelada por Muerte,21,
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,22,Candelada por Dobe Cedulación,22,
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,23,Cancelada por Suplantación o Falsa Identidad,23,
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,24,Cancelada por Menoria de Edad,24,
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,25,Cancelada por Extranjería,25,"Cédula que salió del censo, debido a que el ciudadano renunció a la nacionalidad colombiana."
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,26,Cancelada por Mala Elaboración,26,
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,27,Cancelada con Reasignación de Cupo Numérico,27,
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,28,Cancelada por Extranjería sin Carta de Naturalez,28,Cancelada
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,51,Cancelada por Muerte Facultad Ley 1365 2009,21,
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,52,Cancelada por Intento de Doble Cedulación No Expedida,26,
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,53,Cancelada por Falsedad de Identidad o Suplantación No Expedida,53,
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,54,Cancelada por Menoria de Edad No Expedida,54,
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,55,Cancelada por Extranjería No Expedida,55,Cédulas en donde la persona renuncia a la nacionalidad colombiana.
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,56,Cancelada por Mala Elaboración No Expedida,56,Cédulas que presentan inconsistencias por mala elaboración.
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,88,Pendiente Solicitud en Reproceso,88,En Trámite
+124_REGISTRADURIA_STATUS_OF_PERSON_HO,99,Pendiente por estar en Proceso de Expedición,99,En Trámite
+15_SUBSCRIBER_TYPE_OF_DEBTOR_CREDIT_NH,,(conjunto),,Tipos deudores de crédito. Para el código 01 en Tarjeta de Crédito hace referencia a obligaciones cuya persona natural es el responsable del pago de la obligación. Nota: Catálogo NO aplica para el tipo de cuenta 48 y 02
+15_SUBSCRIBER_TYPE_OF_DEBTOR_CREDIT_NH,00,PRINCIPAL: RESPONSABLE DEL PAGO,,Tárjeta de Crédito - Sobregiro
+15_SUBSCRIBER_TYPE_OF_DEBTOR_CREDIT_NH,01,CODEUDOR,,Amparador
+15_SUBSCRIBER_TYPE_OF_DEBTOR_CREDIT_NH,04,AVALISTA,,
+15_SUBSCRIBER_TYPE_OF_DEBTOR_CREDIT_NH,05,DEUDOR,,
+15_SUBSCRIBER_TYPE_OF_DEBTOR_CREDIT_NH,06,CO-ARRENDATARIO,,
+15_SUBSCRIBER_TYPE_OF_DEBTOR_CREDIT_NH,07,OTRO,,
+15_SUBSCRIBER_TYPE_OF_DEBTOR_CREDIT_NH,08,FIADOR,,
+15_SUBSCRIBER_TYPE_OF_DEBTOR_CREDIT_NH,96,COTITULAR,,Cotitular
+15_SUBSCRIBER_TYPE_OF_DEBTOR_CREDIT_NH,97,COMUNAL,,Sólo si es cartera con código 49 - Microcrédito
+16_SUBSCRIBER_TYPE_OF_DEBTOR_CREDITCARD_NH,,(conjunto),,Tipos deudores de crédito. Para el código 01 en Tarjeta de Crédito hace referencia a obligaciones cuya persona natural es el responsable del pago de la obligación. Nota: Catálogo aplica para el tipo de cuenta 02
+16_SUBSCRIBER_TYPE_OF_DEBTOR_CREDITCARD_NH,00,Principal,,Responsable del pago - Tarjeta de Crédito y Sobregiro
+16_SUBSCRIBER_TYPE_OF_DEBTOR_CREDITCARD_NH,01,Co-signer,,Amparador
+16_SUBSCRIBER_TYPE_OF_DEBTOR_CREDITCARD_NH,04,Cosignatory,,
+16_SUBSCRIBER_TYPE_OF_DEBTOR_CREDITCARD_NH,96,Cotitular,,Cotitular
+17_SUBSCRIBER_TYPE_OF_DEBTOR_OVERDRAFT_NH,,(conjunto),,Tipos deudores de crédito. Para el código 01 en Tarjeta de Crédito hace referencia a obligaciones cuya persona natural es el responsable del pago de la obligación. Nota: Catálogo aplica para el tipo de cuenta 48
+17_SUBSCRIBER_TYPE_OF_DEBTOR_OVERDRAFT_NH,00,Principal,,Responsable del pago. Aplica para Tarjeta de Crédito y Sobregiro
+17_SUBSCRIBER_TYPE_OF_DEBTOR_OVERDRAFT_NH,01,Codeudor,,Amparador para Tarjeta de Crédito
+17_SUBSCRIBER_TYPE_OF_DEBTOR_OVERDRAFT_NH,04,Avalista,,
+17_SUBSCRIBER_TYPE_OF_DEBTOR_OVERDRAFT_NH,05,Deudor solidario,,
+17_SUBSCRIBER_TYPE_OF_DEBTOR_OVERDRAFT_NH,06,Coarrendatario,,
+17_SUBSCRIBER_TYPE_OF_DEBTOR_OVERDRAFT_NH,07,Otro,,
+17_SUBSCRIBER_TYPE_OF_DEBTOR_OVERDRAFT_NH,08,Fiador,,
+17_SUBSCRIBER_TYPE_OF_DEBTOR_OVERDRAFT_NH,96,Cotitular,,Cotitular para Tarjeta de Crédito
+17_SUBSCRIBER_TYPE_OF_DEBTOR_OVERDRAFT_NH,97,Comunal,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,,(conjunto),,Contiene los códigos y nombres de la fuente de información que suministra los datos ingestados para XPM.
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,1,CREDIT INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,2,ACCOUNTS INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,3,CUSTOMER INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,4,GLOBAL INDEBTEDNESS INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,5,CITIZEN ALERTS INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,6,CHAMBER OF COMMERCE INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,7,MIGRATION OFFICE INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,8,IMPORTS INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,9,EXPORTS INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,10,HALL  INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,11,PEPS INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,12,RESTRICTIVE LIST INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,13,DISPUTES INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,14,INQUIRY FOOTPRINTS INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,15,COMMENTS INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,16,EQUITY SETTLEMENT ALERTS INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,17,PHONES AND ADDRESSES INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,18,TEC INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,19,CHAMBER OF COMMERCE INFORMATION RUP,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,20,CHAMBER OF COMMERCE INFORMATION RNT,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,21,LEGAL ENTITIES INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,22,JUDICIAL INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,23,SISBEN INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,24,SUPERSOCIEDADES INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,25,ALTERNATE BASE INFORMATION,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,26,QP INCLUSION AND MODIFICATIONS OF IDENTIFICATIONS,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,27,LEGENDS,,
+170_EXPERIAN_OFFICIAL_TABLE_OF_INFORMATION_SOURCES_NH,28,MURIC,,Modulo unico de reporte de informacion Cartera MURIC
+173_EXPERIAN_CONTACT_TYPE_NH,,(conjunto),,"Categorización del tipo de información de contacto. Manuales de entrega de información (Cuenta Ahorros y Cuenta Corriente; Cartera, CRT Tarjeta de Crédito, Pagos Parciales): B. Registros con información de clientes. NO es el contactType de XPM (ver 320)"
+173_EXPERIAN_CONTACT_TYPE_NH,1,Dirección Residencia / Sede Principal,,Para persona natural corresponde a la dirección donde reside actualmente la persona de la cuenta. Para persona jurídica corresponde a la dirección de la sede principal.
+173_EXPERIAN_CONTACT_TYPE_NH,2,Teléfono Residencia / Sede Principal,,Para persona natural corresponde al número de teléfono donde reside actualmente la persona. Para persona jurídica corresponde al número de teléfono asociado a la dirección sede principal
+173_EXPERIAN_CONTACT_TYPE_NH,3,Dirección Laboral / Sede Secundaria,,Para persona natural corresponde a la dirección en la cual se encuentra ubicado el sitio de trabajo de la persona de la cuenta. Para persona jurídica corresponde a la dirección de la sede secundaria.
+173_EXPERIAN_CONTACT_TYPE_NH,4,Teléfono Laboral / Sede Secundaria,,Para persona natural corresponde al número de teléfono donde labora actualmente la persona. Para personas jurídicas corresponde al número de teléfono asociado a la dirección sede secundaria.
+173_EXPERIAN_CONTACT_TYPE_NH,5,Dirección de Correspondencia,,Dirección donde la persona natural o persona jurídica de la obligación desea recibir su correspondencia.
+173_EXPERIAN_CONTACT_TYPE_NH,6,Correo Electrónico,,"Para persona natural corresponde a la dirección electrónica (email) actual del usuario de la cuenta. Para persona jurídica corresponde a la dirección electrónica (email) de la empresa. En el caso de no tener correo electrónico este campo debe venir en espacios, es decir, 60 espacios."
+173_EXPERIAN_CONTACT_TYPE_NH,7,Celular,,"Número de teléfono celular actual de la persona natural de obligación. En el caso de personas jurídicas, es el número de celular del representante legal de la empresa. Rellenar con ceros a la izquierda, ejemplo: 003001234567. Si no cuenta con este campo se debe reportar con ceros a la izquierda de acuerdo con la longitud definida en este campo (12)"
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,,(conjunto),,Catálogo que identifica el sector económico por cuenta. Origen: BDACUE - BDACUEEXT
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,01,F_01,F,FINANCIERO
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,02,F_02,F,FINANCIERO
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,03,F_03,F,FINANCIERO
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,04,R_04,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,05,F_05,F,FINANCIERO
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,06,C_06,C,TELECOMUNICACIONES
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,07,F_07,F,FINANCIERO
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,08,R_08,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,09,R_09,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,10,R_10,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,11,R_11,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,12,R_12,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,13,F_13,F,FINANCIERO
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,14,F_14,F,FINANCIERO
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,15,R_15,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,16,R_16,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,17,F_17,F,FINANCIERO
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,18,F_18,F,FINANCIERO
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,19,R_19,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,20,F_20,F,FINANCIERO
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,21,R_21,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,22,R_22,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,23,R_23,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,24,R_24,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,25,R_25,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,26,R_26,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,27,R,R,TELECOMUNICACIONES (asi viene: letra R con descripcion de telecomunicaciones; en el 308 el 27 es C)
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,28,R_28,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,29,R_29,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,30,R_30,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,31,R_31,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,32,R_32,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,33,R_33,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,34,R_34,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,35,R_35,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,36,R_36,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,37,R_37,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,38,R_38,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,39,R_39,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,40,R_40,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,41,R_41,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,42,R_42,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,43,R_43,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,44,R_44,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,45,R_45,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,46,R_46,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,47,R_47,R,EMPRESAS
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,48,F_48,F,FINANCIERO
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,49,F_49,F,FINANCIERO
+180_EXPERIAN_ECONOMIC_SECTOR_PER_ACCOUNT_NH,51,F_51,F,FINANCIERO
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,01,F_01,F,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,02,F_02,F,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,03,F_03,F,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,04,R_04,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,05,F_05,F,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,06,C_06,C,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,07,F_07,F,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,08,R_08,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,09,R_09,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,10,R_10,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,11,R_11,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,12,R_12,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,13,F_13,F,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,14,F_14,F,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,15,R_15,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,16,R_16,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,17,F_17,F,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,18,F_18,F,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,19,R_19,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,20,F_20,F,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,21,R_21,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,22,R_22,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,23,R_23,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,24,R_24,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,25,R_25,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,26,R_26,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,27,C_27,C,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,28,R_28,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,29,R_29,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,30,R_30,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,31,R_31,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,32,R_32,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,33,R_33,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,34,R_34,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,35,R_35,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,36,R_36,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,37,R_37,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,38,R_38,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,39,R_39,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,40,R_40,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,41,R_41,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,42,R_42,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,43,R_43,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,44,R_44,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,45,R_45,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,46,R_46,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,47,R_47,R,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,48,F_48,F,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,49,F_49,F,
+308_EXPERIAN_ECONOMIC_SECTOR_BY_CUENTA_NH,51,F_51,F,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,,(conjunto),,businessLineCode de fuentes de terceros (no suscriptores)
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999700,Chamber of Commerce Direct WS Ingestion (Bogota WS) HF,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999701,Chamber of Commerce Direct Batch Ingestion HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999702,Chamber of Commerce Jurad WS Ingestion HF,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999703,Chamber of Commerce Jurad Batch Ingestion Populating Chamber HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999704,Chamber of Commerce Jurad Batch Ingestion Alerts HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999705,Chamber of Commerce Jurad Batch Ingestion Esal National Records (ESAL) HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999706,Chamber of Commerce Jurad Batch Ingestion Populating LE and NP with EC TEC HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999707,Migración Colombia HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999708,DIAN imports HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999709,DIAN exports HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999710,Registraduria HF,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999711,PEPs HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999712,Restrictives list HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999713,Equity Settlement Alerts HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999714,TEC Marking  HF,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999715,Chamber of Commerce Jurad Batch Ingestion National Records of Proponents HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999716,Chamber of Commerce Jurad Batch Ingestion National Tourism Records (RNT) HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999717,Data Migration BDIIDIAN Migrated,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999718,Judicial information - Jurad WS Lawsuit Information (BP) HF &  Lawsuit Movement Details (BJ) HF,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999719,Judicial information Jurad Batch Ingestión product 101 HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999720,Comments Novedat HF,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999721,Alerts Novedat HF,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999722,SISBEN HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999723,Supersociedades Financial Information HT ,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999724,Supersociedades Insolvency HT ,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999726,Superintendencia Solidaria Financial Information HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999727,Superintendencia Financiera Financial Information HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999728,Superintendencia Subsidios Financial Information HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999729,Superintendencia Servicios Publicos Domiciliarios Financial Information HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999730,Superintendencia Nacional de Salud Financial Information HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999731,Superintendencia Puertos y Transporte Financial Information HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999732,Superintendencia Industria y Comercio Financial Information HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999733,Contaduria General de la Nacion Financial Information HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999734,Judicial information - Jurad HT Lawsuit Details product 035 HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999735,Base Alterna HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999736,QP INCLUSION AND MODIFICATIONS OF IDENTIFICATIONS HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999737,Open Banking Transactions HF,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999738,Environmental Licenses HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999739,ECS HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999740,Fondo Nacional de Garantias HT,,
+198_BUSINESS_LINE_CODE_THIRD_PARTY_SOURCES_NH,999741,Registro Social de Hogares HT,,
+219_ECONOMIC_SECTOR_HO,,(conjunto),,Catálogo que contiene los códigos que identifican el sector al que aplica el tipo de cuenta registrada. Se define a Nivel de Producto y por NIT
+219_ECONOMIC_SECTOR_HO,-,No Reporta Información,,
+219_ECONOMIC_SECTOR_HO,1,Sector Financiero,F,
+219_ECONOMIC_SECTOR_HO,2,Sector Cooperativo,O,
+219_ECONOMIC_SECTOR_HO,3,Sector Real,R,
+219_ECONOMIC_SECTOR_HO,4,Sector Telcos,C,
+236_SUBSCRIBER_BLOCK_REASON_NH,,(conjunto),,Razones de los diferentes bloqueos de las cuentas que se aplican por la ley. Habeas data - Change in block 2 computation logic
+236_SUBSCRIBER_BLOCK_REASON_NH,0,Caducidad física 4 años ICN314.CBL o ICN315.CBL,,
+236_SUBSCRIBER_BLOCK_REASON_NH,1,Caducidad lógica de 4 años antes ICN314,,
+236_SUBSCRIBER_BLOCK_REASON_NH,2,Bloqueo de cuentas con estado insolutas / Loquidación Patrimonial / Bloquo Prescritas,,
+236_SUBSCRIBER_BLOCK_REASON_NH,3,Inconsistencia en el reporte,,
+236_SUBSCRIBER_BLOCK_REASON_NH,4,Bloqueo Bacyh moras mayores a 8 años,,
+236_SUBSCRIBER_BLOCK_REASON_NH,5,Bloqueo por cuenta insoluta solicitada por la fuente,,
+236_SUBSCRIBER_BLOCK_REASON_NH,6,Fallecido,,
+27_SUBSCRIBER_BLOCK_TYPE_NH,,(conjunto),,Catálogo que contiene los códigos de razón del registro de bloqueo de la cuenta del titular (Código Razón Registro)
+27_SUBSCRIBER_BLOCK_TYPE_NH,0,Activo,,
+27_SUBSCRIBER_BLOCK_TYPE_NH,1,Bloqueo histórico (no se muestra en HDC),,
+27_SUBSCRIBER_BLOCK_TYPE_NH,2,Caducidad (no se muestra en HDC),,
+27_SUBSCRIBER_BLOCK_TYPE_NH,3,DATARECLAMO - Reclamo en trámite (bloqueo de herramiente anyerior a Novedat),,
+27_SUBSCRIBER_BLOCK_TYPE_NH,4,Bloqueo por Calidad (eliminación lógica),,
+27_SUBSCRIBER_BLOCK_TYPE_NH,5,Eliminación por Novedat,,
+27_SUBSCRIBER_BLOCK_TYPE_NH,6,Prescripción,,
+27_SUBSCRIBER_BLOCK_TYPE_NH,7,Frenados,,
+27_SUBSCRIBER_BLOCK_TYPE_NH,8,Bloqueado por no solución de reclamo,,
+27_SUBSCRIBER_BLOCK_TYPE_NH,9,Cuentas sin validar,,
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,,(conjunto),,Catálogo con las razones de los bloqueos por cuentas (Detalle Razón Bloqueo)
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,0,Activo,,"Nuevas, aplican para Novedat y Masivo"
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,1,Por solicitud SIC,,"Nuevas, aplican para Novedat y Masivo"
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,2,Por Fuerza Mayor,,"Nuevas, aplican para Novedat y Masivo"
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,3,Insoluta o Prescrita,,"Nuevas, aplican para Novedat y Masivo"
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,4,Inconsistencia en el Sistema,,Aplican a la fecha en Novedat y empezaran a aplicarse también de forma masiva
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,5,Validación de la entidad,,"Nuevas, aplican para Novedat y Masivo"
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,6,Venta de cartera,,"Nuevas, aplican para Novedat y Masivo"
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,7,10 - Se elimina por ser un valor menor,,Aplican a la fecha en Novedat y empezaran a aplicarse también de forma masiva
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,8,11 - Se reverso la información,,Aplican a la fecha en Novedat y empezaran a aplicarse también de forma masiva
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,9,9 - Fallo por tutela,,Aplican a la fecha en Novedat y empezaran a aplicarse también de forma masiva
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,A,14 - Crédito reemplazado por otro numero de obligación,,Aplican a la fecha en Novedat y empezaran a aplicarse también de forma masiva
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,B,15 - Duplicidad en el registro,,Aplican a la fecha en Novedat y empezaran a aplicarse también de forma masiva
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,C,17 - No le pertenece la obligación,,Aplican a la fecha en Novedat y empezaran a aplicarse también de forma masiva
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,D,18 - No presenta autorización firmada,,Aplican a la fecha en Novedat y empezaran a aplicarse también de forma masiva
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,E,21 - Se presento fraude,,Aplican a la fecha en Novedat y empezaran a aplicarse también de forma masiva
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,F,27 - Cuenta con fecha de actualización menor a la fecha de ingreso,,Aplican a la fecha en Novedat y empezaran a aplicarse también de forma masiva
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,G,32 - Cuenta con reclamo en tramite,,Aplican a la fecha en Novedat y empezaran a aplicarse también de forma masiva
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,H,Reservado,,Solo para uso interno
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,I,39 - Cancelado por prescripción,,"Nueva, aplican para Novedat y Masivo / Por orden judicial"
+28_SUBSCRIBER_BLOCKING_REASON_TYPES_NH,J,Por no comunicación previa al reporte negativo,,"Nuevas, aplican para Novedat y Masivo"
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,,(conjunto),,"contactInformations: un array que proporciona la información de contacto (clientes) relacionada con la contraparte en términos de contactType, contactAsReported, stateCode, addresCityName, addresCityCode, contactMunicipality, contactBurroughs, contactNeighborhood, contactZipcode, contactFirstEventDate, contactEventLastUpdated y webSite. Descripcion de cada codigo = campos de origen, separados por | "
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,1,Residence Address,,Credit Master File. field 50 (DIRECCIÓN DE RESIDENCIA O DIRECCIÓN COMERCIAL) | Credit Master - HF Ingestión (DIRECCIÓN DE RESIDENCIA O DIRECCIÓN COMERCIAL) - (Json field for HF event homeAdressOrCommercialEstablishment | Checking and Saving Account Master File. field 31 (DIRECCIÓN DE RESIDENCIA O DIRECCIÓN COMERCIAL) | Checking and Saving Account -HF Ingestión (DIRECCIÓN DE RESIDENCIA O DIRECCIÓN COMERCIAL) | Contact Information Master - field 9 (DIRECCIÓN DE RESIDENCIA) | QP - Contact Information- field 12 (Home Address)
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,2,Labor Address,,Credit Master File. field 55 (DIRECCIÓN LABORAL) | Credit Master - HF Ingestión (DIRECCIÓN LABORAL) - (Json field for HF event officeAddress | Checking and Saving Account Master File. field 36 (DIRECCIÓN LABORAL) | Checking and Saving Account -HF Ingestion(DIRECCIÓN LABORAL) | Contact Information Master - field 13 (DIRECCIÓN LABORAL | QP - Contact Information- field 20 (Office Address) | Dian Exports (DIR_EXPORT) | Dian Imports (DIR_IMPORT)
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,3,Mailing Address,,Credit Master File. field 60 (DIRECCIÓN DE CORRESPONDENCIA) | Credit Master - HF ingestion (DIRECCIÓN DE CORRESPONDENCIA) - (Json field for HF event mailingAddress | Checking and Saving Account Master File. field 41 (DIRECCIÓN DE CORRESPONDENCIA) | Checking and Saving Account -HF Ingestion(DIRECCIÓN DE CORRESPONDENCIA) | Contact Information Master - field 17 (DIRECCIÓN CORRESPONDENCIA) | QP - Contact Information- field 28 (Mailing Address)
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,4,Residence Telephone,,Credit Master File. field 51 (TELEFONO DE RESIDENCIA O TELEFONO COMERCIAL) | Credit Master - HF Ingestión (TELEFONO DE RESIDENCIA O TELEFONO COMERCIAL) -(Json field for HF event homePhoneOrOfficePhone) | Checking and Saving Account Master File. field22 (TELEFONO DE RESIDENCIA O TELEFONO COMERCIAL) | Checking and Saving Account -HF Ingestion(TELEFONO DE RESIDENCIA O TELEFONO COMERCIAL) | Contact Information Master - field10 (TELEFONO DE RESIDENCIA) | QP - Contact Information- field 14 (Home Phone)
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,5,Labor Telephone,,Credit Master File. field 56 (TELEFONO LABORAL) | Credit Master- HF Ingestión (TELEFONO LABORAL) - (Json field for HF event officePhone) | Checking and Saving Account Master File. field 37 (TELEFONO LABORAL) | Checking and Saving Account -HF Ingestión (TELEFONO LABORAL) | Contact Information Master - field 14 (TELEFONO LABORAL) | QP - Contact Information- field 22 (Office Phone) | Chamber of Commerce - Jurad Batch Ingestion - Sheet 5: National Tourism Records (RNT) (ESTABLECIMIENTO TELEFONO) field#18
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,6,Business Telephone,,Chamber of Commerce - Bogota WS Ingestion - Inquire on Natural Person/Legal Entity (TELEFONO) | Chamber of Commerce - Direct Batch Ingestion (DATA 01 TELEFONO1) | Chamber of Commerce - Jurad WS Ingestion - (telefono_comercial) | Chamber of Commerce - Jurad Batch Ingestion - Sheet 5: National Tourism Records (RNT) (Teléfono Prestador) field#8 | Dian Imports- (TEL_IMPORTADOR)
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,7,Legal Address-c,,Chamber of Commerce - Bogota WS Ingestion - Inquire on Natural Person/Legal Entity (DirJudicial)
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,8,Business Address-c,,Chamber of Commerce - Bogota WS Ingestion - Inquire on Natural Person/Legal Entity (DirComercial) | Chamber of Commerce - Direct Batch Ingestion (DATA 01 DIRECCION) | Chamber of Commerce - Jurad Batch Ingestion - Sheet 5: National Tourism Records (RNT)-(ESTABLECIMIENTO DIRECCION COMERCIAL-ESTABLIHSMENT COMERCIAL ADDRESS) | Chamber of Commerce - Jurad WS Ingestion -(direccion_comercial)
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,9,Mobile,,Credit Master File. field 62 (CELULAR) | Credit Master - HF Ingestion (CELULAR) - (Json field for HF event mobilePhone) | Checking and Saving Account Master File. field 43 (CELULAR) | Checking and Saving Account -HF Ingestión (CELULAR) | Contact Information Master - field 19 (TELEFONO CELULAR) | QP - Contact Information- field 32 (Mobile Phone) | Chamber of Commerce - Jurad Batch Ingestion - National Tourism Records (RNT) Sheet 5 - (Celular Establecimiento) field#19
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,10,Email Address,,Credit Master File. field 61 (CORREO ELECTRONICO | Credit Master - HF Ingestion (CORREO ELECTRONICO) - (Json field for HF event emailAdress | Checking and Saving Account Master File. field 42 (CORREO ELECTRONICO) | Checking and Saving Account -HF Ingestión (CORREO ELECTRONICO) | Contact Information Master - field 18 (DIRECCION ELECTRONICA) | QP - Contact Information- field 30 (Email Address) | Chamber of Commerce - Bogota WS Ingestion - Inquire on Natural Person/Legal Entity (Email | Chamber of Commerce - Direct Batch Ingestion (DATA 01 Email) | Dian Imports (MAIL_EXPORT) | Chamber of Commerce - Jurad Batch Ingestion - National Tourism Records (RNT) Sheet 5 - (Email Establecimiento) field#20
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,11,Fax Number,,Chamber of Commerce - Bogota WS Ingestion - Inquire on Natural Person/Legal Entity (Fax) | Chamber of Commerce - Direct Batch Ingestion (DATA 01 Fax number)
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,12,Notification Address,,Chamber of Commerce - Jurad Batch Ingestion - National Tourism Records (RNT) Sheet 5 - (Dirección Notificación) field#24
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,13,Notification Phone,,Chamber of Commerce - Jurad Batch Ingestion - National Tourism Records (RNT) Sheet 5 - (Teléfono Notificación) field#25
+320_CATALOG_OF_CONTACTASREPORTED_LOCATION,14,Business Email,,Chamber of Commerce - Jurad Batch Ingestion - National Tourism Records (RNT) Sheet 5 - (Email Prestador) field#7
+93_GENDER_HO,,(conjunto),,Contiene el listado de códigos del tipo de género
+93_GENDER_HO,0,Desconocido,Desconocido,
+93_GENDER_HO,1,Masculino,M,
+93_GENDER_HO,2,Femenino,F,
+93_GENDER_HO,3,No Binario,O,
+93_GENDER_HO,4,Indefinido,-,
+93_GENDER_HO,9,No Aplica,No Aplica,
