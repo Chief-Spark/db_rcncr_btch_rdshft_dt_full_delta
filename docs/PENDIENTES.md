@@ -1,97 +1,106 @@
-# Pendientes de Reconocer: tablero único
+# Reconocer: la meta y todo lo que falta
 
-Actualizado: 2026-10-21 (segunda tanda del día). **Este archivo es la única lista de pendientes.** Se actualiza al cerrar cada tanda; lo que no está aquí no está pendiente. El detalle de cada punto vive en `BITACORA_DIFERENCIAS.md` (por su código D-…) y en `edf_views/RESULTADOS_CONSULTAS_EDF.md`.
+Actualizado: 2026-10-21. **Este archivo sustituye al tablero anterior y es la única lista de pendientes.** Se tacha lo que se cierra; lo que no está aquí, no está pendiente.
 
-## 1. Decisiones tuyas
+---
 
-**Pendiente ahora (bloquea trabajo):** nada. Todo lo que bloqueaba está decidido.
+## La meta
 
-**Aprobadas (2026-10-21):**
+**No estaba escrita en ninguna parte, y esa es la razón de que el trabajo se sintiera por pedazos.** Queda escrita aquí, y lo demás se ordena contra ella:
 
-| # | Decisión | Qué se aprobó | Estado |
-|---|---|---|---|
-| T5 | Columna `fuente` en `v_xpm_reporte_relacion_persona_ubica`, calculada del `typeOfData` (1, 2, 3 y 17 → SUS; el resto → CAM); la vista mock lleva `'CAM'` fijo | sí, con el grano del legado en la etapa 2 (una fila por RPU y fuente, `Novedad.sql:8670`) | **en cola** (§5, punto 3). C35 encontró `172_EXPERIAN_TYPE_OF_SOURCE_NOVEDAT_NH` (13 filas): hay que leerlo antes de escribir el CASE |
-| T6 | ARQ 83: re-sembrar con los prefijos `311` / `320` / `399` | sí, en vez de reescribir las tres expectativas | **hecho**, banco en verificación |
-| T7 | Rama de trabajo: seguir en `codex/ajustes-sp-reales-batch-en-linea` | sí | **hecho** |
+> **Que Reconocer corra en Redshift en producción, que el Batch entregue sus cubos, y que exista evidencia de que produce lo mismo que Teradata.**
 
-| # | Decisión | Qué se aprobó | Estado |
-|---|---|---|---|
-| T1 | DDL: columna `canal` en `rpu_orden_prioridad` | migración condicional (un SP que la añade una sola vez y vacía la tabla; la siguiente corrida es FULL), probada con datos sintéticos del banco y sin tocar semillas del mock | **en curso** (cola §5, punto 2) |
-| T2 | Push de los tres repos a GitHub | push con el CSV de catálogos incluido | **hecho**: strct `04b4fb2`, pgm `6ecf93b` y dt `581d701` en `codex/ajustes-sp-reales-batch-en-linea`, verificados contra el remoto. Falta tu traslado a Bitbucket y el job de Jenkins |
-| T3 | DDL de observabilidad (filas y tiempos reales, `version_betas`) | sí, después del ranking por canal | en cola (§5, punto 6) |
-| T4 | Compuerta DIR053: el legado deja sin lugar las direcciones sin ciudad DANE (`Caracteristicas.txt` CR 1942) | portarla en una tanda propia, midiendo antes qué mueve | en cola (§5, punto 3b) |
-| — | Homologación de la fuente de Novedades (D-NOV-03) | 1, 2, 3 y 17 → SUS; el resto → CAM | aprobada; falta T5 para implementarla |
+Se da por terminado cuando se cumplen las cuatro, y no antes:
 
-## 2. Consultas que corres tú en Redshift
-
-Todas están al final de `edf_views/consultas_perfilado_edf_2026-10-20.sql`. Solo devuelven conteos, sin datos personales.
-
-**No hay ninguna pendiente.** Las tres últimas están corridas y analizadas en `edf_views/RESULTADOS_CONSULTAS_EDF.md` §19.
-
-| # | Qué midió | Resultado |
+| | Criterio de salida | Hoy |
 |---|---|---|
-| ~~C33 v2~~ | si la llave de cuenta casa | **desmentida por C33b:** dijo "es formato" y no lo es |
-| ~~C33b~~ | cuál de los cinco campos falla | **ninguno es de formato.** Ni un solo `ceros` ni `nulo` en 5.977 pares; mismas longitudes. Fallan a la vez `businesslinecode` y `personidnumber` (95 %). Los 278 que casan en los cinco son los 278 de C31: **no hay nada que normalizar** |
-| ~~C35~~ | la lista de catálogos de Collibra | cierra o da candidato a **seis** pedidos de la §3, y encuentra el `Portafolio`, el `Sector` por cuenta y el tipo de cuenta de la F2, que no pedíamos. **El número del catálogo no es único**: 17 números con dos nombres, que es por qué C32 falló |
-| ~~C36 / C38 / C39~~ | la llave de cuenta, contra el productor | **tumba la hipótesis**: el contenedor es 1:1 con la persona (98.586 de 98.586). Solo **146 personas tienen cuenta**. §19.1 y D-EDF-15 |
+| **M1** | Las cuatro cadenas —Unificación, GEO, Ordenamiento y Novedades— corren de punta a punta invocadas por el Framework Batch | parcial |
+| **M2** | El tablero de certificación en verde **y el Ordenamiento dentro del gate** | parcial: verde, pero el Ordenamiento no tumba el build |
+| **M3** | **Paridad medida contra una muestra real de Teradata** (RF G-05) | **no empezado, y no depende de nosotros** |
+| **M4** | Entrega al Batch cerrada (`BATCH2_HOMOLOGACION`) y desplegado en QA y producción | no empezado |
 
-## 3. Preguntas a Experian (un solo mensaje)
+**M3 es el que de verdad decide.** Todo lo que certificamos hoy dice *"reproduce lo que leímos del legado"*, nunca *"da lo mismo que producción"*. Sin esa muestra, el proyecto no se puede cerrar formalmente por mucho código que se escriba.
 
-**C35 ya está corrida (§19.3), y recorta el mensaje.** Los puntos 1, 2, 7 y 8 tienen candidato en Collibra: hay que **abrir esos catálogos antes de escribir a Experian**, y preguntar solo por lo que no aparezca. Lo que seguro queda: los puntos 4, 5 y 6, y de la 8 `V_TELEFONO_FIJO`, `V_TIPO_CORREO`, `V_DIRECCION_ELECTRONICA` y `V_Cod_Entrega_Dato`.
+---
 
-1. **Severidad 2 de cuenta.** `blockSeverity = 2` junta los indicadores 8 (reclamo sin solución, el legado no lo muestra) y 9 (cuenta sin validar ante la Registraduría, el legado sí lo muestra). `blockReason` no los distingue (C34: 25 cuentas en DEV, todas con razón 0). ¿En qué campo viene el indicador?
-2. **`businessIdStatus` = `00` en NIT.** `01` es matrícula activa; `00` también es el valor por defecto cuando no viene (31 filas en DEV). ¿Qué significa?
-3. **`bestAccounts` está vacío.** Solo **146 de 98.586 personas** (0,15 %) tienen alguna cuenta: 7.759 filas en 146 contenedores. Sin eso no se puede conectar la Fase 2 del Ordenamiento, que es la que trae el `Portafolio` y el `Sector`. ¿Cuándo se puebla? *(Sustituye a la pregunta por la llave: la llave está bien, medido en C33b y C39.)*
-4. **Score de estandarización de las direcciones de suscriptor** (`contactType` 1, 2 y 3). Alpha dice que se añadió en septiembre de 2026, pero no llega a DEV. ¿Cuándo llega?
-4. **`contactType` 12** (RNT, dirección de notificación): ¿qué tipo es, RES, LAB, CRR, CCL o JUD? Baja prioridad: en DEV no hay filas.
-5. **Contactabilidad y gestión** (`V_CONTACTABILIDAD`, `VstgUbiContactabilidad`): no están en `edf_views`. ¿Existen en EDF? Sin eso no se porta la prioridad 999999 de CEL (D-ORD-14) ni el dominio d5 de Novedades (D-NOV-08).
-6. **Movilidad y puntos de interés:** el productor de indicadores de movilidad (P0029) y el catálogo de puntos de interés.
-7. **Catálogos de homologación a Línea:** `V_Hom_Tip_Ident_Linea` (es el más urgente: deja vacío el dominio Ubicación Agregada), `V_Hom_TipoUbic_Dir_Linea`, `V_Hom_Zona_Linea` y `V_Hom_Fuente_Linea`.
-8. **Otros catálogos:** `V_ACTIVIDAD_ECONO_CIIU`, `V_TELEFONO_FIJO`, `V_TIPO_CORREO`, `V_DIRECCION_ELECTRONICA`, `V_Tipo_Via`, y el reexport completo de `V_Geografia` y `V_Cod_Entrega_Dato` (llegaron cortados en 1.000 filas).
+## 1. Decisiones tuyas (bloquean trabajo)
 
-## 4. Otros equipos
+- [ ] **D1 · Los SP viejos del renombrado.** Quedan huérfanos en DEV y QA y no hay forma limpia de borrarlos: Redshift no admite `DROP PROCEDURE IF EXISTS` (lecciones #10 y #12) y un `DROP` condicional exige SQL dinámico, prohibido por el RF (RG-07). Si se quedan, el comparador de esquema del pipeline da `[REDSHIFT:335]`, el mismo del job QA/DATABASE #122. **O se asume un script manual de limpieza antes del despliegue, o el renombrado se queda a medias.** Bloquea 34 de los 45 renombres
+- [ ] **D2 · Entrega al Batch.** Decidir el contrato de `BATCH2_HOMOLOGACION`. Bloquea M4
 
-| Con quién | Qué |
-|---|---|
-| DevSecOps | `[REDSHIFT:419]` del pipeline (ya escalado) |
-| DBA / DevSecOps | asociar el rol IAM `rcncr-batch-redshift-geo` al clúster DEV, para que el `UNLOAD` y el `COPY` de GEO funcionen de verdad |
-| Tú | `BATCH2_HOMOLOGACION`: decide el contrato de entrega al Batch |
-| Equipo de Teradata | una muestra de la salida del Ordenamiento del mismo corte, para medir paridad (RF: G-05) |
+## 2. Lo que corres tú (no tengo conexión a Redshift)
 
-## 5. Mi cola de trabajo, en orden
+- [ ] **C37** — leer por `code` completo los 8 catálogos de Collibra que encontró C35. Desbloquea la fuente de Novedades, Info Básica y 7 criterios `NOV-AG`
+- [ ] **C36 / C38.3** — ya corrida: el contenedor `bestaccounts` es 1:1 con la persona
+- [ ] **Mensaje único a Experian** (sección 6)
+- [ ] **Traslado a Bitbucket y job de Jenkins** de todo lo de hoy
 
-| # | Tanda | Estado | Necesita |
-|---|---|---|---|
-| 1 | Verificar el bloqueo de cuenta y el score en el banco (dos pasadas) | **hecha.** Destapó 9 FAILED del ARQ 83, efecto previsto de D-ORD-11; re-sembrado y en re-verificación | — |
-| 1b | Leer los catálogos de Collibra que C35 encontró (§19.3 y §19.4) antes de escribir a Experian | **siguiente** | — |
-| 2 | Ranking por canal (D-ORD-10) | **en curso** (T1 aprobado); previsión: cero cambios de estado en el tablero | — |
-| 3 | Novedades: ~~ciudad y departamento en `''` (D-NOV-05)~~ **hecho**; fuente (D-NOV-03) y universo de Actividad Económica (D-NOV-06) | en curso | la fuente espera T5 |
-| 3b | Compuerta DIR053 | en cola (T4 aprobado) | medir antes qué mueve |
-| 4 | ~~Llave de cuenta~~ **CERRADA** (D-EDF-15): la llave es correcta y el contenedor no es compartido. Solo **146 de 98.586 personas tienen cuenta**, así que la F2 real se queda parada hasta que Experian pueble `bestaccounts` | **cerrada** | — |
-| 5 | Info Básica (d4): género, estado del documento, tipo de identificación | **desbloqueada en parte** | leer `177_EXPERIAN_NOVEDAT_ID_TYPE_HO` y los tres de estado de registro (§19.3) |
-| 6 | Observabilidad (F3 del plan) | en cola (T3 aprobado) | — |
-| 7 | Renombrado de SP reales al patrón `sp_rcn_*` (F4 del plan) | al final | — |
+## 3. Novedades: 3 de las 7 tablas de salida
 
-## 6. Cerrado en esta ronda (no volver a abrir)
+Las siete salen del `DELETE ... ALL` de `P0035_Extractor_Novedades_111.BTQ:817-836`.
 
-| Tema | Decisión | Dónde |
-|---|---|---|
-| Umbral del score | `>= 0.80` es VALIDA, menor es NO VALIDA y sin score cuenta como válida | D-EDF-12 |
-| Bloqueo de suscriptor | estado 0 (bloqueado), 436 filas en DEV | D-EDF-01 |
-| Bloqueo de cuenta | solo severidad 1; la 2 se muestra hasta que Experian responda | D-EDF-01, C34 |
-| Sector `C` | Telecomunicaciones (catálogo 219) | D-ORD-15 |
-| Género | 1 → M, 2 → F, 3 → O; el resto vacío | D-EDF-14 |
-| Estado del documento (CC) | catálogo 124: `00` y `01` vigente; 12 y 14 → 00; 51 → 21; 52 → 26 | D-EDF-13 |
-| `contactType` y fuente (`typeOfData`) | catálogos 320 y 170 | RESULTADOS §16 y §18 |
-| GEO | no bloquea la Unificación; los lotes fallidos o vencidos se reenvían | D-GEO-07 |
-| Ciudad y departamento en Novedades | centinela `''`, como el legado | D-NOV-05 |
-| Llave de cuenta | **no falla por formato**: los cinco campos vienen con dato y con la misma longitud. El 4 % es cobertura real del dato en DEV | C33b, §19.1 |
-| Código de catálogo de Collibra | **no es único**: 17 números con dos nombres. Comparar siempre el `code` completo | §19.2 |
-| Severidad 2 de cuenta | `blockReason` no la separa (C34); se queda como está hasta que Experian responda | D-EDF-01 |
+- [x] ~~`mat_info_ubicacion` (d1)~~
+- [x] ~~`mat_info_actividad_economica` (d2)~~
+- [x] ~~`mat_ubicacion_agregada` (d3)~~
+- [ ] **`mat_info_basica` (d4)** — la única de las cuatro que podemos hacer ya. Género, estado del documento y tipo de identificación están decididos (D-EDF-13, D-EDF-14); espera **C37**
+- [ ] `mat_info_punto_interes` (d7) — falta el nombre del punto de interés, que el contrato de distancias no persiste
+- [ ] `mat_info_contactabilidad` (d5) — **no existe en `edf_views`**, verificado. Petición a Experian
+- [ ] `mat_info_movilidad` (d6) — depende íntegro del proceso **P0029**, sin migrar. No es nuestro
+
+**Techo realista sin terceros: 4 de 7.**
+
+## 4. Criterios que no están en verde
+
+**Ordenamiento — 5 bloqueados:**
+
+- [ ] `F1-08` y `CA-M01` — **desbloqueables ya**: `Estandarizacion.sql:6718` y `P0001_..._111.BTQ:177` prueban que **`Lote` existe** en la salida de estandarización. Era el motivo por el que estaban bloqueados
+- [ ] `F3-09` (cuentas ICBDIR) y `F3-10` (ubicaciones NO VALIDA) — `F3-10` puede no estar bloqueado sino **mal buscado**: se buscó en el legado de F1-F3 y la regla vive en P0001
+- [ ] `RG-04` — el contrato de cuenta no trae razón ni fecha de bloqueo (`V_Razon_Bloqueo`)
+
+**Novedades — 16 bloqueados y 5 sin implementar:**
+
+- [ ] `NOV-AG-02..08` (7) y `NOV-AE-07` — **`V_Hom_Tip_Ident_Linea`**. Candidato encontrado por C35: `177_EXPERIAN_NOVEDAT_ID_TYPE_HO`. Espera **C37**
+- [ ] `NOV-AE-06` — `V_ACTIVIDAD_ECONO_CIIU`. Candidatos: catálogos `116` y `117`. Espera **C37**
+- [ ] `NOV-UB-16..22` (7) — catálogos de homologación a Línea
+- [ ] `NOV-CAT-01`, `NOV-CON-01`, `NOV-INB-01`, `NOV-MOV-01`, `NOV-PIN-01` — los 5 dominios sin portar (sección 3)
+
+**Y el gate:**
+
+- [ ] **El Ordenamiento no está en `sp_cert_asercion_final`.** Un FAILED suyo no tumba el build. Encenderlo pide primero verde en Redshift real, que es la condición que ya cumplió Novedades en el job #409
+
+## 5. Vía real: lo que queda de código
+
+- [x] ~~T5 · fuente de Novedades desde `typeOfData`~~
+- [x] ~~F2 real con la llave completa~~
+- [x] ~~Ranking por canal (D-ORD-10)~~
+- [x] ~~Compuerta DIR053 (T4)~~
+- [x] ~~Universo de Actividad Económica (D-NOV-06)~~
+- [x] ~~Llave de Severidad de ACTECO (3 columnas)~~
+- [x] ~~Observabilidad: DDL, `version_betas`, `corrida_id`, `etapa` a 64 (T3)~~
+- [ ] **Arquetipos que faltan**: uno con dirección **sin DANE** (certifica DIR053) y uno con **varias actividades** (certifica D-NOV-06). Las dos ramas están portadas y **el mock no las ejercita**
+- [ ] **Observabilidad de verdad**: filas reales por etapa (hoy 0), tiempo real por escenario, rechazo de corridas concurrentes. **T3 fue solo el DDL**
+- [ ] **Renombrado `sp_rcn_*`**: 11 de 45. Bloqueado por **D1**. Además, 3 nombres existen por duplicado en `bdm_datos` y `bdm_stage` (los GEO) y esa parte es a mano
+- [ ] **Verificar contra el legado**, sin tocar código: el desempate del `QUALIFY` de ACTECO (`Novedad.sql:1380`), el tipo de `fecha_reporte`, y si `xpm_chamberofcommerce` es el `V_Persona_Juridica_Camara` del legado
+
+## 6. Mensaje único a Experian
+
+- [ ] **`bestAccounts` está vacío**: 146 de 98.586 personas (0,15 %) tienen cuenta. Sin eso no se conecta la Fase 2 (D-EDF-15)
+- [ ] **`P0001_..._130.TPT` y los SPs de estandarización** — *recibidos el 2026-10-21*
+- [ ] **Tres columnas de la Fase 2** sin fuente confirmada: `cod_tipo_obligacion_fte`, `numero_dias_mora` y el tipo `'A'`/`'P'` del comportamiento
+- [ ] Severidad 2 de cuenta · `businessIdStatus` = `00` · score de suscriptor · `contactType` 12 · contactabilidad · movilidad y puntos de interés · los catálogos que C37 no cierre
+
+## 7. Otros equipos
+
+- [ ] **DBA / DevSecOps** — asociar el rol IAM `rcncr-batch-redshift-geo` al clúster DEV. Sin él, el `UNLOAD` y el `COPY` de GEO no se certifican nunca
+- [ ] **DevSecOps** — el `[REDSHIFT:419]` del pipeline, ya escalado
+- [ ] **Equipo de Teradata** — **la muestra del mismo corte para medir paridad. Es M3, y es lo único que cierra el proyecto**
+- [ ] **Framework** — el `PP9999999.yml` llama a un SP que no existe y con `()`. Hay que reescribirlo con las tres entradas en cadena
+
+---
 
 ## Cómo trabajamos
 
-1. **Una tanda a la vez.** Cada una sigue el mismo orden: qué mueve, tu OK si hay DDL, código, banco, commit local y actualización de este archivo.
-2. **Consultas en lotes numerados**, en un solo archivo. Cada una dice qué decisión destraba.
-3. **Experian en un solo mensaje** (§3). Las respuestas se anotan aquí y en la bitácora.
-4. **Cada respuesta mía termina igual:** hecho, en curso y qué necesito de ti.
+1. **Una tanda a la vez**, en este orden: qué mueve · tu OK si hay DDL · código · banco (dos pasadas) · commit · tachar aquí.
+2. **Lo que una corrida escribe, el reset lo borra** (job #412).
+3. **Un fallo del banco es una hipótesis** hasta trazarlo al legado o a la documentación de Redshift.
+4. **Cada respuesta termina igual**: hecho, en curso, y qué necesito de ti.
