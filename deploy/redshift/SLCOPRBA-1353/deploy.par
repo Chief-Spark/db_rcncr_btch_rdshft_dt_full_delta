@@ -1,4 +1,5 @@
 run_migracion_nov_info_basica.sql
+run_migracion_ord_canal.sql
 reset_mock.sql
 seed_mock_matriz.sql
 seed_mock_matriz_r2.sql

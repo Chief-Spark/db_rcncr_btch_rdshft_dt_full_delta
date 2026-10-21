@@ -1,0 +1,12 @@
+-- Reverso de run_migracion_ord_canal.sql.
+--
+-- NO HAY NADA QUE DESHACER, y es deliberado: la migracion anade la columna
+-- canal y descarta las filas del grano viejo. Quitar la columna dejaria la
+-- tabla sin el grano que sp_ordenamiento_consolidacion_edf escribe, y las
+-- filas descartadas no se pueden reponer -- se escribieron con MIN(lugar)
+-- mezclando canales y la corrida siguiente las repuebla con el grano nuevo.
+-- El reverso del OBJETO vive en pgm (RevSQL/sp_rcn_ctl_ord_migrar_canal.sql,
+-- que borra el procedimiento).
+--
+-- Misma forma que el reverso de run_migracion_nov_info_basica.sql.
+SELECT 1;

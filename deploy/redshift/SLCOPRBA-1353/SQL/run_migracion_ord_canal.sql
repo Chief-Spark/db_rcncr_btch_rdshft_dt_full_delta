@@ -1,0 +1,19 @@
+-- ============================================================
+-- run_migracion_ord_canal.sql
+-- 2026-10-21 (D-ORD-10, decision T1 del usuario). Anade la columna canal a
+-- bdm_datos.rpu_orden_prioridad en los ambientes donde la tabla ya existe sin
+-- ella, y descarta las filas del grano viejo. UTF-8 sin BOM.
+--
+-- Va JUNTO a la migracion de info_basica, al principio de deploy.par: corre
+-- despues de strct y pgm (orden de despliegue) y antes de reset_mock y de la
+-- bateria, que es cuando la tabla tiene que tener ya la columna.
+--
+-- Es idempotente: si la columna existe, el SP informa y sale. Por eso la
+-- segunda pasada de DPLY del pipeline no vacia lo que la primera poblo, que
+-- es la regla del job #412.
+--
+-- TOCA UNA TABLA QUE USAN LAS DOS VIAS: el Ordenamiento mock reutiliza
+-- sp_ordenamiento_consolidacion_edf y escribe en rpu_orden_prioridad, la
+-- tabla REAL. No hay espejo que migrar aparte.
+-- ============================================================
+CALL bdm_datos.sp_rcn_ctl_ord_migrar_canal();
