@@ -16,12 +16,17 @@
 --    Quedan FUERA del alcance, con estado explicito en el tablero:
 --      - NOV-UB-16..NOV-UB-22, bloqueados porque falta un catalogo que no se
 --        entrego o una columna del contrato GEO que no esta pinada;
---      - NOV-AE-06 y NOV-AE-07, bloqueados por V_ACTIVIDAD_ECONO_CIIU y
---        V_Hom_Tip_Ident_Linea, que tampoco se entregaron;
---      - NOV-AG-02..NOV-AG-08, bloqueados por V_Hom_Tip_Ident_Linea. No es
---        el mismo caso que los dos de arriba: alli el catalogo deja columnas
---        en NULL y aqui VACIA EL DOMINIO -- la etapa 5 une por igualdad en
---        tipo_identificacion (Novedad.sql:5431) y NULL = NULL es falso;
+--      - NOV-AE-06, bloqueado por V_ACTIVIDAD_ECONO_CIIU, que no se entrego;
+--      - NOV-AG-02..NOV-AG-08, que estaban bloqueados por
+--        V_Hom_Tip_Ident_Linea. ESE CATALOGO LLEGO EL 2026-10-21 y era el
+--        caso mas grave de los tres: alli dejaba columnas en NULL y aqui
+--        VACIABA EL DOMINIO, porque la etapa 5 une por igualdad en
+--        tipo_identificacion (Novedad.sql:5431) y NULL = NULL es falso. Se
+--        dejan en la lista hasta MEDIRLO: que el catalogo este cableado no
+--        prueba que estos siete pasen, y darlos por buenos sin medir seria
+--        el error de siempre;
+--      - NOV-UB-18 y NOV-AE-07 YA NO ESTAN FUERA: el mismo catalogo los
+--        desbloqueo y se afirman por consulta;
 --      - los CINCO dominios no portados (NOV-CAT, NOV-INB, NOV-CON, NOV-PIN,
 --        NOV-MOV). Eran siete: NOV-HIS-01 y NOV-AGR-01 se retiraron segun se
 --        portaba su dominio;
@@ -40,9 +45,12 @@ SELECT
 FROM            bdm_datos.cert_criterio_nov c
 LEFT JOIN       bdm_datos.v_cert_nov_ultimo r ON r.criterio = c.criterio
 WHERE c.bloque IN ('UBICACION', 'ACTIVIDAD_ECONOMICA', 'UBICACION_AGREGADA')
-  AND c.criterio NOT IN ('NOV-UB-16', 'NOV-UB-17', 'NOV-UB-18', 'NOV-UB-19',
+  -- NOV-UB-18 y NOV-AE-07 SALIERON DE ESTA LISTA (2026-10-21): llego
+  -- V_Hom_Tip_Ident_Linea y los dos se afirman por consulta. El alcance sube
+  -- solo, que es para lo que se cuenta y no se escribe a mano.
+  AND c.criterio NOT IN ('NOV-UB-16', 'NOV-UB-17', 'NOV-UB-19',
                          'NOV-UB-20', 'NOV-UB-21', 'NOV-UB-22',
-                         'NOV-AE-06', 'NOV-AE-07',
+                         'NOV-AE-06',
                          'NOV-AG-02', 'NOV-AG-03', 'NOV-AG-04', 'NOV-AG-05',
                          'NOV-AG-06', 'NOV-AG-07', 'NOV-AG-08');
 

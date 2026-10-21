@@ -54,7 +54,8 @@ Dos consecuencias que reordenan todo el trabajo:
 
 ## 2. Lo que corres tú
 
-- [ ] **C37** — los 8 catálogos de Collibra por `code` completo. **Ya no bloquea `mat_info_basica`**, que se entregó sin ellos: solo falta `TIPO_IDENTIFICACION` (la descripción homologada; el código sí sale) y 9 criterios
+- [x] ~~`V_Hom_Tip_Ident_Linea`~~ — **entregado por el usuario el 2026-10-21** (11 filas) y cableado en los tres consumidores (D-NOV-13). Desbloquea `TIPO_IDENTIFICACION` en d4, `NOV-UB-18` y `NOV-AE-07`
+- [ ] **C37** — los catálogos de Collibra que faltan. Ya no bloquea `mat_info_basica` ni el tipo de identificación; sigue en pie para `V_ACTIVIDAD_ECONO_CIIU` (`NOV-AE-06`) y los demás
 - [ ] **Correr la cadena real en DEV** cuando esté el runner, y pasarme los conteos
 - [ ] Mensaje a Experian (sección 4) · traslado a Bitbucket y job de Jenkins
 
