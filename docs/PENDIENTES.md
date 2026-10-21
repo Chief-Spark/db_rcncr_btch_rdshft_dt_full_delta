@@ -2,14 +2,23 @@
 
 Actualizado: 2026-10-21. **Este archivo es la única lista de pendientes.** Se actualiza al cerrar cada tanda; lo que no está aquí no está pendiente. El detalle de cada punto vive en `BITACORA_DIFERENCIAS.md` (por su código D-…) y en `edf_views/RESULTADOS_CONSULTAS_EDF.md`.
 
-## 1. Decisiones tuyas (bloquean trabajo)
+## 1. Decisiones tuyas
+
+**Pendiente ahora (bloquea trabajo):**
 
 | # | Decisión | Mi recomendación | Bloquea |
 |---|---|---|---|
-| T1 | DDL: columna `canal` en `rpu_orden_prioridad` | migración condicional (un SP que la añade una sola vez y vacía la tabla; la siguiente corrida es FULL). Probar con datos sintéticos del banco, sin tocar semillas del mock | ranking por canal (D-ORD-10) |
-| T2 | Push de los tres repos a GitHub (strct 67, pgm 108 y dt 30 commits locales) | autorizarlo pronto: nada de lo hecho ha pasado por Redshift real, que es el gate. **Antes, decidir si `edf_views/catalogos_collibra_2026-10-21.csv` sube: el repo dt es público** | que Jenkins valide en DEV |
-| T3 | OK al DDL de observabilidad (filas y tiempos reales, `version_betas`) | sí, después del ranking por canal | F3 del plan |
-| T4 | Compuerta DIR053: el legado deja sin lugar las direcciones sin ciudad DANE (`Caracteristicas.txt` CR 1942). No está portada | portarla en una tanda propia, midiendo antes qué mueve | paridad del ranking DIR |
+| T5 | Columna `fuente` en `v_xpm_reporte_relacion_persona_ubica`, calculada del `typeOfData` (1, 2, 3 y 17 → SUS; el resto → CAM). La vista mock lleva `'CAM'` fijo | sí: la etapa 2 pasa al grano del legado (una fila por RPU y fuente, `Novedad.sql:8670`) y el tablero mock no se mueve | fuente de Novedades (D-NOV-03) |
+
+**Aprobadas (2026-10-21):**
+
+| # | Decisión | Qué se aprobó | Estado |
+|---|---|---|---|
+| T1 | DDL: columna `canal` en `rpu_orden_prioridad` | migración condicional (un SP que la añade una sola vez y vacía la tabla; la siguiente corrida es FULL), probada con datos sintéticos del banco y sin tocar semillas del mock | **en curso** (cola §5, punto 2) |
+| T2 | Push de los tres repos a GitHub | push con el CSV de catálogos incluido | **hecho**: strct `04b4fb2`, pgm `6ecf93b` y dt `581d701` en `codex/ajustes-sp-reales-batch-en-linea`, verificados contra el remoto. Falta tu traslado a Bitbucket y el job de Jenkins |
+| T3 | DDL de observabilidad (filas y tiempos reales, `version_betas`) | sí, después del ranking por canal | en cola (§5, punto 6) |
+| T4 | Compuerta DIR053: el legado deja sin lugar las direcciones sin ciudad DANE (`Caracteristicas.txt` CR 1942) | portarla en una tanda propia, midiendo antes qué mueve | en cola (§5, punto 3b) |
+| — | Homologación de la fuente de Novedades (D-NOV-03) | 1, 2, 3 y 17 → SUS; el resto → CAM | aprobada; falta T5 para implementarla |
 
 ## 2. Consultas que corres tú en Redshift
 
@@ -48,11 +57,12 @@ Antes de enviarlo, correr la C35: los puntos 7 y 8 pueden estar ya en Collibra.
 | # | Tanda | Estado | Necesita |
 |---|---|---|---|
 | 1 | Verificar el bloqueo de cuenta y el score en el banco (dos pasadas) | corriendo | — |
-| 2 | Ranking por canal (D-ORD-10) | análisis listo; previsión: cero cambios de estado en el tablero | T1 |
-| 3 | Novedades: ~~ciudad y departamento en `''` (D-NOV-05)~~ **hecho**; fuente (D-NOV-03) y universo de Actividad Económica (D-NOV-06) | en curso | la fuente necesita tu OK a la homologación |
+| 2 | Ranking por canal (D-ORD-10) | **en curso** (T1 aprobado); previsión: cero cambios de estado en el tablero | — |
+| 3 | Novedades: ~~ciudad y departamento en `''` (D-NOV-05)~~ **hecho**; fuente (D-NOV-03) y universo de Actividad Económica (D-NOV-06) | en curso | la fuente espera T5 |
+| 3b | Compuerta DIR053 | en cola (T4 aprobado) | medir antes qué mueve |
 | 4 | Llave de cuenta: normalizar el campo que falle en el bloqueo de cuenta; luego conectar la F2 real (`v_xpm_cuenta`) | espera | C33b |
 | 5 | Info Básica (d4): género, estado del documento, tipo de identificación | espera | C35 y la pregunta 2 |
-| 6 | Observabilidad (F3 del plan) | espera | T3 |
+| 6 | Observabilidad (F3 del plan) | en cola (T3 aprobado) | — |
 | 7 | Renombrado de SP reales al patrón `sp_rcn_*` (F4 del plan) | al final | — |
 
 ## 6. Cerrado en esta ronda (no volver a abrir)
@@ -67,6 +77,8 @@ Antes de enviarlo, correr la C35: los puntos 7 y 8 pueden estar ya en Collibra.
 | Estado del documento (CC) | catálogo 124: `00` y `01` vigente; 12 y 14 → 00; 51 → 21; 52 → 26 | D-EDF-13 |
 | `contactType` y fuente (`typeOfData`) | catálogos 320 y 170 | RESULTADOS §16 y §18 |
 | GEO | no bloquea la Unificación; los lotes fallidos o vencidos se reenvían | D-GEO-07 |
+| Ciudad y departamento en Novedades | centinela `''`, como el legado | D-NOV-05 |
+| Severidad 2 de cuenta | `blockReason` no la separa (C34); se queda como está hasta que Experian responda | D-EDF-01 |
 
 ## Cómo trabajamos
 
