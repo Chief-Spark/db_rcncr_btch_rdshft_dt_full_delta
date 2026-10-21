@@ -40,7 +40,7 @@ Dos consecuencias que reordenan todo el trabajo:
 ### Y el agujero que esto destapa
 
 - [ ] **NADIE HA CORRIDO NUNCA LA VÍA REAL DE NOVEDADES.** El runner de la cadena real (`run_reconocer_e2e_unificacion_ordenamiento.sql:17-20`) llama a Unificación y Ordenamiento **y para ahí**. No hay ningún `run_*` que invoque `sp_novedades_ciclo_edf`. Las tres tablas dominio que damos por portadas **solo se han visto en mock**: no sabemos si contra el datashare producen una sola fila
-- [ ] **Falta el runner de la cadena real completa**, en el orden que usará el Framework: `unificación → ordenamiento → novedades`
+- [x] ~~**Runner de la cadena real completa**~~ — `run_reconocer_e2e_real_full.sql`, en el orden del Framework: `unificación → ordenamiento → novedades`, lote 1356301, con la medición de las 7 tablas y la traza por dominio
 - [ ] **Y la medida que de verdad importa**: `COUNT(*)` de las tres MAT después de correrla en DEV. Hoy no existe ese número
 
 **Esto es lo primero. Todo lo demás de esta lista es secundario frente a saber si la cadena real produce filas.**
@@ -49,8 +49,8 @@ Dos consecuencias que reordenan todo el trabajo:
 
 ## 1. Decisiones tuyas
 
-- [ ] **D1 · Los SP viejos del renombrado.** Queda **en pausa**: con la meta nueva el renombrado no es prioritario, así que la decisión ya no bloquea nada urgente. Se retoma al final
-- [ ] **D2 · Entrega al Batch** (`BATCH2_HOMOLOGACION`): qué contrato espera el producto sobre las 7 tablas
+- [x] ~~**D1 · Los SP viejos del renombrado**~~ — **al final** (usuario, 2026-10-21). El renombrado se queda en 11 de 45 y se retoma cuando las tablas dominio estén
+- [x] ~~**D2 · Entrega al Batch**~~ — **el contrato es el que define el legado** (usuario, 2026-10-21). No hay que negociarlo: son los `SCHEMA` de los `130.TPT` por tabla, que ya tenemos. Lo que queda es verificar columna por columna que nuestras MAT los cumplen
 
 ## 2. Lo que corres tú
 
