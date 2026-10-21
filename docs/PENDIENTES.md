@@ -1,74 +1,63 @@
 # Reconocer: la meta y todo lo que falta
 
-Actualizado: 2026-10-21. **Este archivo sustituye al tablero anterior y es la única lista de pendientes.** Se tacha lo que se cierra; lo que no está aquí, no está pendiente.
+Actualizado: 2026-10-21. **Este archivo es la única lista de pendientes.** Se tacha lo que se cierra; lo que no está aquí, no está pendiente.
 
 ---
 
-## La meta
+## La meta (usuario, 2026-10-21)
 
-**No estaba escrita en ninguna parte, y esa es la razón de que el trabajo se sintiera por pedazos.** Queda escrita aquí, y lo demás se ordena contra ella:
+> **Que Reconocer corra en Redshift en cualquier ambiente con datos reales, y que entregue las 7 tablas dominio, que son las que explota el producto Batch.**
 
-> **Que Reconocer corra en Redshift en producción, que el Batch entregue sus cubos, y que exista evidencia de que produce lo mismo que Teradata.**
+Dos consecuencias que reordenan todo el trabajo:
 
-Se da por terminado cuando se cumplen las cuatro, y no antes:
+1. **No hace falta producción.** DEV o QA con datos reales cuentan.
+2. **La medida de avance son las 7 tablas dominio pobladas con datos reales.** No el tablero mock, no la paridad contra Teradata, no los nombres de los SP.
 
-| | Criterio de salida | Hoy |
-|---|---|---|
-| **M1** | Las cuatro cadenas —Unificación, GEO, Ordenamiento y Novedades— corren de punta a punta invocadas por el Framework Batch | parcial |
-| **M2** | El tablero de certificación en verde **y el Ordenamiento dentro del gate** | parcial: verde, pero el Ordenamiento no tumba el build |
-| **M3** | **Paridad medida contra una muestra real de Teradata** (RF G-05) | **no empezado, y no depende de nosotros** |
-| **M4** | Entrega al Batch cerrada (`BATCH2_HOMOLOGACION`) y desplegado en QA y producción | no empezado |
+### Lo que esto saca del camino crítico
 
-**M3 es el que de verdad decide.** Todo lo que certificamos hoy dice *"reproduce lo que leímos del legado"*, nunca *"da lo mismo que producción"*. Sin esa muestra, el proyecto no se puede cerrar formalmente por mucho código que se escriba.
+| | Por qué se baja de prioridad |
+|---|---|
+| **Paridad contra Teradata** (muestra del mismo corte, RF G-05) | deseable y sigue pedida, pero **no es condición de entrega** |
+| **Renombrado `sp_rcn_*`** | cosmético: no acerca ni una tabla dominio. Queda en 11 de 45 y **se para ahí** |
+| **El Ordenamiento dentro del gate** | no entrega ninguna tabla |
+| **El tablero mock en verde** | es la red de seguridad, no la meta. Ya está en 174 / 63 / 217 |
 
 ---
 
-## 1. Decisiones tuyas (bloquean trabajo)
+## 0. El camino crítico: las 7 tablas dominio
 
-- [ ] **D1 · Los SP viejos del renombrado.** Quedan huérfanos en DEV y QA y no hay forma limpia de borrarlos: Redshift no admite `DROP PROCEDURE IF EXISTS` (lecciones #10 y #12) y un `DROP` condicional exige SQL dinámico, prohibido por el RF (RG-07). Si se quedan, el comparador de esquema del pipeline da `[REDSHIFT:335]`, el mismo del job QA/DATABASE #122. **O se asume un script manual de limpieza antes del despliegue, o el renombrado se queda a medias.** Bloquea 34 de los 45 renombres
-- [ ] **D2 · Entrega al Batch.** Decidir el contrato de `BATCH2_HOMOLOGACION`. Bloquea M4
-
-## 2. Lo que corres tú (no tengo conexión a Redshift)
-
-- [ ] **C37** — leer por `code` completo los 8 catálogos de Collibra que encontró C35. Desbloquea la fuente de Novedades, Info Básica y 7 criterios `NOV-AG`
-- [ ] **C36 / C38.3** — ya corrida: el contenedor `bestaccounts` es 1:1 con la persona
-- [ ] **Mensaje único a Experian** (sección 6)
-- [ ] **Traslado a Bitbucket y job de Jenkins** de todo lo de hoy
-
-## 3. Novedades: 3 de las 7 tablas de salida
-
-Las siete salen del `DELETE ... ALL` de `P0035_Extractor_Novedades_111.BTQ:817-836`.
-
-- [x] ~~`mat_info_ubicacion` (d1)~~
-- [x] ~~`mat_info_actividad_economica` (d2)~~
-- [x] ~~`mat_ubicacion_agregada` (d3)~~
-- [ ] **`mat_info_basica` (d4)** — la única de las cuatro que podemos hacer ya. Género, estado del documento y tipo de identificación están decididos (D-EDF-13, D-EDF-14); espera **C37**
+- [x] ~~`mat_info_ubicacion` (d1)~~ — portada **en mock**
+- [x] ~~`mat_info_actividad_economica` (d2)~~ — portada **en mock**
+- [x] ~~`mat_ubicacion_agregada` (d3)~~ — portada **en mock**
+- [ ] **`mat_info_basica` (d4)** — la única de las cuatro que falta y podemos hacer. Género, estado del documento y tipo de identificación decididos (D-EDF-13, D-EDF-14); espera **C37**
 - [ ] `mat_info_punto_interes` (d7) — falta el nombre del punto de interés, que el contrato de distancias no persiste
 - [ ] `mat_info_contactabilidad` (d5) — **no existe en `edf_views`**, verificado. Petición a Experian
 - [ ] `mat_info_movilidad` (d6) — depende íntegro del proceso **P0029**, sin migrar. No es nuestro
 
-**Techo realista sin terceros: 4 de 7.**
+**Techo sin terceros: 4 de 7.**
 
-## 4. Criterios que no están en verde
+### Y el agujero que esto destapa
 
-**Ordenamiento — 5 bloqueados:**
+- [ ] **NADIE HA CORRIDO NUNCA LA VÍA REAL DE NOVEDADES.** El runner de la cadena real (`run_reconocer_e2e_unificacion_ordenamiento.sql:17-20`) llama a Unificación y Ordenamiento **y para ahí**. No hay ningún `run_*` que invoque `sp_novedades_ciclo_edf`. Las tres tablas dominio que damos por portadas **solo se han visto en mock**: no sabemos si contra el datashare producen una sola fila
+- [ ] **Falta el runner de la cadena real completa**, en el orden que usará el Framework: `unificación → ordenamiento → novedades`
+- [ ] **Y la medida que de verdad importa**: `COUNT(*)` de las tres MAT después de correrla en DEV. Hoy no existe ese número
 
-- [ ] `F1-08` y `CA-M01` — **desbloqueables ya**: `Estandarizacion.sql:6718` y `P0001_..._111.BTQ:177` prueban que **`Lote` existe** en la salida de estandarización. Era el motivo por el que estaban bloqueados
-- [ ] `F3-09` (cuentas ICBDIR) y `F3-10` (ubicaciones NO VALIDA) — `F3-10` puede no estar bloqueado sino **mal buscado**: se buscó en el legado de F1-F3 y la regla vive en P0001
-- [ ] `RG-04` — el contrato de cuenta no trae razón ni fecha de bloqueo (`V_Razon_Bloqueo`)
+**Esto es lo primero. Todo lo demás de esta lista es secundario frente a saber si la cadena real produce filas.**
 
-**Novedades — 16 bloqueados y 5 sin implementar:**
+---
 
-- [ ] `NOV-AG-02..08` (7) y `NOV-AE-07` — **`V_Hom_Tip_Ident_Linea`**. Candidato encontrado por C35: `177_EXPERIAN_NOVEDAT_ID_TYPE_HO`. Espera **C37**
-- [ ] `NOV-AE-06` — `V_ACTIVIDAD_ECONO_CIIU`. Candidatos: catálogos `116` y `117`. Espera **C37**
-- [ ] `NOV-UB-16..22` (7) — catálogos de homologación a Línea
-- [ ] `NOV-CAT-01`, `NOV-CON-01`, `NOV-INB-01`, `NOV-MOV-01`, `NOV-PIN-01` — los 5 dominios sin portar (sección 3)
+## 1. Decisiones tuyas
 
-**Y el gate:**
+- [ ] **D1 · Los SP viejos del renombrado.** Queda **en pausa**: con la meta nueva el renombrado no es prioritario, así que la decisión ya no bloquea nada urgente. Se retoma al final
+- [ ] **D2 · Entrega al Batch** (`BATCH2_HOMOLOGACION`): qué contrato espera el producto sobre las 7 tablas
 
-- [ ] **El Ordenamiento no está en `sp_cert_asercion_final`.** Un FAILED suyo no tumba el build. Encenderlo pide primero verde en Redshift real, que es la condición que ya cumplió Novedades en el job #409
+## 2. Lo que corres tú
 
-## 5. Vía real: lo que queda de código
+- [ ] **C37** — los 8 catálogos de Collibra por `code` completo. Desbloquea `mat_info_basica` y 9 criterios
+- [ ] **Correr la cadena real en DEV** cuando esté el runner, y pasarme los conteos
+- [ ] Mensaje a Experian (sección 4) · traslado a Bitbucket y job de Jenkins
+
+## 3. Vía real: código que sí acerca la meta
 
 - [x] ~~T5 · fuente de Novedades desde `typeOfData`~~
 - [x] ~~F2 real con la llave completa~~
@@ -77,30 +66,39 @@ Las siete salen del `DELETE ... ALL` de `P0035_Extractor_Novedades_111.BTQ:817-8
 - [x] ~~Universo de Actividad Económica (D-NOV-06)~~
 - [x] ~~Llave de Severidad de ACTECO (3 columnas)~~
 - [x] ~~Observabilidad: DDL, `version_betas`, `corrida_id`, `etapa` a 64 (T3)~~
-- [ ] **Arquetipos que faltan**: uno con dirección **sin DANE** (certifica DIR053) y uno con **varias actividades** (certifica D-NOV-06). Las dos ramas están portadas y **el mock no las ejercita**
-- [ ] **Observabilidad de verdad**: filas reales por etapa (hoy 0), tiempo real por escenario, rechazo de corridas concurrentes. **T3 fue solo el DDL**
-- [ ] **Renombrado `sp_rcn_*`**: 11 de 45. Bloqueado por **D1**. Además, 3 nombres existen por duplicado en `bdm_datos` y `bdm_stage` (los GEO) y esa parte es a mano
-- [ ] **Verificar contra el legado**, sin tocar código: el desempate del `QUALIFY` de ACTECO (`Novedad.sql:1380`), el tipo de `fecha_reporte`, y si `xpm_chamberofcommerce` es el `V_Persona_Juridica_Camara` del legado
+- [ ] **Runner de la cadena real completa** (sección 0)
+- [ ] **`mat_info_basica` (d4)**, tras C37
+- [ ] Arquetipos que faltan: dirección **sin DANE** (certifica DIR053) y **varias actividades** (certifica D-NOV-06)
+- [ ] Observabilidad de verdad: filas reales por etapa (hoy 0), tiempo real, concurrencia. **T3 fue solo el DDL**
+- [ ] Verificar contra el legado, sin código: desempate del `QUALIFY` de ACTECO (`Novedad.sql:1380`), tipo de `fecha_reporte`, y si `xpm_chamberofcommerce` es el `V_Persona_Juridica_Camara` del legado
 
-## 6. Mensaje único a Experian
+## 4. Mensaje único a Experian
 
-- [ ] **`bestAccounts` está vacío**: 146 de 98.586 personas (0,15 %) tienen cuenta. Sin eso no se conecta la Fase 2 (D-EDF-15)
-- [ ] **`P0001_..._130.TPT` y los SPs de estandarización** — *recibidos el 2026-10-21*
-- [ ] **Tres columnas de la Fase 2** sin fuente confirmada: `cod_tipo_obligacion_fte`, `numero_dias_mora` y el tipo `'A'`/`'P'` del comportamiento
-- [ ] Severidad 2 de cuenta · `businessIdStatus` = `00` · score de suscriptor · `contactType` 12 · contactabilidad · movilidad y puntos de interés · los catálogos que C37 no cierre
+- [ ] **`bestAccounts` está vacío**: 146 de 98.586 personas (0,15 %) tienen cuenta (D-EDF-15)
+- [ ] **Contactabilidad** (`V_CONTACTABILIDAD`, `VstgUbiContactabilidad`): bloquea la tabla dominio d5
+- [ ] **Movilidad y puntos de interés**: el proceso P0029 y el nombre del punto de interés. Bloquean d6 y d7
+- [ ] Tres columnas de la Fase 2 sin fuente confirmada: `cod_tipo_obligacion_fte`, `numero_dias_mora` y el tipo `'A'`/`'P'`
+- [ ] Severidad 2 de cuenta · `businessIdStatus` = `00` · score de suscriptor · `contactType` 12 · lo que C37 no cierre
 
-## 7. Otros equipos
+## 5. Criterios sin verde (red de seguridad, no camino crítico)
 
-- [ ] **DBA / DevSecOps** — asociar el rol IAM `rcncr-batch-redshift-geo` al clúster DEV. Sin él, el `UNLOAD` y el `COPY` de GEO no se certifican nunca
-- [ ] **DevSecOps** — el `[REDSHIFT:419]` del pipeline, ya escalado
-- [ ] **Equipo de Teradata** — **la muestra del mismo corte para medir paridad. Es M3, y es lo único que cierra el proyecto**
-- [ ] **Framework** — el `PP9999999.yml` llama a un SP que no existe y con `()`. Hay que reescribirlo con las tres entradas en cadena
+- [ ] Ordenamiento, 5 bloqueados: `F1-08` y `CA-M01` **desbloqueables ya** (el `Lote` de `Estandarizacion.sql:6718`); `F3-09`; `F3-10` puede estar **mal buscado**, no bloqueado; `RG-04`
+- [ ] Novedades, 16 bloqueados: `NOV-AG-02..08` y `NOV-AE-07` esperan C37; `NOV-AE-06` idem; `NOV-UB-16..22` catálogos de Línea
+- [ ] Novedades, 5 sin implementar: son los 5 dominios de la sección 0
+- [ ] El Ordenamiento fuera del gate
+
+## 6. Otros equipos
+
+- [ ] **DBA / DevSecOps** — rol IAM `rcncr-batch-redshift-geo` en DEV. Sin él, `UNLOAD` y `COPY` de GEO no se certifican
+- [ ] **DevSecOps** — `[REDSHIFT:419]`, escalado
+- [ ] **Framework** — `PP9999999.yml` llama a un SP que no existe y con `()`. Hay que reescribirlo con las tres entradas en cadena
+- [ ] **Equipo de Teradata** — muestra del mismo corte. **Ya no es condición de entrega**, pero sigue siendo lo único que probaría paridad
 
 ---
 
 ## Cómo trabajamos
 
-1. **Una tanda a la vez**, en este orden: qué mueve · tu OK si hay DDL · código · banco (dos pasadas) · commit · tachar aquí.
+1. **Una tanda a la vez**: qué mueve · tu OK si hay DDL · código · banco (dos pasadas) · commit · tachar aquí.
 2. **Lo que una corrida escribe, el reset lo borra** (job #412).
 3. **Un fallo del banco es una hipótesis** hasta trazarlo al legado o a la documentación de Redshift.
 4. **Cada respuesta termina igual**: hecho, en curso, y qué necesito de ti.
