@@ -555,20 +555,35 @@ WHERE code LIKE '124_REGISTRADURIA_STATUS_OF_PERSON_HO%'
 ORDER BY code, "code/text";
 
 -- ============================================================
--- C34 (2026-10-21): QUE CODIGO HAY DETRAS DE LA SEVERIDAD 2.
+-- C34 v2 (2026-10-21): QUE CODIGO HAY DETRAS DE LA SEVERIDAD 2.
 -- Alpha junta en blockSeverity = 2 los indicadores 8 y 9, y el legado
 -- los trata distinto (V_Razon_Bloqueo): 8 = reclamo sin solucion, NO se
 -- muestra; 9 = cuenta sin validar ante la Registraduria, SI se muestra.
--- xpm_bestaccounts trae tambien blockreason: si ahi viene el 8 o el 9, la
--- severidad 2 se parte sin preguntar a Experian. Solo conteos, sin datos
--- personales. Correr en la conexion de Reconocer (datashare).
+-- Si blockreason trae el 8 o el 9, la severidad 2 se parte sin preguntar
+-- a Experian. Solo conteos, sin datos personales. Conexion de Reconocer.
+--
+-- v1 tardaba demasiado. La tabla tiene ~106.000 filas en DEV (7.759
+-- cuentas reales, RESULTADOS 11), asi que el volumen no lo explica:
+-- HIPOTESIS, estaba en cola detras de otra consulta (la C33 es un join
+-- grande). v2 lee dos columnas crudas, sin TRIM ni NULLIF (el filtro baja
+-- al escaneo) y descarta las cuentas activas antes de agrupar.
 -- ============================================================
-SELECT NULLIF(TRIM(ba."bestaccounts.val.blockseverity"::VARCHAR), '')             AS severidad,
-       NULLIF(TRIM(ba."bestaccounts.val.blockreason"::VARCHAR), '')               AS razon,
-       NULLIF(TRIM(ba."bestaccounts.val.expiredblockreason"::VARCHAR), '')        AS razon_caducidad,
-       NULLIF(TRIM(ba."bestaccounts.val.qualityprocessblockreason"::VARCHAR), '') AS razon_calidad,
-       COUNT(*)                                                                   AS cuentas
+SELECT ba."bestaccounts.val.blockseverity" AS severidad,
+       ba."bestaccounts.val.blockreason"   AS razon,
+       COUNT(*)                            AS cuentas
 FROM ds_dba_rncr_batch.edf_views.xpm_bestaccounts ba
-WHERE ba."index" IS NOT NULL
-GROUP BY 1, 2, 3, 4
-ORDER BY 1, 2, 3, 4;
+WHERE ba."bestaccounts.val.blockseverity" <> '0'
+GROUP BY 1, 2
+ORDER BY 1, 2;
+
+-- C34-diag: si v2 tambien se demora, ver si esta EN COLA o EJECUTANDO.
+-- state = 'QueuedWaiting' -> esta esperando turno; cancelar la C33 si
+-- sigue viva (SELECT pg_cancel_backend(<pid>);) y relanzar.
+SELECT w.query, w.state,
+       w.queue_time / 1000000 AS seg_en_cola,
+       w.exec_time  / 1000000 AS seg_ejecutando,
+       i.pid,
+       LEFT(i.text, 60)       AS inicio_consulta
+FROM stv_wlm_query_state w
+LEFT JOIN stv_inflight i ON i.query = w.query
+ORDER BY w.wlm_start_time;
