@@ -127,7 +127,16 @@ TRUNCATE TABLE bdm_datos.mat_info_contactabilidad_mock;
 --     segunda pasada de DPLY y d7 publicaria puntos de interes que la
 --     corrida en curso no produjo.
 TRUNCATE TABLE bdm_datos.mat_info_basica_mock;
+--   mat_info_movilidad_mock y nov_movilidad_foto_mock: el dominio d6 y su
+--     foto. LA FOTO ES LA QUE IMPORTA AQUI: es INSERT-ONLY y acumula entre
+--     corridas a proposito, de modo que si el reset no la borrara, la
+--     segunda pasada de DPLY compararia contra la foto de la primera y
+--     emitiria eventos de movilidad que esa corrida no produjo. Es el
+--     mismo mecanismo que cazo NOV-UB-12 en el job #412, y aqui tiene
+--     mas filo porque la tabla esta DISENADA para acumular.
 TRUNCATE TABLE bdm_datos.mat_info_punto_interes_mock;
+TRUNCATE TABLE bdm_datos.mat_info_movilidad_mock;
+TRUNCATE TABLE bdm_datos.nov_movilidad_foto_mock;
 TRUNCATE TABLE bdm_datos.geo_distancias_mock;
 TRUNCATE TABLE bdm_stage.mock_geo_distancias;
 

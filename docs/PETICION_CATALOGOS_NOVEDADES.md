@@ -392,3 +392,68 @@ etapa 9, sin fan-out), 8.600 con fecha, 9.600 con suscriptor y **cero valores
 en las diez bloqueadas**; dos pasadas seguidas de `fase dt` para reproducir el
 doble DPLY de Jenkins y los tableros intactos (Unificacion 174, Novedades 63,
 cero FAILED).
+
+---
+
+## Peticion: los catalogos que quedan, con la consulta de volcado (2026-10-21)
+
+*Redactada para enviarse tal cual. El de tipo de identificacion se cerro asi en
+un solo viaje: con el nombre del objeto, las columnas que se usan y la consulta
+hecha.*
+
+**Cuatro objetos, y ninguno es un bloqueo de diseno: son volcados.** Cada uno
+dice que columna deja de salir NULL.
+
+### 1 y 2. Movilidad (d6) -- dos catalogos
+
+```sql
+SELECT Valor_Fuente, Descripcion_Hom_Ind_Mov_Linea
+FROM   REC_VISTA.V_Hom_Ind_Mov_Linea;
+
+SELECT Cod_DW_Indicador_Movilidad, Valor_Indicador_Movilidad,
+       Descripcion_Indicador_Movilida
+FROM   REC_VISTA.V_INDICADOR_MOVILIDAD;
+```
+
+| Desbloquea | Hoy |
+|---|---|
+| `MAT_INFO_MOVILIDAD.DESCRIPCION` | NULL (`Novedad.sql:1782`) |
+| `MAT_INFO_MOVILIDAD.NOVEDAD_2` | NULL (`:1923-1924`) |
+
+`NOVEDAD` **no** depende de ellos: ya se puebla con los literales que el propio
+`P0029_INDICADORES_MOVILIDAD_111.BTQ:62-68` escribe en su filtro.
+
+### 3 y 4. Punto de interes (d7) -- dos objetos
+
+```sql
+SELECT Valor_Fuente, Descripcion_Hom_Tipo_Pto_Int_Linea
+FROM   REC_VISTA.V_Hom_Tipo_Pto_Int_Linea;
+
+SELECT Cod_DW_Tipo_Punto_Interes, Descripcion_Tipo_Punto_Interes,
+       Cod_Tipo_Punto_Interes_Host
+FROM   REC_VISTA.V_TIPO_PUNTO_INTERES;
+```
+
+| Desbloquea | Hoy |
+|---|---|
+| `MAT_INFO_PUNTO_INTERES.TIPO` | NULL |
+| `MAT_INFO_PUNTO_INTERES.Descripcion_Tipo_Punto_Interes` | el valor **crudo** del contrato, sin homologar |
+
+**El segundo hace falta ademas para resolver una duda de llave**, y por eso no
+basta con el primero: el legado une por `VTPI.Cod_Tipo_Punto_Interes_Host`
+(`Novedad.sql:4889-4890`), que sale de `V_TIPO_PUNTO_INTERES` y **no** del
+contrato de distancias. De nuestro lado hay dos candidatas que no son la misma
+cosa -- `col07 Tipo_Punto_Interes` (el tipo) y `col12 Cod_Punto_Interes_Host`
+(el punto) --, y elegir mal deja la columna en NULL igual pero con pinta de
+estar cableada.
+
+### Lo que NO hay que pedir, para no gastar el viaje
+
+- **`V_Corr_Tipo_Pto_Int_Linea`**: es **codigo muerto**. Se une en
+  `Novedad.sql:4886` y su unica lectura esta comentada en `:4890`. Verificado
+  con un grep de `h1.` en el SP: cero lecturas vivas.
+- **`LOCALIDAD` / comuna**: no es un catalogo que falte, es un campo que **no
+  existe en EDF**. Buscado en el inventario de 1.072 columnas del datashare y
+  en Confluence (espacios `CCBR` y `EDCLMI`, donde las coincidencias son
+  productos y no campos). Sin fuente, `Cambio de Localidad` es el cuarto
+  indicador de Movilidad y se queda fuera.

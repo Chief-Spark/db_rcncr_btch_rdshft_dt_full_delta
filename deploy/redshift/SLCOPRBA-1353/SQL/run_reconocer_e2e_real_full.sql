@@ -41,9 +41,9 @@ CALL bdm_datos.sp_novedades_ciclo_edf(CAST('' AS VARCHAR(256)), CAST('' AS VARCH
 -- tiene cada tabla dominio despues de una corrida real.
 --
 -- Las SIETE del legado salen del DELETE ... ALL de
--- P0035_Extractor_Novedades_111.BTQ:817-836. Hoy tenemos SEIS; la que falta
--- (movilidad) depende del proceso P0029, que no esta migrado y no es nuestro,
--- y se lista en cero a proposito.
+-- P0035_Extractor_Novedades_111.BTQ:817-836. ESTAN LAS SIETE.
+--   La ultima en entrar fue movilidad (d6), y con tres de sus cuatro
+--   indicadores: falta Cambio de Localidad porque LOCALIDAD no existe en EDF.
 --
 -- CUIDADO AL LEER LA CUARTA. mat_info_contactabilidad tiene filas, pero DIEZ
 -- de sus doce columnas salen en NULL: no existe la fuente de gestion
@@ -63,10 +63,26 @@ SELECT 'mat_info_basica (19 de 22 columnas)', 4, COUNT(*) FROM bdm_datos.mat_inf
 UNION ALL
 SELECT 'mat_info_contactabilidad (10 de 12 columnas en NULL)', 5, COUNT(*) FROM bdm_datos.mat_info_contactabilidad
 UNION ALL
-SELECT 'mat_info_movilidad (SIN PORTAR)',    6, 0
+SELECT 'mat_info_movilidad (3 de 4 indicadores)', 6, COUNT(*) FROM bdm_datos.mat_info_movilidad
 UNION ALL
 SELECT 'mat_info_punto_interes (7 de 10 columnas)', 7, COUNT(*) FROM bdm_datos.mat_info_punto_interes
 ORDER BY 2;
+
+-- EL CONTENIDO DE MOVILIDAD, por indicador. CERO ES UN RESULTADO VALIDO aqui y
+-- no un fallo: es una tabla de EVENTOS y en la PRIMERA corrida de un ambiente
+-- sale cero por construccion, porque no hay foto anterior contra la que
+-- comparar. A partir de la segunda, cero significa que nadie se mudo.
+--   Si 'Cambio de Direccion' sale en cero pero la foto tiene filas, mirar
+--   nov_movilidad_foto: el evento se dispara por el TEXTO de la direccion.
+SELECT novedad, COUNT(*) AS eventos, COUNT(DISTINCT info_basica_id) AS personas
+FROM   bdm_datos.mat_info_movilidad
+GROUP  BY novedad
+ORDER  BY 1;
+
+SELECT COUNT(*) AS filas_foto, COUNT(DISTINCT cod_dw_persona_ubic) AS ubicaciones,
+       COUNT(DISTINCT fecha_foto) AS fechas_distintas,
+       COUNT(estrato) AS con_estrato
+FROM   bdm_datos.nov_movilidad_foto;
 
 -- EL CONTENIDO DE PUNTO DE INTERES. Aqui filas > ubicaciones es LO ESPERADO:
 -- el grano es (ubicacion, punto de interes) y el contrato es 1:N. Si salieran

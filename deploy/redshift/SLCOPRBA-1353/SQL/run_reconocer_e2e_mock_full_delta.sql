@@ -92,6 +92,8 @@ TRUNCATE TABLE bdm_datos.mat_ubicacion_agregada_mock;
 TRUNCATE TABLE bdm_datos.mat_info_contactabilidad_mock;
 TRUNCATE TABLE bdm_datos.mat_info_basica_mock;
 TRUNCATE TABLE bdm_datos.mat_info_punto_interes_mock;
+TRUNCATE TABLE bdm_datos.mat_info_movilidad_mock;
+TRUNCATE TABLE bdm_datos.nov_movilidad_foto_mock;
 TRUNCATE TABLE bdm_datos.geo_distancias_mock;
 TRUNCATE TABLE bdm_stage.mock_geo_distancias;
 TRUNCATE TABLE bdm_tempo.stg_nov_ubica_etapa_9_mock;
