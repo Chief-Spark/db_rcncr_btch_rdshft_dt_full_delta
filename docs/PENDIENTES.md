@@ -32,10 +32,10 @@ Dos consecuencias que reordenan todo el trabajo:
 - [x] ~~`mat_ubicacion_agregada` (d3)~~ — portada **en mock**
 - [ ] **`mat_info_basica` (d4)** — la única de las cuatro que falta y podemos hacer. Género, estado del documento y tipo de identificación decididos (D-EDF-13, D-EDF-14); espera **C37**
 - [ ] `mat_info_punto_interes` (d7) — falta el nombre del punto de interés, que el contrato de distancias no persiste
-- [ ] `mat_info_contactabilidad` (d5) — **sin fuente en ningún ambiente.** No está en `edf_views` (verificado) y **tampoco en la documentación de EDF**: la sección `contactInformations` del contrato Alpha tiene nueve campos y los nueve son el dato de contacto, no la gestión (Confluence `CCBR`, 2026-10-21). Petición redactada y lista para enviar en `docs/PETICION_CATALOGOS_NOVEDADES.md`
+- [x] ~~`mat_info_contactabilidad` (d5)~~ — **se entrega con 2 de 12 columnas pobladas** (D-NOV-08, decisión del usuario 2026-10-21): `fecha_ultimo_contacto` y `reportado_por` con el equivalente de EDF y **otra semántica**; las otras diez en NULL porque no existe la fuente de gestión. Medido en el banco: 9.600 filas, cero valores en las diez bloqueadas, tableros intactos. **La petición de `V_CONTACTABILIDAD` sigue abierta** y es lo que convierte estas dos columnas en doce
 - [ ] `mat_info_movilidad` (d6) — depende íntegro del proceso **P0029**, sin migrar. No es nuestro
 
-**Techo sin terceros: 4 de 7.**
+**Techo sin terceros: 5 de 7** — contando d5 como entregada con el alcance reducido que decidió el usuario, no como resuelta.
 
 ### Y el agujero que esto destapa
 

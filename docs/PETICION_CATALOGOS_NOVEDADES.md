@@ -364,3 +364,31 @@ sigue siendo siete tablas dominio, pero **d5 (`mat_info_contactabilidad`) no
 tiene hoy fuente en ningún ambiente**, ni mock ni real, y no es un defecto
 nuestro ni trabajo que podamos hacer. Las otras seis no dependen de esta
 respuesta.
+
+### Lo que se construyo mientras la peticion espera (2026-10-21)
+
+**`MAT_INFO_CONTACTABILIDAD` ya existe y se entrega, con 2 de 12 columnas
+pobladas.** Decision del usuario, tomada sabiendo que las dos cambian de
+semantica. No reemplaza a la peticion: la hace mas facil de responder, porque
+el otro lado puede ver exactamente que falta.
+
+| Columna | Hoy | Con la respuesta |
+|---|---|---|
+| `ubicacion_id` | `cod_dw_persona_ubic` | igual |
+| `fecha_ultimo_contacto` | `ContactEventLastUpdated` — ultima **actualizacion del dato** | `MAX(FECHA_GESTION)` — ultimo **contacto** |
+| `reportado_por` | suscriptor que **reporto** la ubicacion | suscriptor que **gestiono** |
+| las otras nueve | **NULL** | el resumen de las siete etapas |
+
+Las nueve se quedan en NULL y no en un valor por defecto a proposito: un
+`'NO'` en `contactabilidad` lo leeria el Batch como *"se intento contactar y no
+se pudo"*, que es falso. NULL dice *"no hay con que medir"*. Es la misma
+distincion de las columnas `por_*` del censo de Ordenamiento (`F1-08`) y la
+leccion de `NOV-UB-12`.
+
+Donde esta: `strct/36_ddl_nov_contactabilidad.sql` (+ `36b` mock),
+`pgm/sp_novedades_contactabilidad_{edf,mock}.sql`, etapa `contactabilidad` de
+los dos orquestadores. Medido en el banco: 9.600 filas (una por ubicacion de la
+etapa 9, sin fan-out), 8.600 con fecha, 9.600 con suscriptor y **cero valores
+en las diez bloqueadas**; dos pasadas seguidas de `fase dt` para reproducir el
+doble DPLY de Jenkins y los tableros intactos (Unificacion 174, Novedades 63,
+cero FAILED).

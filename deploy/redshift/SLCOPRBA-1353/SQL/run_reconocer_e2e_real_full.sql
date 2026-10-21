@@ -41,9 +41,17 @@ CALL bdm_datos.sp_novedades_ciclo_edf(CAST('' AS VARCHAR(256)), CAST('' AS VARCH
 -- tiene cada tabla dominio despues de una corrida real.
 --
 -- Las SIETE del legado salen del DELETE ... ALL de
--- P0035_Extractor_Novedades_111.BTQ:817-836. Hoy tenemos TRES; las otras
--- cuatro no estan portadas y se listan en cero a proposito, para que el
+-- P0035_Extractor_Novedades_111.BTQ:817-836. Hoy tenemos CUATRO; las otras
+-- tres no estan portadas y se listan en cero a proposito, para que el
 -- informe no deje duda de en que punto estamos.
+--
+-- CUIDADO AL LEER LA CUARTA. mat_info_contactabilidad tiene filas, pero DIEZ
+-- de sus doce columnas salen en NULL: no existe la fuente de gestion
+-- (D-NOV-08). Un conteo de filas distinto de cero NO significa que el
+-- dominio este resuelto, y por eso la consulta de abajo mide tambien cuantas
+-- filas traen dato en las dos columnas que SI se pueblan. Contar filas y no
+-- contenido es como dar por bueno un DELTA en cero -- la leccion de
+-- NOV-UB-12.
 -- ============================================================
 SELECT 'mat_info_ubicacion'            AS tabla_dominio, 1 AS n, COUNT(*) AS filas FROM bdm_datos.mat_info_ubicacion
 UNION ALL
@@ -53,12 +61,27 @@ SELECT 'mat_ubicacion_agregada',             3, COUNT(*) FROM bdm_datos.mat_ubic
 UNION ALL
 SELECT 'mat_info_basica (SIN PORTAR)',       4, 0
 UNION ALL
-SELECT 'mat_info_contactabilidad (SIN PORTAR)', 5, 0
+SELECT 'mat_info_contactabilidad (10 de 12 columnas en NULL)', 5, COUNT(*) FROM bdm_datos.mat_info_contactabilidad
 UNION ALL
 SELECT 'mat_info_movilidad (SIN PORTAR)',    6, 0
 UNION ALL
 SELECT 'mat_info_punto_interes (SIN PORTAR)', 7, 0
 ORDER BY 2;
+
+-- EL CONTENIDO DE CONTACTABILIDAD, no solo el conteo. Las dos columnas que
+-- se pueblan lo hacen con un equivalente de OTRA semantica
+-- (ContactEventLastUpdated por fecha de gestion, quien reporto por quien
+-- gestiono), asi que lo que hay que mirar es cuantas filas traen dato.
+SELECT COUNT(*)                                                   AS filas,
+       COUNT(ubicacion_id)                                        AS con_ubicacion,
+       COUNT(fecha_ultimo_contacto)                               AS con_fecha,
+       COUNT(reportado_por)                                       AS con_suscriptor,
+       COUNT(contactabilidad) + COUNT(fecha_gestion)
+         + COUNT(mejor_dia_gestion) + COUNT(mejor_hora_gestion)
+         + COUNT(sector) + COUNT(peso)
+         + COUNT(mejor_resultado_3meses) + COUNT(mejor_resultado_6meses)
+         + COUNT(id)                                              AS en_las_diez_bloqueadas
+FROM   bdm_datos.mat_info_contactabilidad;
 
 -- La traza de la corrida: en que estado quedo cada etapa y con cuantas filas.
 -- Si una etapa sale en cero, aqui se ve CUAL y no hay que deducirlo.

@@ -108,7 +108,13 @@ TRUNCATE TABLE bdm_datos.nov_control_mock;
 --     se queda, igual que en mat_info_ubicacion_mock.
 TRUNCATE TABLE bdm_datos.mat_info_ubicacion_mock;
 TRUNCATE TABLE bdm_datos.mat_info_actividad_economica_mock;
+--   mat_info_contactabilidad_mock: el SP la escribe con TRUNCATE + INSERT
+--     (foto completa, como el DELETE ... ALL de 111.BTQ:820), de modo que
+--     se limpia sola. Entra en esta lista igual: el dia que el contrato
+--     deje de ser foto completa, la segunda pasada de DPLY heredaria filas
+--     y es exactamente lo que cazo NOV-UB-12 en el job #412.
 TRUNCATE TABLE bdm_datos.mat_ubicacion_agregada_mock;
+TRUNCATE TABLE bdm_datos.mat_info_contactabilidad_mock;
 
 -- Contratos de etapa. Los SP los truncan al empezar, igual que el diccionario
 -- de complementos; se vacian aqui por el mismo motivo que aquel: un fallo a

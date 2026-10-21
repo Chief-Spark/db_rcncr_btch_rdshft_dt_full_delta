@@ -89,6 +89,7 @@ TRUNCATE TABLE bdm_datos.nov_control_mock;
 TRUNCATE TABLE bdm_datos.mat_info_ubicacion_mock;
 TRUNCATE TABLE bdm_datos.mat_info_actividad_economica_mock;
 TRUNCATE TABLE bdm_datos.mat_ubicacion_agregada_mock;
+TRUNCATE TABLE bdm_datos.mat_info_contactabilidad_mock;
 TRUNCATE TABLE bdm_tempo.stg_nov_ubica_etapa_9_mock;
 TRUNCATE TABLE bdm_tempo.stg_nov_ubica_etapa_2_mock;
 TRUNCATE TABLE bdm_tempo.stg_nov_acteco_etapa_1_mock;
