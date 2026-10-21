@@ -302,3 +302,51 @@ catálogo, no después.
 - **Lista las 12 columnas**: permite que el del otro lado busque por contenido y no por nombre.
 - **Dice lo que ya verificamos**, para que no nos devuelvan "búsquenlo en el datashare".
 - **Ofrece el "no se va a migrar" como respuesta válida.** Es la que más probablemente es cierta, y si no se ofrece explícitamente nadie la da: se queda el hilo abierto para siempre. Y para nosotros cierra el alcance, que es lo que necesitamos.
+
+### Búsqueda previa en la documentación de Experian (Confluence, 2026-10-21)
+
+**Resultado: en la documentación de EDF/XPM no existe nada equivalente a
+`V_CONTACTABILIDAD`.** Eso no cierra la petición — la decide el equipo de EDF,
+no un buscador — pero sí permite enviarla diciendo que ya buscamos, y hace que
+la respuesta (3) "no se va a migrar" sea la más probable.
+
+Buscado en `experian.atlassian.net` (cloudId `04dacc91-ecc5-4a56-b17f-85904b8c604d`):
+
+| Consulta CQL | Resultado |
+|---|---|
+| `text ~ "V_CONTACTABILIDAD"` | **0 páginas en todo el sitio** |
+| `text ~ "contactabilidad" OR "contactability"` restringido a los espacios de EDF (`EDCLMI` EDF Exodus, `CCBR` Bureau Rebuild) | ninguna página sobre gestión de contacto; las coincidencias son de direcciones y teléfonos |
+| `text ~ "mejor hora" / "mejor dia de gestion" / "bestcontacttime" / "besttimetocontact"` | ninguna coincidencia en EDF |
+| `text ~ "contactabilidad"` en todo el sitio | 25 páginas, **todas de otros productos**: Chile (`SDN152_SNCR7701`, Cobranza Digital), `PP0998` Proceso Especial Contactabilidad (Teradata, personalizado Davibank), e historias de un *índice de contactabilidad* todavía en refinamiento (`SCHDCB-8001`, espacio `SPEPRO`). Ninguna es una fuente de datos de EDF |
+
+**La prueba que cierra el punto es el inventario de la sección
+`contactInformations` de EDF.** El espacio `CCBR` documenta campo por campo el
+contrato Alpha, y esa sección tiene **nueve** páginas hijas, que son nueve
+campos:
+
+| # | Campo | Qué es |
+|---|---|---|
+| 12.1 | `ContactType` | tipo de contacto |
+| 12.2 | `ContactTypeReportedForFirstTime` | código |
+| 12.3 | `ContactAsReported` | el teléfono/correo tal como se reportó |
+| 12.4 | `StateName` | departamento |
+| 12.5 | `CityName` | ciudad |
+| 12.6 | `CityCode` | código de ciudad |
+| 12.7 | `ContactEventLastUpdated` | fecha del último evento |
+| 12.8 | `WebSite` | **NO APLICA (no existe campo en Alpha)** |
+| 12.9 | `ContactFirstEventDate` | fecha del primer evento |
+
+(`https://experian.atlassian.net/wiki/spaces/CCBR/pages/251264536`, hijas
+consultadas el 2026-10-21.)
+
+**Los nueve son el dato de contacto, no la gestión sobre el dato.** Ninguno
+corresponde a `MEJOR_DIA_GESTION`, `MEJOR_HORA_GESTION`, `FECHA_GESTION`,
+`MEJOR_RESULTADO_3MESES`, `MEJOR_RESULTADO_6MESES` ni `PESO`, que es justamente
+lo que `V_CONTACTABILIDAD` aporta y lo que `MAT_INFO_CONTACTABILIDAD` publica.
+Y los siete que sí existen ya los consumimos por `v_xpm_contacto_canal`.
+
+**Consecuencia para el alcance, que es lo que había que decidir:** la meta
+sigue siendo siete tablas dominio, pero **d5 (`mat_info_contactabilidad`) no
+tiene hoy fuente en ningún ambiente**, ni mock ni real, y no es un defecto
+nuestro ni trabajo que podamos hacer. Las otras seis no dependen de esta
+respuesta.

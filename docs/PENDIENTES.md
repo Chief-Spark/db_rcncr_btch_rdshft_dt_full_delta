@@ -32,7 +32,7 @@ Dos consecuencias que reordenan todo el trabajo:
 - [x] ~~`mat_ubicacion_agregada` (d3)~~ — portada **en mock**
 - [ ] **`mat_info_basica` (d4)** — la única de las cuatro que falta y podemos hacer. Género, estado del documento y tipo de identificación decididos (D-EDF-13, D-EDF-14); espera **C37**
 - [ ] `mat_info_punto_interes` (d7) — falta el nombre del punto de interés, que el contrato de distancias no persiste
-- [ ] `mat_info_contactabilidad` (d5) — **no existe en `edf_views`**, verificado. Petición a Experian
+- [ ] `mat_info_contactabilidad` (d5) — **sin fuente en ningún ambiente.** No está en `edf_views` (verificado) y **tampoco en la documentación de EDF**: la sección `contactInformations` del contrato Alpha tiene nueve campos y los nueve son el dato de contacto, no la gestión (Confluence `CCBR`, 2026-10-21). Petición redactada y lista para enviar en `docs/PETICION_CATALOGOS_NOVEDADES.md`
 - [ ] `mat_info_movilidad` (d6) — depende íntegro del proceso **P0029**, sin migrar. No es nuestro
 
 **Techo sin terceros: 4 de 7.**
@@ -76,7 +76,7 @@ Dos consecuencias que reordenan todo el trabajo:
 ## 4. Mensaje único a Experian
 
 - [ ] **`bestAccounts` está vacío**: 146 de 98.586 personas (0,15 %) tienen cuenta (D-EDF-15)
-- [ ] **Contactabilidad** (`V_CONTACTABILIDAD`, `VstgUbiContactabilidad`): bloquea la tabla dominio d5
+- [ ] **Contactabilidad** (`V_CONTACTABILIDAD`, `VstgUbiContactabilidad`): bloquea la tabla dominio d5 y dos reglas del Ordenamiento. **Ya buscado en Confluence: EDF no documenta nada equivalente.** El texto a enviar está escrito
 - [ ] **Movilidad y puntos de interés**: el proceso P0029 y el nombre del punto de interés. Bloquean d6 y d7
 - [ ] Tres columnas de la Fase 2 sin fuente confirmada: `cod_tipo_obligacion_fte`, `numero_dias_mora` y el tipo `'A'`/`'P'`
 - [ ] Severidad 2 de cuenta · `businessIdStatus` = `00` · score de suscriptor · `contactType` 12 · lo que C37 no cierre
