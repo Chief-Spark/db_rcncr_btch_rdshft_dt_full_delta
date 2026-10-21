@@ -587,3 +587,70 @@ SELECT w.query, w.state,
 FROM stv_wlm_query_state w
 LEFT JOIN stv_inflight i ON i.query = w.query
 ORDER BY w.wlm_start_time;
+
+-- ============================================================
+-- C33 v2 (2026-10-21): LA LLAVE DE CUENTA CASA? Misma pregunta que C33,
+-- reescrita para que corra rapido: en vez de cruzar cada reporte con todas
+-- las cuentas de la persona y agrupar, une por igualdad contra listas
+-- DISTINCT (sin fan-out). Las llaves se normalizan igual que la vista
+-- bdm_tempo.v_xpm_cuenta_bloqueada (TRIM + NULLIF sobre ::VARCHAR), que es
+-- lo que importa: si casa aqui, casa en la vista. Solo conteos.
+--   persona_con_cuentas = 0 en casi todo  -> DEV trae pocas cuentas
+--   casa_numero o casa_sin_ceros = 1 con casa_llave = 0 -> formato de llave
+-- Conexion de Reconocer (datashare).
+-- ============================================================
+WITH ba AS (
+  SELECT DISTINCT
+         ba.id                                                              AS ba_id,
+         NULLIF(TRIM(ba."bestaccounts.val.businesslinecode"::VARCHAR), '')  AS linea,
+         NULLIF(TRIM(ba."bestaccounts.val.accounttype"::VARCHAR), '')       AS tipo,
+         NULLIF(TRIM(ba."bestaccounts.val.accountnumber"::VARCHAR), '')     AS num,
+         NULLIF(TRIM(ba."bestaccounts.val.personidtype"::VARCHAR), '')      AS tipo_doc,
+         NULLIF(TRIM(ba."bestaccounts.val.personidnumber"::VARCHAR), '')    AS num_doc
+  FROM ds_dba_rncr_batch.edf_views.xpm_bestaccounts ba
+  WHERE ba."index" IS NOT NULL
+), rep AS (
+  SELECT x."bestaccounts"                                                    AS ba_id,
+         loc."location.val.typeofdata"::VARCHAR                              AS typeofdata,
+         NULLIF(TRIM(loc."location.val.businesslinecode"::VARCHAR), '')      AS linea,
+         NULLIF(TRIM(loc."location.val.accounttype"::VARCHAR), '')           AS tipo,
+         NULLIF(TRIM(loc."location.val.accountnumber"::VARCHAR), '')         AS num,
+         NULLIF(TRIM(loc."location.val.personidtype"::VARCHAR), '')          AS tipo_doc,
+         NULLIF(TRIM(loc."location.val.personidnumber"::VARCHAR), '')        AS num_doc
+  FROM ds_dba_rncr_batch.edf_views.xpm x
+  JOIN ds_dba_rncr_batch.edf_views.xpm_location loc
+    ON loc.id = x."location"
+   AND loc."index" IS NOT NULL
+  WHERE loc."location.val.typeofdata" IN (1, 2)
+)
+SELECT r.typeofdata,
+       CASE WHEN p.ba_id IS NOT NULL THEN 1 ELSE 0 END AS persona_con_cuentas,
+       CASE WHEN k.ba_id IS NOT NULL THEN 1 ELSE 0 END AS casa_llave,
+       CASE WHEN n.ba_id IS NOT NULL THEN 1 ELSE 0 END AS casa_numero,
+       CASE WHEN z.ba_id IS NOT NULL THEN 1 ELSE 0 END AS casa_sin_ceros,
+       COUNT(*)                                        AS reportes
+FROM rep r
+LEFT JOIN (SELECT DISTINCT ba_id FROM ba) p
+  ON p.ba_id = r.ba_id
+LEFT JOIN (SELECT DISTINCT ba_id, linea, tipo, num, tipo_doc, num_doc FROM ba) k
+  ON k.ba_id = r.ba_id AND k.linea = r.linea AND k.tipo = r.tipo
+ AND k.num = r.num AND k.tipo_doc = r.tipo_doc AND k.num_doc = r.num_doc
+LEFT JOIN (SELECT DISTINCT ba_id, num FROM ba) n
+  ON n.ba_id = r.ba_id AND n.num = r.num
+LEFT JOIN (SELECT DISTINCT ba_id, LTRIM(num, '0') AS num0, LTRIM(tipo, '0') AS tipo0 FROM ba) z
+  ON z.ba_id = r.ba_id AND z.num0 = LTRIM(r.num, '0') AND z.tipo0 = LTRIM(r.tipo, '0')
+GROUP BY 1, 2, 3, 4, 5
+ORDER BY 1, 6 DESC;
+
+-- ============================================================
+-- C35 (2026-10-21): LA LISTA DE LOS 321 CATALOGOS DE COLLIBRA. Solo el
+-- nombre de cada catalogo y cuantas filas trae, sin contenido. Sirve para
+-- cruzarla con lo que todavia pedimos a Experian (CIIU, tipo de
+-- identificacion, zona, tipo de via, indicativo, tipo de correo...): lo que
+-- este aqui se lee sin preguntar a nadie. Correr en dba_batch_DEV.
+-- ============================================================
+SELECT REGEXP_REPLACE(code, '[[:space:]]+$', '') AS catalogo,
+       COUNT(*)                                  AS filas
+FROM bdm_datos.collibra_catalogs_output
+GROUP BY 1
+ORDER BY 1;
