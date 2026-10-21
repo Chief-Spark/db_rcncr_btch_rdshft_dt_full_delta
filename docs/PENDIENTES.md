@@ -17,7 +17,8 @@ Todas están al final de `edf_views/consultas_perfilado_edf_2026-10-20.sql`. Sol
 
 | # | Qué mide | Conexión | Qué decide |
 |---|---|---|---|
-| **C33 v2** | si la llave de cuenta del reporte casa con `xpm_bestaccounts` (reescrita para que corra rápido) | Reconocer | conectar la F2 real (`v_xpm_cuenta`) y saber si el bloqueo de cuenta ve todas las cuentas |
+| ~~C33 v2~~ | **hecha:** la llave completa casa en el 4 % y el número de cuenta en el 81 %. Es formato | — | — |
+| **C33b** | cuál de los cinco campos de la llave viene con otro formato | Reconocer | corregir la llave del bloqueo de cuenta y conectar la F2 real |
 | **C35** | la lista de los 321 catálogos de Collibra (solo nombre y filas) | `dba_batch` | qué pedidos de la §3 se cierran solos, sin preguntar a Experian |
 
 ## 3. Preguntas a Experian (un solo mensaje)
@@ -48,8 +49,8 @@ Antes de enviarlo, correr la C35: los puntos 7 y 8 pueden estar ya en Collibra.
 |---|---|---|---|
 | 1 | Verificar el bloqueo de cuenta y el score en el banco (dos pasadas) | corriendo | — |
 | 2 | Ranking por canal (D-ORD-10) | análisis listo; previsión: cero cambios de estado en el tablero | T1 |
-| 3 | Novedades: fuente (D-NOV-03), ciudad y departamento en `''` (D-NOV-05), universo de Actividad Económica (D-NOV-06) | listo para empezar | — |
-| 4 | F2 real: conectar `v_xpm_cuenta` a `xpm_bestaccounts` | espera | C33 v2 |
+| 3 | Novedades: ~~ciudad y departamento en `''` (D-NOV-05)~~ **hecho**; fuente (D-NOV-03) y universo de Actividad Económica (D-NOV-06) | en curso | la fuente necesita tu OK a la homologación |
+| 4 | Llave de cuenta: normalizar el campo que falle en el bloqueo de cuenta; luego conectar la F2 real (`v_xpm_cuenta`) | espera | C33b |
 | 5 | Info Básica (d4): género, estado del documento, tipo de identificación | espera | C35 y la pregunta 2 |
 | 6 | Observabilidad (F3 del plan) | espera | T3 |
 | 7 | Renombrado de SP reales al patrón `sp_rcn_*` (F4 del plan) | al final | — |

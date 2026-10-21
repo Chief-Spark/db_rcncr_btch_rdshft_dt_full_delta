@@ -654,3 +654,63 @@ SELECT REGEXP_REPLACE(code, '[[:space:]]+$', '') AS catalogo,
 FROM bdm_datos.collibra_catalogs_output
 GROUP BY 1
 ORDER BY 1;
+
+-- ============================================================
+-- C33b (2026-10-21): QUE CAMPO DE LA LLAVE NO CASA. C33 v2 dio que el
+-- numero de cuenta casa en 5.471 de los 6.850 reportes de suscriptor, pero la
+-- llave completa de cinco campos solo en 278. Para los pares que casan por
+-- numero, compara campo por campo: igual, igual sin ceros a la izquierda, o
+-- distinto. Mas el largo de linea y tipo de cuenta en cada lado, que son
+-- codigos de entidad y de producto, no datos personales. Del documento solo
+-- se compara, nunca se muestra. Conexion de Reconocer.
+-- ============================================================
+WITH ba AS (
+  SELECT DISTINCT
+         ba.id                                                              AS ba_id,
+         NULLIF(TRIM(ba."bestaccounts.val.businesslinecode"::VARCHAR), '')  AS linea,
+         NULLIF(TRIM(ba."bestaccounts.val.accounttype"::VARCHAR), '')       AS tipo,
+         NULLIF(TRIM(ba."bestaccounts.val.accountnumber"::VARCHAR), '')     AS num,
+         NULLIF(TRIM(ba."bestaccounts.val.personidtype"::VARCHAR), '')      AS tipo_doc,
+         NULLIF(TRIM(ba."bestaccounts.val.personidnumber"::VARCHAR), '')    AS num_doc
+  FROM ds_dba_rncr_batch.edf_views.xpm_bestaccounts ba
+  WHERE ba."index" IS NOT NULL
+), rep AS (
+  SELECT x."bestaccounts"                                                    AS ba_id,
+         loc."location.val.typeofdata"::VARCHAR                              AS typeofdata,
+         NULLIF(TRIM(loc."location.val.businesslinecode"::VARCHAR), '')      AS linea,
+         NULLIF(TRIM(loc."location.val.accounttype"::VARCHAR), '')           AS tipo,
+         NULLIF(TRIM(loc."location.val.accountnumber"::VARCHAR), '')         AS num,
+         NULLIF(TRIM(loc."location.val.personidtype"::VARCHAR), '')          AS tipo_doc,
+         NULLIF(TRIM(loc."location.val.personidnumber"::VARCHAR), '')        AS num_doc
+  FROM ds_dba_rncr_batch.edf_views.xpm x
+  JOIN ds_dba_rncr_batch.edf_views.xpm_location loc
+    ON loc.id = x."location"
+   AND loc."index" IS NOT NULL
+  WHERE loc."location.val.typeofdata" IN (1, 2)
+)
+SELECT r.typeofdata,
+       CASE WHEN r.linea = b.linea THEN 'igual'
+            WHEN LTRIM(r.linea, '0') = LTRIM(b.linea, '0') THEN 'ceros'
+            WHEN r.linea IS NULL OR b.linea IS NULL THEN 'nulo'
+            ELSE 'distinto' END                                AS linea,
+       CASE WHEN r.tipo = b.tipo THEN 'igual'
+            WHEN LTRIM(r.tipo, '0') = LTRIM(b.tipo, '0') THEN 'ceros'
+            WHEN r.tipo IS NULL OR b.tipo IS NULL THEN 'nulo'
+            ELSE 'distinto' END                                AS tipo,
+       CASE WHEN r.tipo_doc = b.tipo_doc THEN 'igual'
+            WHEN LTRIM(r.tipo_doc, '0') = LTRIM(b.tipo_doc, '0') THEN 'ceros'
+            WHEN r.tipo_doc IS NULL OR b.tipo_doc IS NULL THEN 'nulo'
+            ELSE 'distinto' END                                AS tipo_doc,
+       CASE WHEN r.num_doc = b.num_doc THEN 'igual'
+            WHEN LTRIM(r.num_doc, '0') = LTRIM(b.num_doc, '0') THEN 'ceros'
+            WHEN r.num_doc IS NULL OR b.num_doc IS NULL THEN 'nulo'
+            ELSE 'distinto' END                                AS num_doc,
+       LEN(r.linea) AS len_linea_rep, LEN(b.linea) AS len_linea_cta,
+       LEN(r.tipo)  AS len_tipo_rep,  LEN(b.tipo)  AS len_tipo_cta,
+       COUNT(*)                                                AS pares
+FROM rep r
+JOIN ba b
+  ON b.ba_id = r.ba_id
+ AND b.num   = r.num
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
+ORDER BY 1, 10 DESC;

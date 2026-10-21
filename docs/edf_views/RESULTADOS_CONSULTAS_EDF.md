@@ -570,6 +570,18 @@ Alpha es el pipeline de ingesta que llena el XPM. Lectura de solo consulta; no s
 - **Por qué la severidad 2 es la duda:** Alpha mete en ella dos indicadores que el legado trata al revés. El 8 (cuenta bloqueada por un reclamo sin solución) *"no se muestra en la Historia de Crédito"*; el 9 (cuenta sin validar ante la Registraduría) *"sí se muestra"* (`legado_teradata/reconocer/catalogos/BDM_VISTA - V_Razon_Bloqueo.csv`, códigos 8 y 9). Ocultar la severidad 2 entera esconde los 9, que el legado muestra; mostrarla entera deja pasar los 8, que oculta. Con la severidad sola no se pueden separar.
 - **`xpm_bestaccounts` trae además `blockreason`** (`svv_all_columns_2026-10-20.csv:612`). Si ahí viene el indicador de 0 a 9, la severidad 2 se separa sin preguntar a Experian: el 8 se oculta y el 9 se muestra, igual que el legado. **C34** lo mide.
 - **C34 v2 (DEV, 2026-10-21): `blockreason` NO separa la severidad 2.** 98.440 filas vacías (arreglos sin cuenta); severidad 1: 49 con razón `0` y 3 con razón `2`; severidad 2: 25, todas con razón `0`. La razón no es el indicador de 0 a 9 (HIPÓTESIS: es la del catálogo 28, donde 0 = activo y 2 = fuerza mayor) y no hay otra columna de bloqueo en `xpm_bestaccounts` (`svv_all_columns_2026-10-20.csv:591-658`). **Se queda la regla actual**: se oculta solo la severidad 1, que es lo que Experian aplica a sus productos. Las 25 cuentas de severidad 2 van a la pregunta a Experian: ¿en qué campo viene el indicador 8 o 9?
+
+**C33 v2 (DEV, 2026-10-21): la llave de cuenta NO casa por formato, no por falta de cuentas.**
+
+| `typeofdata` | Reportes | La persona tiene cuentas | Casa la llave de 5 campos | Casa solo por número (y tipo sin ceros) | No casa nada |
+|---|---|---|---|---|---|
+| 1 (crédito) | 4.417 | 4.413 | **213** | 3.704 + 51 | 445 |
+| 2 (corriente y ahorro) | 2.433 | 2.433 | **65** | 1.767 + 2 | 599 |
+
+- **Casi todas las personas tienen cuentas** (6.846 de 6.850): no es que DEV traiga pocas.
+- **La llave completa casa en 278 reportes (4 %); el número de cuenta, en 5.524 (81 %).** Uno de los otros cuatro campos (línea, tipo de cuenta, tipo o número de documento) viene con otro formato.
+- **Impacto:** `v_xpm_cuenta_bloqueada` une por los cinco campos exactos, así que hoy ve como mucho el 4 % de las cuentas. Los 35 reportes ocultos de la C31 son un piso, no el total. Lo mismo pasaría con la F2 real si se conecta con esa llave.
+- **C33b** dice qué campo es. Sin ese dato no se cambia la llave.
 - 3, 6 y 17 no tienen cuenta, como se esperaba: Cámara de Comercio, cliente y contactos.
 - **Solo casan 278 de los 6.850 reportes de suscriptor (4 %).** Puede ser que DEV traiga pocas cuentas (§11: 7.759 cuentas reales) o que la llave no case por formato. **C33** lo distingue antes de dar el bloqueo por bueno.
 
