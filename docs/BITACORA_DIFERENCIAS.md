@@ -114,3 +114,53 @@ El RF describe algo distinto de lo que hace el código Teradata. El repo sigue a
 | D-EDF-14 | Género | `V_GENERO.COD_GENERO_FTE`, primera letra (`M` / `F`) | no se lee | b | **IMPLEMENTADO** (2026-10-21) | `xpm."bestpersonalinformation.gender"` con el catálogo `93_GENDER_HO` (C32c): 0 desconocido, 1 masculino, 2 femenino, 3 no binario, 4 indefinido, 9 no aplica. **Usuario, 2026-10-21: 1 → M, 2 → F, 3 → O; el resto (0, 4, 9 y NULL) → vacío.** El `O` es un valor nuevo frente al AS-IS, que solo conocía M y F; el 4 va vacío aunque Collibra lo homologue a `-`. Implementado en `v_xpm_persona_basica`. Medido en el banco: las cuatro ramas con 2.500 filas cada una |
 | D-EDF-15 | **Llave de cuenta y cobertura de `bestaccounts`** | la Fase 2 une la ubicación a la cuenta por `Cod_DW_Cta` (`Caracteristicas.txt:226`) | `v_xpm_cuenta_bloqueada` une por el contenedor más los cinco campos de Data Provisioning (`02_vistas_insumo_edf_views.sql:31-42` y `:226-232`) | c | **DECIDIDA → la llave es correcta; el dato no está** | C33b: ni un solo `ceros` ni `nulo` en 5.977 pares y longitudes iguales, **no es formato**. C39 (productor): el contenedor **NO es compartido** — 98.586 contenedores, todos con exactamente UNA persona, así que la hipótesis del contenedor queda **descartada**. La causa real es otra: `xpm_bestaccounts` trae **7.759 filas en solo 146 contenedores distintos**, o sea que **146 de 98.586 personas (0,15 %) tienen alguna cuenta**. Los 278 reportes que casan salen de esas 146. Dentro de un contenedor de ~53 cuentas, el número de cuenta se repite entre suscriptores: por eso al unir solo por número suben a 5.802 y difieren `businesslinecode` y `personidnumber`. Es colisión esperada, no un defecto. **Decisión (usuario, 2026-10-21): la F2 real se queda parada** y `v_xpm_cuenta` sigue en stub de cero filas (`MAPEO_DESBLOQUEO_DATASHARE_ORDENAMIENTO.md:184-188`). Lo que se pide a Experian ya no es la llave: es **cuándo se puebla `bestaccounts`** |
 | D-EDF-16 | **La gestión de registro: el legado tiene la rama `NO VALIDA` muerta y nosotros sí la producimos** | el divisor de `DIR010FI`/`DIR013OT` excluye `'NO VALIDA'` (`CAR` CR1791-1793) y Novedades filtra `'VALIDA'` (`NOV:7679-7680`) | **el predicado existe y es exactamente el nuestro**, pero la columna **nunca toma ese valor**: `Estandarizacion.sql:6740-6743` calcula `DIR_ESTADO` con **la misma condición en los dos `WHEN`** (`WHEN Est.Cod_DW_Reporte_Ubic_Original IS NOT NULL THEN 'VALIDA'` y otra vez la misma para `'NO VALIDA'`, `ELSE 'SV'`), de modo que la segunda rama es **inalcanzable**; y el `LEFT JOIN` a `tmp_Direcc_No_Validas` (`:6751`) -- la tabla que sí tiene las inválidas y sí se llena (`:1602`) -- **no se lee en ninguna parte**: el alias `NoVal` aparece una sola vez en 11.049 líneas. Resultado: la columna solo vale `VALIDA` o `SV`, y el divisor **no excluye nada** | **el divisor es un port LITERAL** (`sp_ordenamiento_scoring_dir_edf.sql:64-65` contra `CAR` CR1791-1793: mismo `CASE`, mismo `OR ... IS NULL`), y `descripcion_gestion_registro` **sí** toma `'NO VALIDA'` porque la derivamos del score de estandarización de EDF (D-EDF-12) | b | **APROBADA (usuario, 2026-10-21): se deja como está** | **No es un defecto de port: es una mejora sobre un defecto del legado.** El código del divisor coincide carácter por carácter; lo que cambia es el DATO, porque EDF distingue direcciones inválidas y Teradata no podía. Consecuencia asumida: somos más estrechos que el AS-IS en el divisor de DIR, y eso sube `DIR010FI` y `DIR013OT`. **Se descartó reproducir el bug**: haría que el filtro de Novedades dejara de excluir las direcciones inválidas, donde hoy funciona bien -- se arreglaría una cosa y se rompería otra. El mismo predicado está en el divisor de CEL (`CAR` CR1803-1805), así que la decisión vale para los dos canales. *(Una versión anterior de esta fila decía que el defecto era nuestro y que había que dejar de excluir en el divisor. Era falso: el divisor es fiel y el valor se fabrica aguas arriba.)* |
+
+## Medido en el datashare: estrato, barrio y codigo postal (2026-10-21)
+
+**Hallazgo: tres de las cuatro columnas que dabamos por bloqueadas por el
+contrato GEO existen en el datashare y nunca las habiamos leido.** No contradice
+la peticion del contrato GEO -- esas cuatro siguen sin pinar --: lo que aparece
+es una **segunda fuente**, la que reportan los suscriptores, en `xpm_location` y
+en `xpm_location_val_contactinformations`. Es el mismo patron que
+`location.val.accounttype`, que desbloqueo `CEL019` y `EMA021`.
+
+| Columna del legado | Columna del datashare | Tabla |
+|---|---|---|
+| `ESTRATO` | `location.val.stratum` | `xpm_location` |
+| `BARRIO` | `...contactinformations.val.contactneighborhood` | `xpm_location_val_contactinformations` |
+| `CODIGO_POSTAL` | `...contactinformations.val.contactzipcode` | idem |
+| `LOCALIDAD` / comuna | **no existe** | buscado en el inventario de 1.072 columnas y en Confluence (`CCBR`, `EDCLMI`) |
+
+**Y MEDIDO, QUE ES LO QUE CAMBIA LA DECISION.** Dos ambientes, consultas
+corridas por el usuario el 2026-10-21:
+
+| Columna | Ambiente A | Ambiente B |
+|---|---|---|
+| `contactneighborhood` | 90.481 de 568.657 (**15,9 %**) | 10.237 de 524.948 (1,9 %) |
+| `contactzipcode` | 67.599 de 568.657 (11,9 %) | **26 de 524.948 (0,005 %)** |
+| `stratum` | **113 de 146.724 (0,08 %)**, 7 valores distintos | **1.484 de 198.736 (0,75 %)**, 7 valores distintos |
+
+**`stratum` ES EL PATRON `bestAccounts` EN ESTADO PURO.** La semantica es
+correcta -- siete valores distintos en los dos ambientes, que es lo que se
+espera de un estrato 1..6 mas centinela --, de modo que la columna no esta mal
+mapeada: esta **vacia**. Con 0,08 % y 0,75 % de cobertura, comparar el estrato
+de una persona antes y despues compara NULL con NULL en el 99 % de los casos.
+
+**CONSECUENCIA, Y ES UNA DECISION: `CambioEstrato` de Movilidad (d6) NO se
+porta.** Con esa cobertura el indicador diria "no cambio de estrato" para todo
+el universo, que es falso: la verdad es "no se sabe". Es el mismo error que
+`NOV-UB-12` y que las columnas `por_*` del censo de Ordenamiento. **Movilidad se
+queda en 2 de 4 indicadores** (Cambio de Direccion y Cambio de Ciudad), no en 3
+de 4 como se dijo antes de medir.
+
+**LO QUE SI VALE LA PENA CABLEAR: `contactneighborhood`.** 15,9 % en el
+ambiente A es dato esparcido pero real, y hoy escribimos NULL en
+`stg_nov_ubica_etapa_9.barrio` y en `mat_ubicacion_agregada.ubicacion_barrio`
+dando por hecho que solo podia venir de GEO. Queda como trabajo, con la regla de
+siempre: donde no hay dato va NULL y nunca un valor por defecto.
+
+**ADVERTENCIA SOBRE LOS DOS AMBIENTES, que es un hallazgo aparte:** la misma
+columna da 11,9 % en A y 0,005 % en B. Antes de usar cualquiera de las tres hay
+que saber cual de los dos ambientes es el que va a produccion. Las 568.657 filas
+de A coinciden con la cifra de DEV ya documentada (568.657 filas para 142.067
+ids), de modo que A parece DEV; **no esta confirmado**.
