@@ -115,9 +115,19 @@ cmd_init() {
   sql "$BD" "ALTER DATABASE $BD SET search_path = \"\$user\", public, rs;"
   sql "$BD" "ALTER DATABASE $BD SET plan_cache_mode = force_custom_plan;"
   "${PSQL[@]}" -d "$BD" -v ON_ERROR_STOP=1 -f "$BANCO/shims.sql" || exit 1
+  # EL STUB TIENE QUE CUBRIR TODO ARCHIVO QUE LEA EL DATASHARE, no solo los
+  # dos primeros. El 04 se anadio el 2026-10-21, cuando v_xpm_cuenta dejo de
+  # ser un stub de cero filas y paso a leer xpm_bestaccounts y su tabla de
+  # comportamiento: sin esta linea la fase strct moria, y lo hacia con un
+  # error ENGANOSO -- el banco reintenta los archivos que fallan, de modo que
+  # en la segunda pasada el DROP TABLE de la cabecera del 04 se encontraba con
+  # las vistas que el propio archivo habia creado en la primera y reportaba
+  # "insumo_direccion is not a table" en la linea 49, a 200 lineas del fallo
+  # real.
   python3 -I "$BANCO/stub_datashare.py" \
     "$(paq_de "$STRCT")/SQL/02_vistas_insumo_edf_views.sql" \
     "$(paq_de "$STRCT")/SQL/03_vistas_contacto_canal_edf_views.sql" \
+    "$(paq_de "$STRCT")/SQL/04_vistas_insumo_ordenamiento_edf_views.sql" \
     > "$OUT/stub_datashare.sql" || exit 1
   "${PSQL[@]}" -d "$BD" -v ON_ERROR_STOP=1 -f "$OUT/stub_datashare.sql" || exit 1
   # Los esquemas bdm_* NO se precrean: los crea el DDL del repo, y asi el banco
