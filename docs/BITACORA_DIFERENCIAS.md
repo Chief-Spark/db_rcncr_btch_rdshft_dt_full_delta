@@ -18,7 +18,11 @@ Exigida por el RF de Ordenamiento (G-01 a G-03, CA-M02) y aplicada a los cuatro 
 - `APROBADA`: aprobada por el área funcional (G-02).
 - `CERRADA`: resuelta, sin diferencia.
 
-**Responsable:** quien tomó la decisión. "Usuario (sesión)" es una decisión tomada por el líder técnico durante la sesión de trabajo. **Ninguna fila está APROBADA todavía**: la aprobación funcional está pendiente para todas.
+**Responsable:** quien tomó la decisión. "Usuario (sesión)" es una decisión tomada por el líder técnico durante la sesión de trabajo.
+
+**ESTA BITÁCORA ES PARTE DE LA ENTREGA, no un anexo.** La meta del proyecto no es que Redshift dé un resultado idéntico a Teradata, sino **similar, con cada diferencia decidida y escrita** (usuario, 2026-10-21). Así que una diferencia que aparezca con datos reales no bloquea: se decide, se documenta aquí con su cita, y se sigue.
+
+*(Esta nota decía antes "Ninguna fila está APROBADA todavía". Dejó de ser cierto: el usuario ha aprobado varias en sesión -- el umbral `>= 0.80` de D-EDF-12, el género de D-EDF-14, D-EDF-16 y las tandas T1 a T5 --. Lo que sigue en pie es que la aprobación FORMAL del área funcional (G-02) está pendiente para todas.)*
 
 Prefijos de evidencia: `CAR` = `legado_teradata/reconocer/ordenamiento/Caracteristicas.txt` (numeración CR+LF salvo que diga LF), `NOV` = `…/novedades/DB/Novedad.sql`, `UNI` = `…/unificacion/DB/Unificacion.sql`.
 

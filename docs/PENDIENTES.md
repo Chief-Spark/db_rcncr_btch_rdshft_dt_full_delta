@@ -12,12 +12,13 @@ Dos consecuencias que reordenan todo el trabajo:
 
 1. **No hace falta producción.** DEV o QA con datos reales cuentan.
 2. **La medida de avance son las 7 tablas dominio pobladas con datos reales.** No el tablero mock, no la paridad contra Teradata, no los nombres de los SP.
+3. **La bitácora es parte de la entrega.** El resultado no será idéntico al de Teradata y no se pretende que lo sea: cada diferencia que aparezca con datos reales se decide y se escribe en `BITACORA_DIFERENCIAS.md` con su cita. **Hoy van 29 diferencias: 15 ABIERTA, 13 DECIDIDA, 1 CERRADA.** Las 15 abiertas son el verdadero backlog de decisiones, y cerrarlas es tan entregable como poblar una tabla.
 
 ### Lo que esto saca del camino crítico
 
 | | Por qué se baja de prioridad |
 |---|---|
-| **Paridad contra Teradata** (muestra del mismo corte, RF G-05) | deseable y sigue pedida, pero **no es condición de entrega** |
+| **Paridad contra Teradata** (muestra del mismo corte, RF G-05) | **no va a ser idéntico, va a ser similar** (usuario, 2026-10-21). Las diferencias se deciden y se documentan según aparezcan; la muestra sigue pedida pero **no es condición de entrega ni bloquea** |
 | **Renombrado `sp_rcn_*`** | cosmético: no acerca ni una tabla dominio. Queda en 11 de 45 y **se para ahí** |
 | **El Ordenamiento dentro del gate** | no entrega ninguna tabla |
 | **El tablero mock en verde** | es la red de seguridad, no la meta. Ya está en 174 / 63 / 217 |
