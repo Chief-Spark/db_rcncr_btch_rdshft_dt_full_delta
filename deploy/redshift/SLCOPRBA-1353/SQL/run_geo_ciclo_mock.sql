@@ -20,6 +20,30 @@
 
 CALL bdm_datos.sp_cert_geo_mock();
 
+-- ------------------------------------------------------------
+-- Y AHORA SI, LA TABLA DOMINIO d7 (2026-10-21).
+-- mat_info_punto_interes se alimenta de geo_distancias, que en la via mock
+-- no existe hasta que el ciclo de arriba la carga. El orquestador de
+-- Novedades tiene su etapa 'punto_interes' igual que en la via real -- la
+-- paridad no se rompe --, pero en mock corre DENTRO del e2e, o sea ANTES de
+-- este ciclo, y registra cero con razon: en ese instante no hay distancias.
+--   Esto no es un parche al orden: es la consecuencia de que el ciclo GEO
+--   mock tenga que correr entre la convergencia y el tablero (si corriera
+--   dentro del e2e, CA-01 se caeria por un efecto de orden). En la via REAL
+--   no hace falta nada de esto: sp_rcn_geo_02_buscar_resultados carga las
+--   distancias dentro del ciclo de Unificacion, antes de Novedades.
+-- ------------------------------------------------------------
+CALL bdm_datos.sp_novedades_punto_interes_mock(1356604);
+
+SELECT 'd7 mat_info_punto_interes_mock' AS tabla,
+       COUNT(*)                         AS filas,
+       COUNT(DISTINCT ubicacion_id)     AS ubicaciones,
+       COUNT(nombre)                    AS con_nombre,
+       COUNT(distancia)                 AS con_distancia,
+       COUNT(tipo) + COUNT(nombre_entidad) + COUNT(nit_entidad)
+                                        AS en_las_tres_bloqueadas
+FROM   bdm_datos.mat_info_punto_interes_mock;
+
 -- Resumen legible en la consola del job, con la misma forma que el resto de
 -- los gates de la bateria.
 SELECT criterio, estado, LEFT(detalle, 160) AS detalle

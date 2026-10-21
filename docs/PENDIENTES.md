@@ -31,11 +31,11 @@ Dos consecuencias que reordenan todo el trabajo:
 - [x] ~~`mat_info_actividad_economica` (d2)~~ — portada **en mock**
 - [x] ~~`mat_ubicacion_agregada` (d3)~~ — portada **en mock**
 - [x] ~~**`mat_info_basica` (d4)**~~ — **19 de 22 columnas pobladas** (D-NOV-09). No se portaron las doce etapas: en EDF la elección del registro más confiable ya viene hecha (`bestName`, `bestIdentifications`, `bestPersonalInformation`), misma forma que la Fase 1 del Ordenamiento. **Ya no espera C37**: el catálogo solo falta para `TIPO_IDENTIFICACION`, y el código sí se puebla. Género (D-EDF-14) y estado del documento (D-EDF-13) implementados. Medido en el banco: 10.000 filas = 10.000 personas, las cuatro ramas del género con 2.500 cada una, cero valores en las tres bloqueadas, tableros intactos
-- [ ] `mat_info_punto_interes` (d7) — falta el nombre del punto de interés, que el contrato de distancias no persiste
+- [x] ~~`mat_info_punto_interes` (d7)~~ — **7 de 10 columnas pobladas** (D-NOV-11, D-NOV-12). **La nota que lo bloqueaba era falsa**: decía que *"el contrato de distancias no persiste el nombre"* y el contrato sí lo trae, en `col08`; era nuestra `geo_distancias` la que no tenía columna (D-GEO-08, corregido). Las tres que faltan: `TIPO` (un join en cuanto llegue `V_Hom_Tipo_Pto_Int_Linea`) y `NOMBRE_ENTIDAD` / `NIT_ENTIDAD`, que no viajan en el contrato — petición, no código. De paso **las distancias entraron a la vía mock**, que no las tenía. Medido: 2.000 filas / 1.000 ubicaciones (el 1:N se ejercita), 2.000 ids sin colisión, cero valores en las tres bloqueadas, **los cinco criterios GEO intactos** y tableros en 174 / 63
 - [x] ~~`mat_info_contactabilidad` (d5)~~ — **se entrega con 2 de 12 columnas pobladas** (D-NOV-08, decisión del usuario 2026-10-21): `fecha_ultimo_contacto` y `reportado_por` con el equivalente de EDF y **otra semántica**; las otras diez en NULL porque no existe la fuente de gestión. Medido en el banco: 9.600 filas, cero valores en las diez bloqueadas, tableros intactos. **La petición de `V_CONTACTABILIDAD` sigue abierta** y es lo que convierte estas dos columnas en doce
 - [ ] `mat_info_movilidad` (d6) — depende íntegro del proceso **P0029**, sin migrar. No es nuestro
 
-**Techo sin terceros: 6 de 7** — contando d5 como entregada con el alcance reducido que decidió el usuario, no como resuelta.
+**Techo sin terceros: 6 de 7** — d1, d2, d3, d4, d5 y d7. La única que falta es d6 (movilidad), que depende del proceso P0029 y no es nuestra. — contando d5 como entregada con el alcance reducido que decidió el usuario, no como resuelta.
 
 ### Y el agujero que esto destapa
 

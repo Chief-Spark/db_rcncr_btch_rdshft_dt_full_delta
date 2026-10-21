@@ -119,7 +119,17 @@ TRUNCATE TABLE bdm_datos.mat_ubicacion_agregada_mock;
 --     corrida escribe, el reset lo borra, y el dia que el contrato deje de
 --     ser foto completa la segunda pasada de DPLY heredaria filas.
 TRUNCATE TABLE bdm_datos.mat_info_contactabilidad_mock;
+--   mat_info_punto_interes_mock, geo_distancias_mock y
+--     mock_geo_distancias: el dominio d7 y su fuente. Las tres entran
+--     por la regla de siempre -- lo que una corrida escribe, el reset lo
+--     borra --, y las dos de GEO ademas porque el cargador de distancias
+--     reemplaza POR LOTE: filas de un lote viejo sobrevivirian a la
+--     segunda pasada de DPLY y d7 publicaria puntos de interes que la
+--     corrida en curso no produjo.
 TRUNCATE TABLE bdm_datos.mat_info_basica_mock;
+TRUNCATE TABLE bdm_datos.mat_info_punto_interes_mock;
+TRUNCATE TABLE bdm_datos.geo_distancias_mock;
+TRUNCATE TABLE bdm_stage.mock_geo_distancias;
 
 -- Contratos de etapa. Los SP los truncan al empezar, igual que el diccionario
 -- de complementos; se vacian aqui por el mismo motivo que aquel: un fallo a

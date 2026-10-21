@@ -41,9 +41,9 @@ CALL bdm_datos.sp_novedades_ciclo_edf(CAST('' AS VARCHAR(256)), CAST('' AS VARCH
 -- tiene cada tabla dominio despues de una corrida real.
 --
 -- Las SIETE del legado salen del DELETE ... ALL de
--- P0035_Extractor_Novedades_111.BTQ:817-836. Hoy tenemos CINCO; las otras
--- dos no estan portadas y se listan en cero a proposito, para que el
--- informe no deje duda de en que punto estamos.
+-- P0035_Extractor_Novedades_111.BTQ:817-836. Hoy tenemos SEIS; la que falta
+-- (movilidad) depende del proceso P0029, que no esta migrado y no es nuestro,
+-- y se lista en cero a proposito.
 --
 -- CUIDADO AL LEER LA CUARTA. mat_info_contactabilidad tiene filas, pero DIEZ
 -- de sus doce columnas salen en NULL: no existe la fuente de gestion
@@ -65,8 +65,26 @@ SELECT 'mat_info_contactabilidad (10 de 12 columnas en NULL)', 5, COUNT(*) FROM 
 UNION ALL
 SELECT 'mat_info_movilidad (SIN PORTAR)',    6, 0
 UNION ALL
-SELECT 'mat_info_punto_interes (SIN PORTAR)', 7, 0
+SELECT 'mat_info_punto_interes (7 de 10 columnas)', 7, COUNT(*) FROM bdm_datos.mat_info_punto_interes
 ORDER BY 2;
+
+-- EL CONTENIDO DE PUNTO DE INTERES. Aqui filas > ubicaciones es LO ESPERADO:
+-- el grano es (ubicacion, punto de interes) y el contrato es 1:N. Si salieran
+-- iguales, el 1:N no se estaria ejercitando.
+--   Y si filas sale en CERO, antes de buscar un defecto hay que mirar
+--   geo_distancias: sin distancias cargadas este dominio no tiene de donde
+--   salir, y eso es efecto de orden y no defecto.
+SELECT COUNT(*)                     AS filas,
+       COUNT(DISTINCT ubicacion_id) AS ubicaciones,
+       COUNT(nombre)                AS con_nombre,
+       COUNT(distancia)             AS con_distancia,
+       COUNT(latitud)               AS con_coordenadas,
+       COUNT(tipo) + COUNT(nombre_entidad) + COUNT(nit_entidad)
+                                    AS en_las_tres_bloqueadas
+FROM   bdm_datos.mat_info_punto_interes;
+
+SELECT COUNT(*) AS distancias_cargadas, COUNT(nombre_punto_interes) AS con_nombre
+FROM   bdm_datos.geo_distancias;
 
 -- EL CONTENIDO DE INFO BASICA, no solo el conteo. Diecinueve de las 22 se
 -- pueblan; las tres que no tienen que salir en CERO aqui, y si alguna sube
