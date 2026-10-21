@@ -114,7 +114,12 @@ TRUNCATE TABLE bdm_datos.mat_info_actividad_economica_mock;
 --     deje de ser foto completa, la segunda pasada de DPLY heredaria filas
 --     y es exactamente lo que cazo NOV-UB-12 en el job #412.
 TRUNCATE TABLE bdm_datos.mat_ubicacion_agregada_mock;
+--   mat_info_basica_mock: igual que contactabilidad, el SP la escribe con
+--     TRUNCATE + INSERT. Entra en la lista por la misma razon: lo que una
+--     corrida escribe, el reset lo borra, y el dia que el contrato deje de
+--     ser foto completa la segunda pasada de DPLY heredaria filas.
 TRUNCATE TABLE bdm_datos.mat_info_contactabilidad_mock;
+TRUNCATE TABLE bdm_datos.mat_info_basica_mock;
 
 -- Contratos de etapa. Los SP los truncan al empezar, igual que el diccionario
 -- de complementos; se vacian aqui por el mismo motivo que aquel: un fallo a

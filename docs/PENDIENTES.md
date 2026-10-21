@@ -30,12 +30,12 @@ Dos consecuencias que reordenan todo el trabajo:
 - [x] ~~`mat_info_ubicacion` (d1)~~ — portada **en mock**
 - [x] ~~`mat_info_actividad_economica` (d2)~~ — portada **en mock**
 - [x] ~~`mat_ubicacion_agregada` (d3)~~ — portada **en mock**
-- [ ] **`mat_info_basica` (d4)** — la única de las cuatro que falta y podemos hacer. Género, estado del documento y tipo de identificación decididos (D-EDF-13, D-EDF-14); espera **C37**
+- [x] ~~**`mat_info_basica` (d4)**~~ — **19 de 22 columnas pobladas** (D-NOV-09). No se portaron las doce etapas: en EDF la elección del registro más confiable ya viene hecha (`bestName`, `bestIdentifications`, `bestPersonalInformation`), misma forma que la Fase 1 del Ordenamiento. **Ya no espera C37**: el catálogo solo falta para `TIPO_IDENTIFICACION`, y el código sí se puebla. Género (D-EDF-14) y estado del documento (D-EDF-13) implementados. Medido en el banco: 10.000 filas = 10.000 personas, las cuatro ramas del género con 2.500 cada una, cero valores en las tres bloqueadas, tableros intactos
 - [ ] `mat_info_punto_interes` (d7) — falta el nombre del punto de interés, que el contrato de distancias no persiste
 - [x] ~~`mat_info_contactabilidad` (d5)~~ — **se entrega con 2 de 12 columnas pobladas** (D-NOV-08, decisión del usuario 2026-10-21): `fecha_ultimo_contacto` y `reportado_por` con el equivalente de EDF y **otra semántica**; las otras diez en NULL porque no existe la fuente de gestión. Medido en el banco: 9.600 filas, cero valores en las diez bloqueadas, tableros intactos. **La petición de `V_CONTACTABILIDAD` sigue abierta** y es lo que convierte estas dos columnas en doce
 - [ ] `mat_info_movilidad` (d6) — depende íntegro del proceso **P0029**, sin migrar. No es nuestro
 
-**Techo sin terceros: 5 de 7** — contando d5 como entregada con el alcance reducido que decidió el usuario, no como resuelta.
+**Techo sin terceros: 6 de 7** — contando d5 como entregada con el alcance reducido que decidió el usuario, no como resuelta.
 
 ### Y el agujero que esto destapa
 
@@ -54,7 +54,7 @@ Dos consecuencias que reordenan todo el trabajo:
 
 ## 2. Lo que corres tú
 
-- [ ] **C37** — los 8 catálogos de Collibra por `code` completo. Desbloquea `mat_info_basica` y 9 criterios
+- [ ] **C37** — los 8 catálogos de Collibra por `code` completo. **Ya no bloquea `mat_info_basica`**, que se entregó sin ellos: solo falta `TIPO_IDENTIFICACION` (la descripción homologada; el código sí sale) y 9 criterios
 - [ ] **Correr la cadena real en DEV** cuando esté el runner, y pasarme los conteos
 - [ ] Mensaje a Experian (sección 4) · traslado a Bitbucket y job de Jenkins
 
@@ -68,7 +68,7 @@ Dos consecuencias que reordenan todo el trabajo:
 - [x] ~~Llave de Severidad de ACTECO (3 columnas)~~
 - [x] ~~Observabilidad: DDL, `version_betas`, `corrida_id`, `etapa` a 64 (T3)~~
 - [ ] **Runner de la cadena real completa** (sección 0)
-- [ ] **`mat_info_basica` (d4)**, tras C37
+- [x] ~~**`mat_info_basica` (d4)**~~ — hecha, sin esperar a C37
 - [ ] Arquetipos que faltan: dirección **sin DANE** (certifica DIR053) y **varias actividades** (certifica D-NOV-06)
 - [ ] Observabilidad de verdad: filas reales por etapa (hoy 0), tiempo real, concurrencia. **T3 fue solo el DDL**
 - [ ] Verificar contra el legado, sin código: desempate del `QUALIFY` de ACTECO (`Novedad.sql:1380`), tipo de `fecha_reporte`, y si `xpm_chamberofcommerce` es el `V_Persona_Juridica_Camara` del legado

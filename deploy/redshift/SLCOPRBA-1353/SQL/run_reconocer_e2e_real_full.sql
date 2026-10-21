@@ -41,8 +41,8 @@ CALL bdm_datos.sp_novedades_ciclo_edf(CAST('' AS VARCHAR(256)), CAST('' AS VARCH
 -- tiene cada tabla dominio despues de una corrida real.
 --
 -- Las SIETE del legado salen del DELETE ... ALL de
--- P0035_Extractor_Novedades_111.BTQ:817-836. Hoy tenemos CUATRO; las otras
--- tres no estan portadas y se listan en cero a proposito, para que el
+-- P0035_Extractor_Novedades_111.BTQ:817-836. Hoy tenemos CINCO; las otras
+-- dos no estan portadas y se listan en cero a proposito, para que el
 -- informe no deje duda de en que punto estamos.
 --
 -- CUIDADO AL LEER LA CUARTA. mat_info_contactabilidad tiene filas, pero DIEZ
@@ -59,7 +59,7 @@ SELECT 'mat_info_actividad_economica',       2, COUNT(*) FROM bdm_datos.mat_info
 UNION ALL
 SELECT 'mat_ubicacion_agregada',             3, COUNT(*) FROM bdm_datos.mat_ubicacion_agregada
 UNION ALL
-SELECT 'mat_info_basica (SIN PORTAR)',       4, 0
+SELECT 'mat_info_basica (19 de 22 columnas)', 4, COUNT(*) FROM bdm_datos.mat_info_basica
 UNION ALL
 SELECT 'mat_info_contactabilidad (10 de 12 columnas en NULL)', 5, COUNT(*) FROM bdm_datos.mat_info_contactabilidad
 UNION ALL
@@ -67,6 +67,31 @@ SELECT 'mat_info_movilidad (SIN PORTAR)',    6, 0
 UNION ALL
 SELECT 'mat_info_punto_interes (SIN PORTAR)', 7, 0
 ORDER BY 2;
+
+-- EL CONTENIDO DE INFO BASICA, no solo el conteo. Diecinueve de las 22 se
+-- pueblan; las tres que no tienen que salir en CERO aqui, y si alguna sube
+-- es que alguien las conecto sin actualizar esta medida.
+--   filas y personas DEBEN COINCIDIR: el grano es una fila por persona. Si
+--   divergen hay fan-out, que es el defecto que ya se pago dos veces.
+SELECT COUNT(*)                        AS filas,
+       COUNT(DISTINCT id)              AS personas,
+       COUNT(nombre_completo)          AS con_nombre,
+       COUNT(numero_identificacion)    AS con_documento,
+       COUNT(NULLIF(genero, ''))       AS con_genero,
+       COUNT(fecha_expedicion)         AS con_fecha_exp,
+       COUNT(ciiu)                     AS con_ciiu,
+       COUNT(tipo_identificacion)
+         + COUNT(pagina_web)
+         + COUNT(mosaic_id)            AS en_las_tres_bloqueadas
+FROM   bdm_datos.mat_info_basica;
+
+-- EL REPARTO DEL GENERO, que es la unica decision de negocio de esta tabla
+-- (D-EDF-14): 1 -> M, 2 -> F, 3 -> O y el resto a vacio. Si una sola rama
+-- sale con todo, el mapeo no esta probado.
+SELECT genero, COUNT(*) AS filas
+FROM   bdm_datos.mat_info_basica
+GROUP  BY genero
+ORDER  BY 1;
 
 -- EL CONTENIDO DE CONTACTABILIDAD, no solo el conteo. Las dos columnas que
 -- se pueblan lo hacen con un equivalente de OTRA semantica
