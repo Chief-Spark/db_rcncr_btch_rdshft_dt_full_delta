@@ -635,7 +635,22 @@ Esos 278 son **exactamente** los 278 de C31. O sea: **la llave de cinco campos e
 
 **Lo que rompe el emparejamiento son dos campos a la vez: el suscriptor y el documento.** Que los dos fallen juntos en el 95 % de los pares apunta a que el par (reporte, cuenta) no es el correcto, no a que los valores estén mal escritos.
 
-**HIPÓTESIS, no verificada:** el `id` de `xpm_bestaccounts` es un **contenedor compartido por varias personas**, igual que ya está medido en `xpm_location_val_contactinformations` (568.657 filas para 142.067 `id`, ~4:1). Si lo es, unir por número de cuenta dentro del contenedor empareja la cuenta de una persona con el reporte de otra, y entonces difieren a la vez el `businesslinecode` y el `personidnumber`, que es exactamente lo observado. Se comprueba contando `id` distintos contra filas en `xpm_bestaccounts`; mientras no se haga, es hipótesis.
+**CERRADO POR C39 (productor, 2026-10-21), y la hipótesis era falsa.**
+
+| Medida | Resultado |
+|---|---|
+| contenedores `bestaccounts` con **una sola** persona | **98.586 de 98.586** |
+| contenedores con dos o más | **0** |
+| filas de `xpm_bestaccounts` (`index` no nulo) | **7.759** |
+| contenedores **distintos** con alguna fila | **146** |
+
+**El contenedor no es compartido: es 1:1 con la persona.** La causa real es otra y es mucho más simple: **solo 146 de 98.586 personas (0,15 %) tienen alguna cuenta**. Los 278 reportes que casan salen de esas 146.
+
+Y con eso el 95 % de desajuste deja de ser raro: en un contenedor de ~53 cuentas (7.759 / 146), **el número de cuenta se repite entre suscriptores**. Unir solo por número produce 5.802 pares, casi todos de una cuenta que no es la del reporte, y por eso difieren a la vez `businesslinecode` y `personidnumber`. Es colisión esperada al aflojar la llave, no un defecto del dato ni del port.
+
+**Consecuencia:** no hay nada que arreglar en la llave, y conectar la F2 real no depende de ella sino de que Experian pueble `bestaccounts`.
+
+*(La hipótesis que esta sección traía antes —y que C39 descarta— era:* el `id` de `xpm_bestaccounts` es un **contenedor compartido por varias personas**, igual que ya está medido en `xpm_location_val_contactinformations` (568.657 filas para 142.067 `id`, ~4:1). Si lo es, unir por número de cuenta dentro del contenedor empareja la cuenta de una persona con el reporte de otra, y entonces difieren a la vez el `businesslinecode` y el `personidnumber`, que es exactamente lo observado. *que el contenedor fuera compartido por varias personas.)*
 
 ### 19.2 El código numérico de un catálogo de Collibra NO es único
 

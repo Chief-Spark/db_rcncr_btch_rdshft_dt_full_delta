@@ -33,7 +33,7 @@ Todas están al final de `edf_views/consultas_perfilado_edf_2026-10-20.sql`. Sol
 | ~~C33 v2~~ | si la llave de cuenta casa | **desmentida por C33b:** dijo "es formato" y no lo es |
 | ~~C33b~~ | cuál de los cinco campos falla | **ninguno es de formato.** Ni un solo `ceros` ni `nulo` en 5.977 pares; mismas longitudes. Fallan a la vez `businesslinecode` y `personidnumber` (95 %). Los 278 que casan en los cinco son los 278 de C31: **no hay nada que normalizar** |
 | ~~C35~~ | la lista de catálogos de Collibra | cierra o da candidato a **seis** pedidos de la §3, y encuentra el `Portafolio`, el `Sector` por cuenta y el tipo de cuenta de la F2, que no pedíamos. **El número del catálogo no es único**: 17 números con dos nombres, que es por qué C32 falló |
-| **C36** | `COUNT(*)` contra `COUNT(DISTINCT id)` en `xpm_bestaccounts` | confirma o tumba la hipótesis de §19.1 (contenedor compartido por varias personas) |
+| ~~C36 / C38 / C39~~ | la llave de cuenta, contra el productor | **tumba la hipótesis**: el contenedor es 1:1 con la persona (98.586 de 98.586). Solo **146 personas tienen cuenta**. §19.1 y D-EDF-15 |
 
 ## 3. Preguntas a Experian (un solo mensaje)
 
@@ -41,7 +41,8 @@ Todas están al final de `edf_views/consultas_perfilado_edf_2026-10-20.sql`. Sol
 
 1. **Severidad 2 de cuenta.** `blockSeverity = 2` junta los indicadores 8 (reclamo sin solución, el legado no lo muestra) y 9 (cuenta sin validar ante la Registraduría, el legado sí lo muestra). `blockReason` no los distingue (C34: 25 cuentas en DEV, todas con razón 0). ¿En qué campo viene el indicador?
 2. **`businessIdStatus` = `00` en NIT.** `01` es matrícula activa; `00` también es el valor por defecto cuando no viene (31 filas en DEV). ¿Qué significa?
-3. **Score de estandarización de las direcciones de suscriptor** (`contactType` 1, 2 y 3). Alpha dice que se añadió en septiembre de 2026, pero no llega a DEV. ¿Cuándo llega?
+3. **`bestAccounts` está vacío.** Solo **146 de 98.586 personas** (0,15 %) tienen alguna cuenta: 7.759 filas en 146 contenedores. Sin eso no se puede conectar la Fase 2 del Ordenamiento, que es la que trae el `Portafolio` y el `Sector`. ¿Cuándo se puebla? *(Sustituye a la pregunta por la llave: la llave está bien, medido en C33b y C39.)*
+4. **Score de estandarización de las direcciones de suscriptor** (`contactType` 1, 2 y 3). Alpha dice que se añadió en septiembre de 2026, pero no llega a DEV. ¿Cuándo llega?
 4. **`contactType` 12** (RNT, dirección de notificación): ¿qué tipo es, RES, LAB, CRR, CCL o JUD? Baja prioridad: en DEV no hay filas.
 5. **Contactabilidad y gestión** (`V_CONTACTABILIDAD`, `VstgUbiContactabilidad`): no están en `edf_views`. ¿Existen en EDF? Sin eso no se porta la prioridad 999999 de CEL (D-ORD-14) ni el dominio d5 de Novedades (D-NOV-08).
 6. **Movilidad y puntos de interés:** el productor de indicadores de movilidad (P0029) y el catálogo de puntos de interés.
@@ -66,7 +67,7 @@ Todas están al final de `edf_views/consultas_perfilado_edf_2026-10-20.sql`. Sol
 | 2 | Ranking por canal (D-ORD-10) | **en curso** (T1 aprobado); previsión: cero cambios de estado en el tablero | — |
 | 3 | Novedades: ~~ciudad y departamento en `''` (D-NOV-05)~~ **hecho**; fuente (D-NOV-03) y universo de Actividad Económica (D-NOV-06) | en curso | la fuente espera T5 |
 | 3b | Compuerta DIR053 | en cola (T4 aprobado) | medir antes qué mueve |
-| 4 | Llave de cuenta: **ya no hay nada que normalizar** (C33b). Queda decidir si 278 reportes bastan para conectar la F2 real (`v_xpm_cuenta`), y antes correr la C36 | espera tu decisión | C36 |
+| 4 | ~~Llave de cuenta~~ **CERRADA** (D-EDF-15): la llave es correcta y el contenedor no es compartido. Solo **146 de 98.586 personas tienen cuenta**, así que la F2 real se queda parada hasta que Experian pueble `bestaccounts` | **cerrada** | — |
 | 5 | Info Básica (d4): género, estado del documento, tipo de identificación | **desbloqueada en parte** | leer `177_EXPERIAN_NOVEDAT_ID_TYPE_HO` y los tres de estado de registro (§19.3) |
 | 6 | Observabilidad (F3 del plan) | en cola (T3 aprobado) | — |
 | 7 | Renombrado de SP reales al patrón `sp_rcn_*` (F4 del plan) | al final | — |
