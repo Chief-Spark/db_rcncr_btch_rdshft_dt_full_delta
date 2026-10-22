@@ -162,3 +162,21 @@ SELECT 'xpm_counterparties'                  AS relacion, COUNT(*) AS filas FROM
 SELECT 'xpm_bestaccounts'                    AS relacion, COUNT(*) AS filas FROM ds_dba_rncr_batch.edf_views.xpm_bestaccounts;
 SELECT 'xpm_bestaccounts_val_frequentbehaviour' AS relacion, COUNT(*) AS filas FROM ds_dba_rncr_batch.edf_views.xpm_bestaccounts_val_frequentbehaviour;
 SELECT 'xpm_bestidentifications'             AS relacion, COUNT(*) AS filas FROM ds_dba_rncr_batch.edf_views.xpm_bestidentifications;
+
+-- ------------------------------------------------------------
+-- Y EL CATALOGO, POR SI RESPONDE SOLO. Redshift expone las politicas de
+-- enmascaramiento en SVV_MASKING_POLICY (las definidas) y
+-- SVV_ATTACHED_MASKING_POLICY (a que tabla y columna estan pegadas).
+--
+-- OJO, Y ES EL MOTIVO POR EL QUE ESTO VA DESPUES DE LA SONDA Y NO EN SU
+-- LUGAR: una politica se define en el cluster PRODUCTOR, y estas vistas
+-- muestran las del cluster donde se corren. Desde el consumidor lo esperable
+-- es que salgan VACIAS aunque `xpm` este enmascarada -- que es justo lo que
+-- el #453 demuestra que pasa. Un resultado vacio aqui NO prueba que no haya
+-- mascara; solo la sonda de arriba, o EDF, lo dicen.
+--
+-- Se dejan porque cuestan dos consultas y, si por configuracion el
+-- consumidor si las ve, cierran el asunto sin un viaje mas.
+-- ------------------------------------------------------------
+SELECT * FROM SVV_MASKING_POLICY;
+SELECT * FROM SVV_ATTACHED_MASKING_POLICY;
