@@ -36,6 +36,34 @@ from transpila import mapa_codigo, busca_cod, CODE  # noqa: E402
 REF = r'([a-z_][a-z0-9_]*)\.("(?:[^"]*)"|[a-z_][a-z0-9_]*)'
 
 
+# ---------------------------------------------------------------------------
+# TIPOS MEDIDOS CONTRA DEV, QUE MANDAN SOBRE LA INFERENCIA (2026-10-22)
+#
+# La regla de arriba supone que "en el real todo es texto", y ES FALSO: en
+# edf_views hay BIGINT, INTEGER y BOOLEAN. Esa suposicion costo el job
+# DEV/DATABASE #458, porque el banco declaraba VARCHAR las dos columnas
+# BOOLEAN y el ::VARCHAR que el codigo les aplicaba pasaba en PostgreSQL --
+# alli si existe ese cast -- mientras Redshift lo rechaza:
+#   42846: cannot cast type boolean to character varying
+#
+# QUINTO PUNTO CIEGO DEL BANCO, y de la misma familia que DELTA, RAISE y la
+# subconsulta correlacionada: el banco da verde porque es MAS PERMISIVO.
+#
+# Medido con SVV_ALL_COLUMNS contra el consumidor. Toda columna que se mida
+# y no sea texto entra aqui: el stub solo caza lo que imita.
+TIPOS_MEDIDOS = {
+    'bestpersonalinformation.citizentaxregistrationindicator':   'BOOLEAN',
+    'bestidentifications.val.officialsourcevalidationstatus':    'BOOLEAN',
+    'bestidentifications.val.tradeholderindicator':              'BOOLEAN',
+    'bestpersonalinformation.gender':                            'BIGINT',
+    'bestidentifications.val.personidtype':                      'BIGINT',
+    'bestidentifications.val.issuedate':                         'BIGINT',
+    'bestidentifications.val.idverificationdigit':               'BIGINT',
+    'bestidentifications.val.idresolutionnumber':                'BIGINT',
+    'bestidentifications.val.idresolutionyear':                  'BIGINT',
+    'bestidentifications.val.expirydateid':                      'BIGINT',
+}
+
 def analiza(textos):
     tablas = {}        # tabla -> {columna: tipo}
     for s in textos:
@@ -62,7 +90,8 @@ def analiza(textos):
                 refs.append((alias[a], c, mm.start(), mm.end()))
         for t, c, _, _ in refs:
             tablas.setdefault(t, {})
-            tablas[t].setdefault(c, 'VARCHAR(4000)' if c.startswith('"') else 'BIGINT')
+            tablas[t].setdefault(c, TIPOS_MEDIDOS.get(c.strip('"'),
+                                 'VARCHAR(4000)' if c.startswith('"') else 'BIGINT'))
         # tercera regla: igualdades entre dos referencias
         for mm in re.finditer(REF + r'\s*=\s*' + REF, s, re.IGNORECASE):
             if m[mm.start()] != CODE:
