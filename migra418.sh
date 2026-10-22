@@ -110,7 +110,13 @@ Comprobado en DEV/TERRAFORM #74615 sobre SLCOPRBA-1444.
 Y LAS CINCO CARPETAS DE LA PLANTILLA SE BORRAN: demo, develop, qa, trunk y
 production son entornos de Terraform y el UNICO que las nombra es ese mismo
 .jenkins.yml. Sustituido el yml, quedan huerfanas; dejarlas solo sirve para
-confundir a quien revise el diff. .gitignore y README.md se quedan.
+confundir a quien revise el diff.
+
+EL README.md TAMBIEN VIAJA, por el mismo motivo que el yml: el de la plantilla
+se titula "Estructura del repositorio Terraform" y explica un flujo -- versiona
+en trunk/, el pipeline copia a develop/ -- que en estos repos no existe y cuyas
+carpetas acabamos de borrar. Un README que describe otro repo es peor que no
+tener ninguno. .gitignore se queda: no filtra nada nuestro.
 
 EOT
   for i in 0 1 2; do
@@ -123,7 +129,7 @@ git checkout $b
 git pull origin $b
 git rm -r --cached deploy/redshift
 git checkout github/$RAMA -- deploy/redshift
-git checkout github/$RAMA -- .jenkins.yml
+git checkout github/$RAMA -- .jenkins.yml README.md
 git rm -r --quiet --ignore-unmatch demo develop qa trunk production
 git ls-files deploy/redshift | Measure-Object -Line
 git status
