@@ -63,12 +63,23 @@ sin parar en el primer error. Están en
 (líneas 156-164). El que devuelve número se puede consultar; el que devuelve
 `XX000` está enmascarado.
 
-## Antecedente
+## Antecedente, y cuatro que ya están levantadas
 
-`xpm` tumbó el despliegue de DEV (job DEV/DATABASE #453, `[REDSHIFT:112]`) con
-este mismo error, y se nos indicó que ya se le había retirado la máscara.
-**Conviene confirmar si esa retirada se aplicó y sigue vigente**, porque es la
-prueba de que el cambio es viable y marca el camino para las ocho restantes.
+**El cambio ya se hizo una vez y funcionó.** El job DEV/DATABASE #453 murió con
+este error al cargar un catálogo; el **#454**, con el mismo código, cargó ese
+catálogo con **1.188 filas**. La consulta que lo carga hace INNER JOIN sobre
+**`xpm`, `xpm_location`, `xpm_location_val_contactinformations` y
+`xpm_counterparties`**, y un join de cuatro relaciones no devuelve una sola fila
+si alguna está enmascarada: **esas cuatro responden hoy.**
+
+Por eso **lo que de verdad pedimos son las cinco restantes**:
+`xpm_personalinformation`, `xpm_chamberofcommerce`, `xpm_bestaccounts`,
+`xpm_bestaccounts_val_frequentbehaviour` y `xpm_bestidentifications`.
+Las nueve siguen listadas arriba porque el inventario que se nos entregó las
+trae todas; si alguna más ya está levantada, basta con que nos lo confirmen.
+
+Que las cuatro primeras se hayan levantado **es la prueba de que el cambio es
+viable**, y marca el camino para las que faltan.
 
 ## Detalle técnico, si hace falta trazarlo
 
