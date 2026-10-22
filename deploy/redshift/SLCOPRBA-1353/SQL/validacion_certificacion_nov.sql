@@ -27,9 +27,16 @@
 --        el error de siempre;
 --      - NOV-UB-18 y NOV-AE-07 YA NO ESTAN FUERA: el mismo catalogo los
 --        desbloqueo y se afirman por consulta;
---      - los CINCO dominios no portados (NOV-CAT, NOV-INB, NOV-CON, NOV-PIN,
---        NOV-MOV). Eran siete: NOV-HIS-01 y NOV-AGR-01 se retiraron segun se
---        portaba su dominio;
+--      - EL dominio no portado: NOV-CAT, y solo ese. Eran siete, luego cinco
+--        y hoy UNO. NOV-HIS-01 y NOV-AGR-01 se retiraron segun se
+--        portaba su dominio, y NOV-INB, NOV-CON, NOV-PIN y NOV-MOV salieron
+--        de esta lista el 2026-10-22, cuando se portaron los cuatro dominios.
+--        OJO AL LEER SU VERDE: son criterios de HUMO -- uno por dominio, que
+--        solo afirma que produce filas --, no una bateria. La cobertura
+--        columna a columna de d4, d5, d6 y d7 todavia no tiene criterios, y
+--        por eso los cuatro siguen en el bloque OTROS_DOMINIOS y fuera del
+--        alcance contado: un alcance que los metiera dejaria creer que esos
+--        dominios estan certificados al nivel de UBICACION, y no lo estan;
 --      - NOV-G-01..NOV-G-03, que son decisiones y no consultas.
 --
 --    El alcance se CUENTA, no se escribe a mano: si el catalogo crece, el

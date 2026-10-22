@@ -78,15 +78,15 @@ Dos consecuencias que reordenan todo el trabajo:
 
 - [ ] **`bestAccounts` está vacío**: 146 de 98.586 personas (0,15 %) tienen cuenta (D-EDF-15)
 - [ ] **Contactabilidad** (`V_CONTACTABILIDAD`, `VstgUbiContactabilidad`): bloquea la tabla dominio d5 y dos reglas del Ordenamiento. **Ya buscado en Confluence: EDF no documenta nada equivalente.** El texto a enviar está escrito
-- [ ] **Movilidad y puntos de interés**: el proceso P0029 y el nombre del punto de interés. Bloquean d6 y d7
+- [x] ~~**Movilidad y puntos de interés**: el proceso P0029 y el nombre del punto de interés. Bloquean d6 y d7~~ — **las dos premisas eran falsas**: P0029 está en el repo y el nombre viaja en `col08`. Los dos dominios portados (2026-10-21)
 - [ ] Tres columnas de la Fase 2 sin fuente confirmada: `cod_tipo_obligacion_fte`, `numero_dias_mora` y el tipo `'A'`/`'P'`
 - [ ] Severidad 2 de cuenta · `businessIdStatus` = `00` · score de suscriptor · `contactType` 12 · lo que C37 no cierre
 
 ## 5. Criterios sin verde (red de seguridad, no camino crítico)
 
 - [ ] Ordenamiento, 5 bloqueados: `F1-08` y `CA-M01` **desbloqueables ya** (el `Lote` de `Estandarizacion.sql:6718`); `F3-09`; `F3-10` puede estar **mal buscado**, no bloqueado; `RG-04`
-- [ ] Novedades, 16 bloqueados: `NOV-AG-02..08` y `NOV-AE-07` esperan C37; `NOV-AE-06` idem; `NOV-UB-16..22` catálogos de Línea
-- [ ] Novedades, 5 sin implementar: son los 5 dominios de la sección 0
+- [ ] Novedades, bloqueados: **`NOV-AG-02..08` ya NO esperan catálogo** — el insumo está y falta la consulta que los afirme, que es trabajo nuestro y la pieza más barata que queda. `NOV-AE-06` espera `V_ACTIVIDAD_ECONO_CIIU`; `NOV-UB-16..22`, catálogos de Línea. `NOV-AE-07` **pasó** el 2026-10-21
+- [ ] Novedades, **1** sin implementar: `NOV-CAT-01`. Eran 5; cuatro se portaron el 2026-10-21 y el evaluador los afirma por consulta desde el 22. **Cuidado al leer ese verde**: son criterios de HUMO, uno por dominio; la cobertura columna a columna de d4, d5, d6 y d7 **todavía no tiene criterios** y esa es la siguiente pieza
 - [ ] El Ordenamiento fuera del gate
 
 ## 6. Otros equipos
@@ -105,3 +105,4 @@ Dos consecuencias que reordenan todo el trabajo:
 3. **Un fallo del banco es una hipótesis** hasta trazarlo al legado o a la documentación de Redshift.
 4. **Cada respuesta termina igual**: hecho, en curso, y qué necesito de ti.
 - [ ] **Dos arquetipos para las ramas de Movilidad sin ejercitar**: uno que cambie de ciudad y otro con estrato sembrado. **Riesgo a medir antes de tocar nada**: cambiar la ciudad de un arquetipo mueve el DANE y toca el insumo de la Regla 3 y de DIR
+- [ ] **Criterios de verdad para d4, d5, d6 y d7.** Hoy cada uno tiene UN criterio de humo (`NOV-INB-01`, `NOV-CON-01`, `NOV-PIN-01`, `NOV-MOV-01`) que solo afirma que el dominio produce filas. La cobertura columna a columna — lo que `NOV-UB-01..22` hace con Ubicación — no existe para ninguno de los cuatro
