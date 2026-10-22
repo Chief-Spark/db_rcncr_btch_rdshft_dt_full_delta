@@ -1,29 +1,32 @@
-# Ticket a EDF — cinco relaciones enmascaradas bloquean Reconocer en Redshift
+# Ticket a EDF — las nueve relaciones del datashare están enmascaradas
 
-*Redactado para pegarse tal cual. Fecha: 2026-10-22. Medido contra el Redshift
-de DEV, consumidor `dba_rncr_batch`.*
+*Redactado para pegarse tal cual. Fecha: 2026-10-22.*
 
 ## Resumen en una línea
 
-De las nueve relaciones que Reconocer lee del datashare `ds_dba_rncr_batch`,
-**cinco tienen máscara y no se pueden consultar desde el clúster consumidor**.
-Mientras sigan así, **el proceso no entrega una sola fila** con datos reales.
+**Las nueve relaciones que Reconocer lee del datashare `ds_dba_rncr_batch`
+tienen máscara**, y Redshift no permite consultar por datashare una relación
+enmascarada. Mientras sigan así, **el proceso no entrega una sola fila** con
+datos reales.
 
 ## Qué pedimos
 
-Levantar la máscara **para el consumidor `dba_rncr_batch`** sobre estas cinco:
+Levantar la máscara **para el consumidor `dba_rncr_batch`** sobre estas nueve:
 
 | # | Relación | Qué bloquea de Reconocer |
 |---|---|---|
-| 1 | `edf_views.xpm_location_val_contactinformations` | **Unificación completa**, los cuatro canales del Ordenamiento y dos de las siete tablas dominio. **Es la más crítica** |
-| 2 | `edf_views.xpm_bestaccounts` | Fase 2 del Ordenamiento (cuentas, comportamiento y bloqueo de cuenta) |
-| 3 | `edf_views.xpm_personalinformation` | Actividad económica (tabla dominio `MAT_INFO_ACTIVIDAD_ECONOMICA`) |
-| 4 | `edf_views.xpm_chamberofcommerce` | la misma |
-| 5 | `edf_views.xpm_bestidentifications` | Información básica (tabla dominio `MAT_INFO_BASICA`) |
+| 1 | `edf_views.xpm` | **la raíz del modelo**: `id_buro_persona = FNV_HASH(xpm.pin)`. 19 referencias en el paquete |
+| 2 | `edf_views.xpm_location_val_contactinformations` | **Unificación completa**, los cuatro canales del Ordenamiento y dos tablas dominio |
+| 3 | `edf_views.xpm_bestaccounts` | Fase 2 del Ordenamiento (cuentas, comportamiento, bloqueo de cuenta) |
+| 4 | `edf_views.xpm_personalinformation` | Actividad económica (`MAT_INFO_ACTIVIDAD_ECONOMICA`) |
+| 5 | `edf_views.xpm_chamberofcommerce` | la misma |
+| 6 | `edf_views.xpm_bestidentifications` | Información básica (`MAT_INFO_BASICA`) |
+| 7 | `edf_views.xpm_location` | atributos de la ubicación (tipo de cuenta, estrato, barrio) |
+| 8 | `edf_views.xpm_counterparties` | identidad del suscriptor que reporta |
+| 9 | `edf_views.xpm_bestaccounts_val_frequentbehaviour` | comportamiento de cuenta, Fase 2 |
 
-**No hace falta tocar el resto.** Estas cuatro ya responden:
-`xpm`, `xpm_location`, `xpm_counterparties` y
-`xpm_bestaccounts_val_frequentbehaviour`.
+**Nos sirve que se levanten por fases**, y si hay que priorizar el orden es el
+de la tabla: sin la 1 y la 2 no arranca nada.
 
 ## El error, literal
 
@@ -32,7 +35,7 @@ SQL Error [XX000]: ERROR: cross-cluster query of the masked relation
   "xpm_personalinformation" is not supported.
 ```
 
-Idéntico para las cinco, cambiando el nombre. Lo devuelve un simple
+Idéntico para todas, cambiando el nombre. Lo devuelve un simple
 `SELECT COUNT(*)`.
 
 ## Por qué no se resuelve con un GRANT
@@ -46,9 +49,9 @@ sin aplicar la política.
 Las tres salidas que conocemos, para que elijan la que encaje con su política
 de privacidad:
 
-1. **Excluir al consumidor `dba_rncr_batch`** de la política sobre esas cinco.
-2. **Publicar una vista sin máscara** en `edf_views` y compartir esa.
-3. **Materializar** la relación del lado productor y compartir la copia.
+1. **Excluir al consumidor `dba_rncr_batch`** de las políticas sobre esas nueve.
+2. **Publicar vistas sin máscara** en `edf_views` y compartir ésas.
+3. **Materializar** las relaciones del lado productor y compartir las copias.
 
 Nos sirve cualquiera de las tres.
 
@@ -60,22 +63,26 @@ sin parar en el primer error. Están en
 (líneas 156-164). El que devuelve número se puede consultar; el que devuelve
 `XX000` está enmascarado.
 
-## Antecedente que conviene conocer
+## Antecedente
 
-`xpm` **estaba** enmascarada y tumbó el despliegue de DEV (job DEV/DATABASE
-#453, `[REDSHIFT:112]`). **Ya la levantaron y hoy responde**, lo que confirma
-que el cambio es viable y que esta petición es la continuación de aquella, no
-una nueva.
+`xpm` tumbó el despliegue de DEV (job DEV/DATABASE #453, `[REDSHIFT:112]`) con
+este mismo error, y se nos indicó que ya se le había retirado la máscara.
+**Conviene confirmar si esa retirada se aplicó y sigue vigente**, porque es la
+prueba de que el cambio es viable y marca el camino para las ocho restantes.
 
 ## Detalle técnico, si hace falta trazarlo
 
-| Relación enmascarada | Vistas nuestras que la leen |
+| Relación | Vistas nuestras que la leen |
 |---|---|
+| `xpm` | prácticamente todas: es la raíz de la identidad |
 | `xpm_location_val_contactinformations` | `v_xpm_contacto_direccion`, `v_xpm_reporte_relacion_persona_ubica`, `v_xpm_contacto_canal` |
 | `xpm_bestaccounts` | `v_xpm_cuenta`, `v_xpm_comportamiento_cta`, `v_xpm_cuenta_bloqueada` |
 | `xpm_personalinformation` | `v_xpm_actividad_economica_persona` |
 | `xpm_chamberofcommerce` | `v_xpm_actividad_economica_persona` |
 | `xpm_bestidentifications` | `v_xpm_persona_basica` |
+| `xpm_location` | `v_xpm_ubicacion_estandarizada`, `v_xpm_direccion_fisica` |
+| `xpm_counterparties` | `v_xpm_reporte_relacion_persona_ubica` |
+| `xpm_bestaccounts_val_frequentbehaviour` | `v_xpm_comportamiento_cta` |
 
 **Las vistas se crean sin problema** — `CREATE VIEW` no ejecuta la consulta —,
 de modo que el despliegue de la estructura pasa y el fallo aparece sólo al
