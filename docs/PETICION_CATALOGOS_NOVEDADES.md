@@ -404,6 +404,24 @@ hecha.*
 **Cuatro objetos, y ninguno es un bloqueo de diseno: son volcados.** Cada uno
 dice que columna deja de salir NULL.
 
+> **TRES DE LOS CUATRO LLEGARON EL 2026-10-22 y ya estan cargados.**
+> `V_Hom_Ind_Mov_Linea` (4 filas) y `V_INDICADOR_MOVILIDAD` (5 filas) en
+> `26_ddl_catalogo_movilidad.sql`; `V_Hom_Tipo_Pto_Int_Linea` (34 filas) en
+> `27_ddl_catalogo_hom_tipo_pto_int.sql`. Con ellos `MAT_INFO_MOVILIDAD`
+> pasa de 6 a **8 de 8** columnas y `MAT_INFO_PUNTO_INTERES` de 7 a **8 de
+> 10**. **Queda pendiente solo `V_TIPO_PUNTO_INTERES`**, y hoy es el unico
+> modo de cerrar la duda de llave del punto 4: se cableo por
+> `col07 Tipo_Punto_Interes` como hipotesis razonada, no como hecho.
+>
+> Dos cosas que el volcado enseño y no estaban en la peticion:
+> - **`V_INDICADOR_MOVILIDAD` trae `Cambio de Direccion` dos veces** (71948 y
+>   77295, misma frase salvo la tilde). El legado no lo nota porque une por
+>   el código; nosotros tenemos que unir por el nombre y desempatamos por
+>   `MIN(Cod_DW_Indicador_Movilidad)`.
+> - **`CAM_LOC` lo comparten Dirección y Localidad**, de modo que el cuarto
+>   indicador, el que no podemos portar, no aporta ni un código de Línea
+>   nuevo.
+
 ### 1 y 2. Movilidad (d6) -- dos catalogos
 
 ```sql

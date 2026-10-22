@@ -45,8 +45,8 @@ corrida escribió cada fila. No se repiten en cada ficha.
 | d3 | `mat_ubicacion_agregada` | 7 columnas | N | 29 | 21 |
 | d4 | `mat_info_basica` | `id` (= persona) | **1** | 22 | 20 |
 | d5 | `mat_info_contactabilidad` | `(id, sector, ubicacion_id)` | N | 12 | **2** |
-| d6 | `mat_info_movilidad` | `id` (evento) | **0..N** | 8 | 6 |
-| d7 | `mat_info_punto_interes` | `(id, ubicacion_id)` | N | 10 | 7 |
+| d6 | `mat_info_movilidad` | `id` (evento) | **0..N** | 8 | **8** |
+| d7 | `mat_info_punto_interes` | `(id, ubicacion_id)` | N | 10 | 8 |
 
 **Contrato de carga, en las siete: foto completa.** El AS-IS hace
 `DELETE … ALL` de las siete antes de cargar (`111.BTQ:817-836`), así que
@@ -310,12 +310,19 @@ por persona.
 | `novedad` | VARCHAR(1000) | `Cambio de Direccion` \| `de Ciudad` \| `de Estrato` | literales del propio P0029 | OK |
 | `tipo_identificacion` | VARCHAR(30) | descripción homologada | `V_Hom_Tip_Ident_Linea` | OK |
 | `numero_identificacion` | BIGINT | número de documento | `cod_pin_persona` | OK |
-| `descripcion` | VARCHAR(100) | valor del indicador | `V_INDICADOR_MOVILIDAD` | **NULL · catálogo** |
-| `novedad_2` | VARCHAR(30) | la novedad homologada a Línea | `V_Hom_Ind_Mov_Linea` | **NULL · catálogo** |
+| `descripcion` | VARCHAR(100) | **la frase larga**, p. ej. `Indica un cambio de ciudad durante una ventana de tiempo` | `V_INDICADOR_MOVILIDAD` | OK *(desde 2026-10-22)* |
+| `novedad_2` | VARCHAR(30) | el código de Línea: `CAM_LOC` \| `CAM_CIU` \| `CAM_EST` | `V_Hom_Ind_Mov_Linea` | OK *(desde 2026-10-22)* |
 
 **Tres de los cuatro indicadores.** Falta `Cambio de Localidad`: `LOCALIDAD` /
 comuna **no existe en EDF por ninguna vía** (buscado en el inventario de 1.072
 columnas del datashare y en Confluence, espacios `CCBR` y `EDCLMI`).
+
+**Y esa ausencia cuesta menos de lo que parecía.** El catálogo de homologación,
+que llegó el 2026-10-22, manda `Cambio de Localidad` y `Cambio de Direccion`
+**los dos a `CAM_LOC`**: Línea no los distingue. Como las cuatro ramas exigen
+`CambioDir = 1`, toda fila de Localidad convive con una de Dirección de la
+misma persona, así que la rama que falta **no aporta ni un código de Línea
+nuevo** — los tres portados cubren los tres códigos distintos que existen.
 
 **Medido en el banco:** `Cambio de Direccion` detecta los 100 del ARQ 97
 exactos. **Ciudad y estrato salen en 0 porque el mock no los siembra**, así que
@@ -345,7 +352,7 @@ colegio — con su distancia en metros.
 | `distancia` | INTEGER | distancia en metros | contrato, col11 | OK |
 | `latitud` / `longitud` | VARCHAR(40) | coordenadas **del punto**, no de la ubicación | contrato, col09 / col10 | OK |
 | `descripcion_tipo_punto_interes` | VARCHAR(1000) | tipo de punto | contrato col07, **valor crudo sin homologar** | OK · **divergencia** |
-| `tipo` | VARCHAR(30) | tipo homologado a Línea | `V_Hom_Tipo_Pto_Int_Linea` | **NULL · catálogo** |
+| `tipo` | VARCHAR(30) | tipo homologado a Línea (`CAJ_ELE`, `ENT_FIN`, `RESTAU`…) | `V_Hom_Tipo_Pto_Int_Linea` | OK *(desde 2026-10-22)* · **llave por confirmar** |
 | `nombre_entidad` | VARCHAR(1000) | entidad dueña del punto | `RELACION_PUNTO_INTERES_X_PERS` | **NULL · sin fuente** |
 | `nit_entidad` | VARCHAR(20) | NIT de esa entidad | ídem | **NULL · sin fuente** |
 
@@ -354,6 +361,16 @@ trajo en `col08`; era `geo_distancias` la que no tenía columna (D-GEO-08).
 
 **`nombre_entidad` y `nit_entidad` no viajan en el contrato de distancias**:
 son petición, no código.
+
+**La llave de `tipo` es una hipótesis, y hay que decirlo al leer el OK.** El
+legado une por `Cod_Tipo_Punto_Interes_Host`, que es columna de
+`V_TIPO_PUNTO_INTERES` — el único catálogo de los cuatro que **no** se ha
+entregado. Unimos por `col07 Tipo_Punto_Interes`, porque los 34 `Valor_Fuente`
+son códigos SIC de cuatro dígitos (3578 cajero, 6000 banca, 5800 restaurantes)
+y ésa es la taxonomía con la que ArcGIS clasifica un POI. **No está probado**:
+en mock `geo_distancias` está vacía y en DEV no ha llegado un archivo real. Va
+por `LEFT JOIN`, así que una llave equivocada deja la columna en NULL, que es
+donde estaba — no escribe un valor erróneo.
 
 ---
 
