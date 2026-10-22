@@ -96,6 +96,22 @@ normal hacia adelante que toque un archivo del paquete.
 
 Cuentas de hoy, para comparar: strct 100 archivos, pgm 234, dt 74.
 
+EL TRASLADO LLEVA TAMBIEN .jenkins.yml, Y ESO ES NUEVO (2026-10-22). La regla
+escrita -- "el traslado lleva solo deploy/redshift/" -- valia cuando los repos
+de Bitbucket ya traian su .jenkins.yml bueno. Los repos DB_DS_* son nuevos y
+nacen de una PLANTILLA DE TERRAFORM: su .jenkins.yml declara tech: terraform,
+de modo que Jenkins manda el build al pipeline TERRAFORM, que muere en
+sonarQubeScan con SONARQUBE:101 sin mirar una linea de SQL y sin tocar DEV.
+Comprobado en DEV/TERRAFORM #74615 sobre SLCOPRBA-1444.
+  Lo que sigue en pie de aquella regla: NADA de CLAUDE.md, validar.sh, docs/
+  ni banco/. El .jenkins.yml es la excepcion porque es lo que ELIGE el
+  pipeline, y Jenkins lo lee de la rama de Bitbucket, no de GitHub.
+
+Y LAS CINCO CARPETAS DE LA PLANTILLA SE BORRAN: demo, develop, qa, trunk y
+production son entornos de Terraform y el UNICO que las nombra es ese mismo
+.jenkins.yml. Sustituido el yml, quedan huerfanas; dejarlas solo sirve para
+confundir a quien revise el diff. .gitignore y README.md se quedan.
+
 EOT
   for i in 0 1 2; do
     local r="${REPOS[$i]}" b="${BITBUCKET[$i]}"
@@ -107,6 +123,8 @@ git checkout $b
 git pull origin $b
 git rm -r --cached deploy/redshift
 git checkout github/$RAMA -- deploy/redshift
+git checkout github/$RAMA -- .jenkins.yml
+git rm -r --quiet --ignore-unmatch demo develop qa trunk production
 git ls-files deploy/redshift | Measure-Object -Line
 git status
 git commit -m "$ID: paquete Reconocer desde $RAMA"
