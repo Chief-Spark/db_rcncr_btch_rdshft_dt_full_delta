@@ -27,7 +27,7 @@ CAST(xpm.pin AS BIGINT) AS cod_pin_persona
 ```
 
 Hay **17 referencias** a esa relación en los tres archivos de vistas del
-paquete (`02_vistas_insumo_edf_views.sql` 15, `03_vistas_contacto_canal` 1,
+paquete de `strct` — 19 contando los tres repos enteros (`02_vistas_insumo_edf_views.sql` 15, `03_vistas_contacto_canal` 1,
 `04_vistas_insumo_ordenamiento` 1). Toda vista `v_xpm_*` que identifique a una
 persona pasa por ahí.
 
@@ -43,6 +43,32 @@ persona pasa por ahí.
 Es decir: **el error aparece la primera vez que algo EJECUTA una consulta
 contra el datashare**, no al desplegar la estructura. Por eso no había salido
 antes: el primer sitio que la ejecutaba era la carga de un catálogo.
+
+## Y no sabemos si es la única
+
+Leemos **nueve** relaciones de `edf_views`. De `xpm` lo supimos porque fue la
+primera que algo ejecutó, no porque sea la única candidata:
+
+| Relación | Referencias |
+|---|---|
+| `xpm` | **19** — y es la que falló |
+| `xpm_personalinformation` | 5 |
+| `xpm_location_val_contactinformations` | 5 |
+| `xpm_chamberofcommerce` | 5 |
+| `xpm_location` | 4 |
+| `xpm_counterparties` | 4 |
+| `xpm_bestaccounts` | 3 |
+| `xpm_bestaccounts_val_frequentbehaviour` | 2 |
+| `xpm_bestidentifications` | 1 |
+
+**Las ocho restantes están sin probar.** Descubrirlas de una en una cuesta un
+despliegue por relación, así que añadimos una sonda a
+`diagnostico_datashare_edf_views.sql`: nueve `COUNT(*)`, uno por relación, que
+en **una** sesión dicen cuáles responden y cuáles devuelven el `XX000`.
+
+**Si pueden darnos directamente la lista de políticas de máscara aplicadas
+sobre `edf_views`, nos ahorramos la sonda** y la petición se cierra de una vez
+en lugar de por capítulos.
 
 ## Qué pedimos
 

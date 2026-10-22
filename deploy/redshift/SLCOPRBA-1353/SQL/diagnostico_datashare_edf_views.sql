@@ -127,3 +127,38 @@ SELECT LENGTH(TRIM(cp."counterparties.val.counterpartyidnumber"::VARCHAR)) AS la
  GROUP BY 1, 2
  ORDER BY 3 DESC
  LIMIT 50;
+
+-- ============================================================
+-- SONDA DE ENMASCARAMIENTO (2026-10-22, job DEV/DATABASE #453)
+--
+-- POR QUE: el #453 murio con
+--   XX000: cross-cluster query of the masked relation "xpm" is not supported
+-- Redshift no deja consultar por datashare una relacion con mascara. Lo
+-- supimos de `xpm` porque fue la PRIMERA que algo ejecuto -- la carga de
+-- catalogo_sector_financiero --, no porque sea la unica candidata.
+--
+-- LEEMOS NUEVE RELACIONES DE edf_views y no sabemos cuales mas tienen
+-- mascara. Descubrirlas de una en una cuesta un job por relacion; estas
+-- nueve consultas lo resuelven en UNA sesion.
+--
+-- COMO SE LEE LA SALIDA, y es lo unico que hay que mirar:
+--   un numero  -> la relacion se puede consultar
+--   XX000 ...  -> esta ENMASCARADA; va a la peticion
+--   otro error -> no existe o no hay permiso; es otra cosa
+--
+-- CORRERLO CON ON_ERROR_STOP APAGADO, que es lo que hace que sirva: con
+-- el encendido se para en la primera y vuelve a costar un viaje por
+-- relacion. Cada sentencia reporta su propio error y sigue.
+--
+-- NO SE PUEDE CORRER EN EL BANCO, por el mismo motivo que el resto de este
+-- archivo: alli edf_views son stubs y no hay mascaras que detectar.
+-- ============================================================
+SELECT 'xpm'                                 AS relacion, COUNT(*) AS filas FROM ds_dba_rncr_batch.edf_views.xpm;
+SELECT 'xpm_personalinformation'             AS relacion, COUNT(*) AS filas FROM ds_dba_rncr_batch.edf_views.xpm_personalinformation;
+SELECT 'xpm_location_val_contactinformations' AS relacion, COUNT(*) AS filas FROM ds_dba_rncr_batch.edf_views.xpm_location_val_contactinformations;
+SELECT 'xpm_chamberofcommerce'               AS relacion, COUNT(*) AS filas FROM ds_dba_rncr_batch.edf_views.xpm_chamberofcommerce;
+SELECT 'xpm_location'                        AS relacion, COUNT(*) AS filas FROM ds_dba_rncr_batch.edf_views.xpm_location;
+SELECT 'xpm_counterparties'                  AS relacion, COUNT(*) AS filas FROM ds_dba_rncr_batch.edf_views.xpm_counterparties;
+SELECT 'xpm_bestaccounts'                    AS relacion, COUNT(*) AS filas FROM ds_dba_rncr_batch.edf_views.xpm_bestaccounts;
+SELECT 'xpm_bestaccounts_val_frequentbehaviour' AS relacion, COUNT(*) AS filas FROM ds_dba_rncr_batch.edf_views.xpm_bestaccounts_val_frequentbehaviour;
+SELECT 'xpm_bestidentifications'             AS relacion, COUNT(*) AS filas FROM ds_dba_rncr_batch.edf_views.xpm_bestidentifications;
