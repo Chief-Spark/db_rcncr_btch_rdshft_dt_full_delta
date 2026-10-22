@@ -35,9 +35,14 @@ RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPOS=(db_rcncr_btch_rdshft_strct_full_delta
        db_rcncr_btch_rdshft_pgm_full_delta
        db_rcncr_btch_rdshft_dt_full_delta)
-JIRA=(SLCOPRBA-1397-strct SLCOPRBA-1398-pgm SLCOPRBA-1399-dt)
+# RAMAS DE BITBUCKET, NOMBRE COMPLETO. Antes esto era un sufijo pegado a mano
+# ("feature/$j-full-delta") y cada tanda de subtareas lo rompia. Van enteras.
+BITBUCKET=(feature/SLCOPRBA-1444-strct-full-delta-real
+           feature/SLCOPRBA-1445-pgm-full-delta-real
+           feature/SLCOPRBA-1446-dt-full-delta-real)
 PIEZAS=(deploy.par rollback.par SQL RevSQL)
-RAMA=claude/elegant-carson-tqhcku
+# La rama de GitHub de la que sale el paquete.
+RAMA=codex/ajustes-sp-reales-batch-en-linea
 
 di() { printf '%s\n' "$*"; }
 corre() { if [ "$ACCION" = plan ]; then di "    $*"; else eval "$@" || return 1; fi; }
@@ -71,27 +76,42 @@ revertir() {
 
 traslado() {
   cat <<EOT
-Traslado a Bitbucket despues de migrar. Un comando por linea: PowerShell 5.1
-rechaza '&&'.
+Traslado a Bitbucket. Un comando por linea: PowerShell 5.1 rechaza '&&', de
+modo que si uno falla los siguientes se ejecutan igual.
 
 LA TRAMPA, y es la que hace volver el error: 'git checkout <rama> -- <ruta>'
 COPIA pero NO BORRA. Sin el 'git rm -r --cached' de delante, los archivos de la
 estructura vieja sobreviven en la rama de Bitbucket y [REDSHIFT:418] se vuelve a
 disparar aunque en GitHub este todo bien.
 
+Y LA OTRA CARA DE ESA MISMA TRAMPA: el 'git rm -r --cached' borra el paquete
+del indice ANTES de que el 'git checkout' lo reponga. Si la copia falla, el
+commit y el push suben EL BORRADO. Por eso hay un 'git ls-files' entre los dos
+y un 'git ls-tree' despues del push: el primero mira el indice local, el
+segundo mira lo que Jenkins va a construir, que es el remoto. NO son
+intercambiables.
+
+NUNCA reescribir la rama de Bitbucket entre despliegues: siempre un commit
+normal hacia adelante que toque un archivo del paquete.
+
+Cuentas de hoy, para comparar: strct 100 archivos, pgm 234, dt 74.
+
 EOT
   for i in 0 1 2; do
-    local r="${REPOS[$i]}" j="${JIRA[$i]}"
+    local r="${REPOS[$i]}" b="${BITBUCKET[$i]}"
     cat <<EOT
---- $r
+--- $r   ->   $b
 cd <ruta>\\$r
 git fetch github $RAMA
-git checkout feature/$j-full-delta
+git checkout $b
+git pull origin $b
 git rm -r --cached deploy/redshift
 git checkout github/$RAMA -- deploy/redshift
+git ls-files deploy/redshift | Measure-Object -Line
 git status
-git commit -m "$j: paquete a deploy/redshift/$ID (REDSHIFT:418)"
-git push origin feature/$j-full-delta
+git commit -m "$ID: paquete Reconocer desde $RAMA"
+git push origin $b
+git ls-tree -r --name-only origin/$b -- deploy/redshift | Measure-Object -Line
 
 EOT
   done
