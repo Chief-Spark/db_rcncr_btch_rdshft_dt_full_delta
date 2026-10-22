@@ -14,3 +14,4 @@ run_geo_ciclo_mock.sql
 validacion_certificacion_51.sql
 validacion_certificacion_nov.sql
 run_cert_asercion_final.sql
+run_reconocer_e2e_real_full.sql

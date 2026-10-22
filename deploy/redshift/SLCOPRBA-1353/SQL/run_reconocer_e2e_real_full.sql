@@ -15,7 +15,38 @@
 --
 -- Ambiente: consumidor dba_rncr_batch, esquemas bdm_datos / bdm_tempo.
 -- Precondicion: STRCT y PGM desplegados, Data Sharing OK.
--- NO mezclar la via mock (bdm_stage) en esta corrida.
+--
+-- ------------------------------------------------------------
+-- DESDE EL 2026-10-22 ESTE ARCHIVO LO CORRE JENKINS: es la ULTIMA linea de
+-- deploy.par, detras de la asercion final. Antes estaba en el paquete y
+-- nadie lo invocaba, de modo que la via real se desplegaba y se quedaba
+-- quieta. Decision del usuario: probar con datos reales ya.
+--
+-- VA EL ULTIMO Y NO EN OTRO SITIO, POR TRES MOTIVOS:
+--
+-- 1. LAS DIEZ TABLAS DE STAGING DEL ORDENAMIENTO SON COMPARTIDAS entre la
+--    via real y la mock. sp_ordenamiento_preparar_insumos_mock materializa
+--    las MISMAS bdm_tempo.stg_* que la real cambiando solo las fuentes
+--    (stg_ord_personas_alcance, stg_rpu_post_unificacion, stg_contacto_canal
+--    y siete mas). Las dos vias NO pueden entrelazarse: cada una tiene que
+--    correr como un bloque entero. Detras de la bateria, lo es.
+-- 2. ASI LA ULTIMA ESCRITURA SOBRE LAS TABLAS REALES COMPARTIDAS
+--    (rpu_orden_prioridad, score_ordenamiento) es la de la corrida REAL, y
+--    no la de la mock. Delante, el mock las pisaria despues.
+-- 3. DETRAS DE LA ASERCION FINAL, de modo que el gate sigue decidiendo
+--    sobre mock, como manda la regla 5. Un fallo aqui tumba el build
+--    IGUAL, y eso es lo que se quiere: es la mitad que nunca se ha medido.
+--
+-- LO QUE DEJA, Y NO ES UN DEFECTO: rpu_orden_prioridad acaba con las filas
+-- reales MAS las que la bateria mock dejo (ids de la banda 9xxxxxx). La
+-- consolidacion solo borra por el alcance de su propia corrida. Las tablas
+-- dominio NO se contaminan: Novedades une contra su universo, que es real.
+--
+-- Y EL PIPELINE CORRE DEPLOY.PAR DOS VECES, de modo que esta cadena corre
+-- DOS VECES. Es FULL en los tres ciclos y las siete MAT son TRUNCATE +
+-- INSERT, asi que la segunda pasada reescribe lo mismo. Si alguna vez se
+-- pasa a DELTA, esto hay que volver a pensarlo.
+-- ------------------------------------------------------------
 --
 -- EL ORDEN NO ES NEGOCIABLE: Novedades va DESPUES del Ordenamiento porque su
 -- etapa 1 filtra por orden de prioridad no nulo (Novedad.sql:7593), que es lo
