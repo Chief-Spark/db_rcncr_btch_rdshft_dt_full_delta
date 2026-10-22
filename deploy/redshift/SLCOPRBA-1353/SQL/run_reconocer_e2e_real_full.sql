@@ -31,9 +31,10 @@ CALL bdm_datos.sp_unificacion_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR
 -- 2) Ordenamiento FULL sobre la salida de Unificacion.
 CALL bdm_datos.sp_ordenamiento_ciclo(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('FULL' AS VARCHAR(256)), CAST('1356301' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
 
--- 3) Novedades FULL. Corre los tres dominios portados -- ubicacion,
---    actividad economica y ubicacion agregada --, cada uno con su calcular y
---    su cargar.
+-- 3) Novedades FULL. Corre LOS SIETE dominios -- ubicacion, actividad
+--    economica, ubicacion agregada, contactabilidad, info basica, punto de
+--    interes y movilidad --, cada uno con su calcular y su cargar. Eran tres
+--    hasta el 2026-10-21; los cuatro ultimos entraron entre ese dia y el 22.
 CALL bdm_datos.sp_novedades_ciclo_edf(CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('' AS VARCHAR(256)), CAST('FULL' AS VARCHAR(256)), CAST('1356301' AS VARCHAR(256)), CAST('' AS VARCHAR(256)));
 
 -- ============================================================
