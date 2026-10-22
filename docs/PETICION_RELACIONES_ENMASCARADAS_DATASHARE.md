@@ -1,100 +1,63 @@
-# Ticket a EDF — las nueve relaciones del datashare están enmascaradas
+# CERRADO — las nueve relaciones del datashare responden
 
-*Redactado para pegarse tal cual. Fecha: 2026-10-22.*
+*Actualizado el 2026-10-22. **Este ticket NO debe enviarse a EDF.***
 
-## Resumen en una línea
+## Conclusión
 
-**Las nueve relaciones que Reconocer lee del datashare `ds_dba_rncr_batch`
-tienen máscara**, y Redshift no permite consultar por datashare una relación
-enmascarada. Mientras sigan así, **el proceso no entrega una sola fila** con
-datos reales.
+**Ninguna de las nueve relaciones que Reconocer lee de `ds_dba_rncr_batch`
+está hoy enmascarada.** Lo que bloqueaba el proceso ya no es el datashare.
 
-## Qué pedimos
+Este documento se conserva porque explica el síntoma y cómo se midió, pero
+**la petición está retirada**: no hay nada que pedir.
 
-Levantar la máscara **para el consumidor `dba_rncr_batch`** sobre estas nueve:
+## La evidencia, relación por relación
 
-| # | Relación | Qué bloquea de Reconocer |
+| Relación | Cómo se confirmó | Dato |
 |---|---|---|
-| 1 | `edf_views.xpm` | **la raíz del modelo**: `id_buro_persona = FNV_HASH(xpm.pin)`. 19 referencias en el paquete |
-| 2 | `edf_views.xpm_location_val_contactinformations` | **Unificación completa**, los cuatro canales del Ordenamiento y dos tablas dominio |
-| 3 | `edf_views.xpm_bestaccounts` | Fase 2 del Ordenamiento (cuentas, comportamiento, bloqueo de cuenta) |
-| 4 | `edf_views.xpm_personalinformation` | Actividad económica (`MAT_INFO_ACTIVIDAD_ECONOMICA`) |
-| 5 | `edf_views.xpm_chamberofcommerce` | la misma |
-| 6 | `edf_views.xpm_bestidentifications` | Información básica (`MAT_INFO_BASICA`) |
-| 7 | `edf_views.xpm_location` | atributos de la ubicación (tipo de cuenta, estrato, barrio) |
-| 8 | `edf_views.xpm_counterparties` | identidad del suscriptor que reporta |
-| 9 | `edf_views.xpm_bestaccounts_val_frequentbehaviour` | comportamiento de cuenta, Fase 2 |
+| `xpm` | job DEV/DATABASE #454 | carga de `catalogo_sector_financiero` |
+| `xpm_location` | el mismo INNER JOIN | **1.188 filas** |
+| `xpm_location_val_contactinformations` | el mismo INNER JOIN | un join de cuatro no devuelve filas si una tiene máscara |
+| `xpm_counterparties` | el mismo INNER JOIN | |
+| `xpm_personalinformation` | job DEV/DATABASE #458 | **124.263 filas** en `mat_info_actividad_economica` |
+| `xpm_chamberofcommerce` | el mismo | 58.512 personas |
+| `xpm_bestidentifications` | #458, error `42703` y no `XX000` | el error es de columna, no de máscara |
+| `xpm_bestaccounts` | `SELECT COUNT(*)` en DBeaver contra DEV | **1.231.183 filas** |
+| `xpm_bestaccounts_val_frequentbehaviour` | el mismo | **1.726.424 filas** |
 
-**Nos sirve que se levanten por fases**, y si hay que priorizar el orden es el
-de la tabla: sin la 1 y la 2 no arranca nada.
+## Qué pasó, y la lección de método
 
-## El error, literal
+El síntoma era real: Redshift no permite consultar por datashare una relación
+con máscara, y devuelve
 
 ```
-SQL Error [XX000]: ERROR: cross-cluster query of the masked relation
-  "xpm_personalinformation" is not supported.
+XX000: ERROR: cross-cluster query of the masked relation "<rel>" is not supported
 ```
 
-Idéntico para todas, cambiando el nombre. Lo devuelve un simple
-`SELECT COUNT(*)`.
+Eso tumbó el job #453 y es lo que originó este ticket.
 
-## Por qué no se resuelve con un GRANT
+**Pero el alcance se estimó tres veces y las tres salieron mal**, en las dos
+direcciones:
 
-Redshift **no permite consultar a través de un datashare una relación que
-tenga una política de enmascaramiento aplicada**. No es falta de permisos: el
-consumidor está en otro clúster y sus roles no son los del productor, así que
-el motor rechaza la consulta entera en lugar de arriesgarse a servir el dato
-sin aplicar la política.
+1. **Cinco**, leyendo las flechas de un pantallazo. Falso por defecto: la sonda
+   para en el primer error, de modo que lo que no falló no estaba limpio, sólo
+   no se había probado.
+2. **Nueve**, tomando el inventario de EDF. Falso por exceso: el inventario dice
+   qué política existe, no cuál bloquea hoy.
+3. **Cinco otra vez**, tras medir cuatro. También falso: seguía siendo una
+   estimación, no una medición completa.
 
-Las tres salidas que conocemos, para que elijan la que encaje con su política
-de privacidad:
+**La medición completa dio cero.** La lección, que vale para cualquier
+dependencia externa: **un inventario no es una medición, y una sonda que para
+en el primer error no mide el universo.** Lo único que cierra una pregunta así
+es consultar las N relaciones, una por una, hasta el final.
 
-1. **Excluir al consumidor `dba_rncr_batch`** de las políticas sobre esas nueve.
-2. **Publicar vistas sin máscara** en `edf_views` y compartir ésas.
-3. **Materializar** las relaciones del lado productor y compartir las copias.
+## Lo que sí bloquea hoy, y es nuestro
 
-Nos sirve cualquiera de las tres.
+Los dos defectos que el #458 dejó al descubierto en la vía real:
 
-## Cómo lo medimos, por si quieren reproducirlo
-
-Nueve `SELECT COUNT(*)`, uno por relación, corridos en una sesión contra DEV
-sin parar en el primer error. Están en
-`dt/deploy/redshift/SLCOPRBA-1353/SQL/diagnostico_datashare_edf_views.sql`
-(líneas 156-164). El que devuelve número se puede consultar; el que devuelve
-`XX000` está enmascarado.
-
-## Antecedente, y cuatro que ya están levantadas
-
-**El cambio ya se hizo una vez y funcionó.** El job DEV/DATABASE #453 murió con
-este error al cargar un catálogo; el **#454**, con el mismo código, cargó ese
-catálogo con **1.188 filas**. La consulta que lo carga hace INNER JOIN sobre
-**`xpm`, `xpm_location`, `xpm_location_val_contactinformations` y
-`xpm_counterparties`**, y un join de cuatro relaciones no devuelve una sola fila
-si alguna está enmascarada: **esas cuatro responden hoy.**
-
-Por eso **lo que de verdad pedimos son las cinco restantes**:
-`xpm_personalinformation`, `xpm_chamberofcommerce`, `xpm_bestaccounts`,
-`xpm_bestaccounts_val_frequentbehaviour` y `xpm_bestidentifications`.
-Las nueve siguen listadas arriba porque el inventario que se nos entregó las
-trae todas; si alguna más ya está levantada, basta con que nos lo confirmen.
-
-Que las cuatro primeras se hayan levantado **es la prueba de que el cambio es
-viable**, y marca el camino para las que faltan.
-
-## Detalle técnico, si hace falta trazarlo
-
-| Relación | Vistas nuestras que la leen |
+| Error | Dónde |
 |---|---|
-| `xpm` | prácticamente todas: es la raíz de la identidad |
-| `xpm_location_val_contactinformations` | `v_xpm_contacto_direccion`, `v_xpm_reporte_relacion_persona_ubica`, `v_xpm_contacto_canal` |
-| `xpm_bestaccounts` | `v_xpm_cuenta`, `v_xpm_comportamiento_cta`, `v_xpm_cuenta_bloqueada` |
-| `xpm_personalinformation` | `v_xpm_actividad_economica_persona` |
-| `xpm_chamberofcommerce` | `v_xpm_actividad_economica_persona` |
-| `xpm_bestidentifications` | `v_xpm_persona_basica` |
-| `xpm_location` | `v_xpm_ubicacion_estandarizada`, `v_xpm_direccion_fisica` |
-| `xpm_counterparties` | `v_xpm_reporte_relacion_persona_ubica` |
-| `xpm_bestaccounts_val_frequentbehaviour` | `v_xpm_comportamiento_cta` |
+| `XX000: correlated subquery pattern is not supported` | el `NOT EXISTS` del filtro de bloqueo en `sp_ordenamiento_preparar_insumos_edf.sql` |
+| `42846: cannot cast type boolean to character varying` | el `INSERT` a `mat_info_basica`, vía `v_xpm_persona_basica` |
 
-**Las vistas se crean sin problema** — `CREATE VIEW` no ejecuta la consulta —,
-de modo que el despliegue de la estructura pasa y el fallo aparece sólo al
-leerlas. Por eso no se detectó antes.
+Ninguno de los dos se arregla desde EDF.
