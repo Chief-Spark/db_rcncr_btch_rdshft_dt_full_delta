@@ -170,7 +170,12 @@ SELECT 'ORDENAMIENTO', corrida_id, etapa, estado,
 --
 -- Y UN AVISO QUE HAY QUE LEER ANTES DE COMPARAR COLUMNAS: LA LLAVE DE PERSONA
 -- NO SE LLAMA IGUAL EN LAS SIETE, Y DOS NO LA TIENEN.
---   mat_info_ubicacion, mat_info_basica      -> id
+--   mat_info_basica                          -> id
+--   mat_info_ubicacion                       -> info_basica. Su columna id es
+--      la UBICACION (30_ddl_novedades.sql:189-212 declara las dos), y es unica
+--      por fila: COUNT(DISTINCT id) da las 60.452 filas, no las 55.259 personas.
+--      Medido en el #491; esta consulta lo daba mal y por eso el bloque 9b salia
+--      en 58.878 -- cruzaba persona contra ubicacion y no casaba ni una.
 --   mat_info_actividad_economica, movilidad  -> info_basica_id
 --   mat_ubicacion_agregada                   -> info_basica
 --   mat_info_contactabilidad                 -> NO HAY. Su columna id es la
@@ -181,7 +186,7 @@ SELECT 'ORDENAMIENTO', corrida_id, etapa, estado,
 -- Un COUNT(DISTINCT id) uniforme sobre las siete daria 0 en contactabilidad y
 -- un numero sin sentido en punto de interes.
 SELECT 'mat_info_ubicacion' AS tabla, COUNT(*) AS filas,
-       COUNT(DISTINCT id) AS personas, NULL AS ubicaciones
+       COUNT(DISTINCT info_basica) AS personas, COUNT(DISTINCT id) AS ubicaciones
   FROM bdm_datos.mat_info_ubicacion
 UNION ALL SELECT 'mat_info_actividad_economica', COUNT(*),
        COUNT(DISTINCT info_basica_id), NULL
@@ -309,8 +314,14 @@ SELECT 'cuenta_atributo_hash', COUNT(*), COUNT(DISTINCT cod_dw_cta),
 -- que Info basica no. Si la suma de los tres excluidos no explica la
 -- diferencia, entonces SI hay algo que mirar.
 --
--- QUE TIENE QUE SALIR: personas_rpu = 58.878 (el universo de Info basica), y
--- personas_tras_filtros = 55.259 (el de los otros tres dominios).
+-- MEDIDO EN EL #491 Y NO CUADRA: de las 3.619, los filtros nombrados explican
+-- 527 -- 236 con todas sus ubicaciones bloqueadas y 291 sin orden de prioridad
+-- --, y los dos reconcilian exacto con otras tablas (58.878-236 = 58.642 de
+-- ubicacion_atributo_hash; 58.878-291 = 58.587 de rpu_orden_prioridad). Quedan
+-- ~3.092 SIN EXPLICAR. La unificacion no las cubre: solo 7 personas tienen
+-- alguna ubicacion unificada. Hay un cuarto filtro en la etapa 1 que esta
+-- consulta todavia no nombra, y hasta encontrarlo la diferencia NO esta
+-- explicada.
 -- ============================================================
 -- 9a. El universo crudo y las dos banderas que lo recortan.
 -- OJO: orden_prioridad de ESTA vista es un ROW_NUMBER y nunca es nulo
@@ -329,7 +340,7 @@ SELECT COUNT(DISTINCT id_buro_persona) AS personas_rpu,
 -- Ubicacion. Tiene que dar 3.619 contra los numeros del #491.
 SELECT COUNT(*) AS en_basica_y_no_en_ubicacion
   FROM ( SELECT DISTINCT id FROM bdm_datos.mat_info_basica ) b
-  LEFT JOIN ( SELECT DISTINCT id FROM bdm_datos.mat_info_ubicacion ) u
+  LEFT JOIN ( SELECT DISTINCT info_basica AS id FROM bdm_datos.mat_info_ubicacion ) u
     ON u.id = b.id
  WHERE u.id IS NULL;
 
@@ -340,7 +351,7 @@ SELECT COUNT(*) AS en_basica_y_no_en_ubicacion
 WITH fuera AS (
   SELECT b.id
     FROM ( SELECT DISTINCT id FROM bdm_datos.mat_info_basica ) b
-    LEFT JOIN ( SELECT DISTINCT id FROM bdm_datos.mat_info_ubicacion ) u
+    LEFT JOIN ( SELECT DISTINCT info_basica AS id FROM bdm_datos.mat_info_ubicacion ) u
       ON u.id = b.id
    WHERE u.id IS NULL
 ), rpu AS (
@@ -363,6 +374,35 @@ SELECT COUNT(*) AS personas_fuera,
   FROM fuera f
   LEFT JOIN rpu r ON r.id_buro_persona = f.id
   LEFT JOIN pri p ON p.id_buro_persona = f.id;
+
+-- 9d. EL CUARTO FILTRO, QUE LOS TRES DE ARRIBA NO NOMBRAN.
+-- La etapa 3 de Novedades hace INNER JOIN contra v_xpm_ubicacion_estandarizada
+-- con COALESCE(descripcion_gestion_registro, 'VALIDA') = 'VALIDA'
+-- (sp_novedades_ubicacion_edf.sql:218-223). Una ubicacion SIN fila en
+-- estandarizada se cae por el INNER JOIN; una con gestion distinta de VALIDA,
+-- por el predicado. Info basica no pasa por ahi, y por eso conserva a esa gente.
+--
+-- COMO SE LEE: si sin_estandarizar + no_valida cubren las ~3.092 que 9c deja
+-- sin explicar, la diferencia queda cerrada y no hay trabajo. Si no las cubren,
+-- queda un quinto filtro por encontrar y la diferencia sigue abierta.
+WITH ubic AS (
+  SELECT rpu.id_buro_persona, rpu.cod_dw_persona_ubic,
+         ue.cod_dw_persona_ubic AS est,
+         COALESCE(ue.descripcion_gestion_registro, 'VALIDA') AS gestion
+    FROM bdm_tempo.v_xpm_relacion_persona_ubicacion rpu
+    LEFT JOIN bdm_tempo.v_xpm_ubicacion_estandarizada ue
+      ON ue.cod_dw_persona_ubic = rpu.cod_dw_persona_ubic
+)
+SELECT COUNT(DISTINCT id_buro_persona) AS personas_rpu,
+       COUNT(DISTINCT CASE WHEN est IS NOT NULL AND gestion = 'VALIDA'
+                           THEN id_buro_persona END) AS personas_con_alguna_valida,
+       COUNT(DISTINCT id_buro_persona)
+         - COUNT(DISTINCT CASE WHEN est IS NOT NULL AND gestion = 'VALIDA'
+                               THEN id_buro_persona END) AS personas_que_pierde_la_etapa_3,
+       COUNT(DISTINCT CASE WHEN est IS NULL THEN cod_dw_persona_ubic END) AS ubic_sin_estandarizar,
+       COUNT(DISTINCT CASE WHEN est IS NOT NULL AND gestion <> 'VALIDA'
+                           THEN cod_dw_persona_ubic END) AS ubic_no_valida
+  FROM ubic;
 
 
 -- ============================================================
