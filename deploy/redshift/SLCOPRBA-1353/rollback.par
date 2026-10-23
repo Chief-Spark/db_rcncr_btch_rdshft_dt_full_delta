@@ -1,4 +1,3 @@
-run_reconocer_e2e_real_full.sql
 run_cert_asercion_final.sql
 validacion_certificacion_nov.sql
 validacion_certificacion_51.sql
@@ -12,6 +11,7 @@ seed_mock_matriz_r3.sql
 seed_mock_matriz_r2.sql
 seed_mock_matriz.sql
 reset_mock.sql
+run_reconocer_e2e_real_full.sql
 run_migracion_observabilidad.sql
 run_migracion_ord_canal.sql
 run_migracion_nov_info_basica.sql
