@@ -134,11 +134,20 @@ FROM   bdm_datos.mat_info_punto_interes;
 SELECT COUNT(*) AS distancias_cargadas, COUNT(nombre_punto_interes) AS con_nombre
 FROM   bdm_datos.geo_distancias;
 
--- EL CONTENIDO DE INFO BASICA, no solo el conteo. Diecinueve de las 22 se
--- pueblan; las tres que no tienen que salir en CERO aqui, y si alguna sube
--- es que alguien las conecto sin actualizar esta medida.
+-- EL CONTENIDO DE INFO BASICA, no solo el conteo.
 --   filas y personas DEBEN COINCIDIR: el grano es una fila por persona. Si
 --   divergen hay fan-out, que es el defecto que ya se pago dos veces.
+--   Y EL UNIVERSO TIENE QUE PARECERSE AL DE LOS OTROS TRES DOMINIOS. En el
+--   job #484 salio con 1.194.682 personas contra 55.259 -- veinte veces mas --
+--   porque la vista arrancaba de xpm entero en vez de la RPU, y mas de un
+--   millon de esas filas venian con un id y poco mas. Si esta cifra vuelve a
+--   dispararse, el universo se solto otra vez.
+-- LAS BLOQUEADAS SON DOS Y NO TRES, y esta medida lo decia mal: contaba
+-- tipo_identificacion entre ellas y esa columna SE PUEBLA desde que llego su
+-- catalogo el 2026-10-21 (bdm_datos.catalogo_hom_tipo_ident). El #484 imprimio
+-- 121.774 y parecia un defecto; era la medida envejecida. Quedan pagina_web,
+-- que NO EXISTE en EDF (CCBR 251264543), y mosaic_id, fuera por decision legal
+-- (D-NOV-07): esas dos SI tienen que salir en cero.
 SELECT COUNT(*)                        AS filas,
        COUNT(DISTINCT id)              AS personas,
        COUNT(nombre_completo)          AS con_nombre,
@@ -146,9 +155,9 @@ SELECT COUNT(*)                        AS filas,
        COUNT(NULLIF(genero, ''))       AS con_genero,
        COUNT(fecha_expedicion)         AS con_fecha_exp,
        COUNT(ciiu)                     AS con_ciiu,
-       COUNT(tipo_identificacion)
-         + COUNT(pagina_web)
-         + COUNT(mosaic_id)            AS en_las_tres_bloqueadas
+       COUNT(tipo_identificacion)      AS con_tipo_ident,
+       COUNT(pagina_web)
+         + COUNT(mosaic_id)            AS en_las_dos_bloqueadas
 FROM   bdm_datos.mat_info_basica;
 
 -- EL REPARTO DEL GENERO, que es la unica decision de negocio de esta tabla
