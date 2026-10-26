@@ -97,7 +97,7 @@ SELECT etapa, estado,
        candidatos_geo_exportados
   FROM bdm_datos.unif_control_etapa
  WHERE lote = 1356301 AND corrida_id = 1
-   AND etapa NOT LIKE 'regla2\\_esc%'
+   AND etapa NOT LIKE 'regla2_esc%'
  ORDER BY fecha_hora_inicio;
 
 
