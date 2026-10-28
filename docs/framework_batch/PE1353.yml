@@ -1,0 +1,46 @@
+# =====================================================================
+# PE1353 - Reconocer: Unificacion + Ordenamiento + Novedades (via REAL)
+# Prueba del Framework Batch contra datos reales en DEV.
+#
+# PIPELINE: RECONOCER. Los SP viven en dba_rncr_batch, en el cluster
+# eec-aws-us-eits-reconocerbatch-dev-redshift (cuenta 647096294147), que NO
+# es el cluster por defecto del Framework. Sin esta linea el destino cae a
+# ALPHA (dba_batch, cuenta 651706752126) y la llamada falla con
+# "procedure bdm_datos.sp_unificacion_ciclo does not exist".
+#
+# LOS TRES NIVELES SON SECUENCIALES A PROPOSITO:
+#   nivel 1 -> Unificacion escribe unificacion_direccion
+#   nivel 2 -> Ordenamiento LEE esa salida (solo puntua lo no unificado)
+#   nivel 3 -> Novedades LEE el orden_prioridad que produce el nivel 2
+# El Framework ejecuta en PARALELO los procedimientos del MISMO nivel y en
+# SERIE los niveles entre si. Meter dos de estos tres en un nivel no los
+# acelera: los deja compitiendo por una dependencia que no esta lista.
+# =====================================================================
+procesos:
+  pipeline: RECONOCER
+  directorio:
+    ruta: PE1353
+  niveles:
+    - nivel: 1
+      descripcion: "Unificacion de direcciones: cascada R1 -> R2 -> R3"
+      procedimientos:
+        - step_name: "unificacion_ciclo"
+          step_procedure: bdm_datos.sp_unificacion_ciclo
+          step_description: "Orquestador de Unificacion. Resuelve MODO/LOTE/FECHA con fw_resolver_param y corre R1, R2 (seis escenarios y cuatro motores), GEO y R3"
+    - nivel: 2
+      descripcion: "Ordenamiento: alcance, cuentas, ubicaciones y scoring de los cuatro canales"
+      procedimientos:
+        - step_name: "ordenamiento_ciclo"
+          step_procedure: bdm_datos.sp_ordenamiento_ciclo
+          step_description: "Orquestador de Ordenamiento. Fases 1 a 4; el scoring de DIR, TEL, CEL y EMA corre dentro de este SP"
+    - nivel: 3
+      descripcion: "Novedades: las siete tablas dominio"
+      procedimientos:
+        - step_name: "novedades_ciclo"
+          step_procedure: bdm_datos.sp_novedades_ciclo_edf
+          step_description: "Orquestador de Novedades. Ubicacion primero por ser productor puro, luego los seis dominios restantes"
+  archivos:
+    obligatorios:
+      - .val
+  salidas:
+    aplica: false
