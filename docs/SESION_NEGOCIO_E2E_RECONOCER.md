@@ -69,14 +69,28 @@ Dos o tres frases por bloque. Escrito para decirse en voz alta.
 
 **Si preguntan por qué sólo diecinueve unificaciones** (y van a preguntar):
 
-> Porque las direcciones con más probabilidad de estar duplicadas son justo las
-> de las empresas, y ésas salieron antes de empezar. Lo que queda son personas
-> naturales con 1,33 ubicaciones en promedio; con 1,33 no hay casi nada que
-> unificar.
+> El proceso une dos direcciones cuando son la misma casa escrita distinto:
+> *Calle 10 # 5-20 apto 201* y *Calle 10 # 5-20 ap 201*. Para que haya algo que
+> unir, tienen que existir dos escrituras de la misma dirección.
 >
-> Y eso no es una suposición: el proceso lleva un censo de todos los casos que
-> evaluó. Los casos en que existía una pareja posible y ninguna regla la resolvió
-> son **cero**.
+> De las setenta y ocho mil que entraron, **setenta y ocho mil ciento ochenta y
+> ocho eran direcciones únicas**: no había con quién emparejarlas. Y de las que
+> sí tenían un candidato, **no quedó ni una sin resolver. Cero.**
+>
+> La diferencia que importa es entre *no resolvió* y *no había qué resolver*.
+
+Lo que hay detrás, por si alguien pregunta de dónde sale: el proceso guarda un
+censo que clasifica cada dirección en tres cubos.
+
+| Cubo | Qué significa | DEV |
+|---|---|---|
+| La resolvió una regla | se unificó | **19** |
+| Sin pareja posible | su grupo traía una sola escritura de la dirección | **78.188** |
+| Sin resolver | sí había otra escritura, y ninguna regla las unió | **0** |
+
+**La tercera fila es la única que delataría un hueco en el port.** Por eso es la
+que se mira, y por eso dio cero. La clasificación está en
+`sp_unificacion_regla2.sql:148-165`; el censo es `bdm_datos.unif_escenario_censo`.
 
 ### 4 · Las tres vertientes
 
@@ -172,7 +186,7 @@ al lado de los 263 segundos.
 | Pregunta | Respuesta corta |
 |---|---|
 | *"¿Están botando el 74% del buró?"* | No. Son empresas con cientos de sedes; Teradata las excluye igual. 106 NIT concentran 134.357 relaciones. |
-| *"Diecinueve unificaciones parece nada."* | El censo de escenarios da **cero** casos sin resolver teniendo pareja posible. El universo que queda tiene 1,33 ubicaciones por persona. |
+| *"Diecinueve unificaciones parece nada."* | 78.188 de las que entraron eran direcciones únicas: no había con quién emparejarlas. De las que sí tenían candidato, **ninguna quedó sin resolver**. No es que no resolviera; es que no había qué resolver. |
 | *"¿Por qué dos tablas en cero?"* | Dependen del georreferenciador externo, que todavía no procesa. Está documentado y es dependencia de terceros, no código faltante. |
 
 ---
