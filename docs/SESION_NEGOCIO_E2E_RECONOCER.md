@@ -103,6 +103,13 @@ que se mira, y por eso dio cero. La clasificación está en
 > El dato real prueba otra cosa: que la regla aguanta el volumen y la suciedad
 > del origen. Ninguno reemplaza al otro.
 
+**Si alguien compara los 219 s del mock con los 263 de desarrollo** y pregunta
+por qué el mock es más rápido: esos 219 s son **los tres procesos**. La corrida
+de laboratorio gasta otros **53 s** en los gates y los evaluadores de
+certificación, que en producción no corren — el intervalo de punta a punta son
+272 s. Y el mock procesa un universo construido, no el del buró: la comparación
+que vale es la de DEV contra QA.
+
 **Sobre los cuatro ciclos del mock**, si hay interés:
 
 > Corremos la cadena cuatro veces seguidas: carga completa, incremental sin
