@@ -175,3 +175,47 @@ LIMIT  20;
 tambien se equivoca.** `lugar_max` parecia la prueba de que el canal rankea y
 solo dice cuantas filas hay. Las otras dos fueron la brecha de la R2 inflada por
 los padres (#310) y por el hermano sin sellar (2026-10-30).
+
+## Y la medida correcta, en el universo entero: el modelo SI distingue
+
+**MI HIPOTESIS ANTERIOR ERA FALSA Y SE INVIERTE ENTERA.** De la muestra de los
+veinte rankings mas largos deduje que CEL y TEL apenas discriminaban, y hasta le
+encontre causa: las dos piezas de ranking documentadas como bloqueadas (el
+`999999` por CONTACTABILIDAD en CEL, el filtro `CO01TEL022_cat > 0` en TEL).
+**Esa conexion era casualidad del sesgo de la muestra.** Queda descartada.
+
+Medido sobre TODOS los rankings de QA, no sobre los veinte mayores:
+
+| Canal | Rankings | Filas | % medio de puntajes distintos | min | max |
+|---|---|---|---|---|---|
+| **CEL** | 1.050 | 5.180 | **93,3** | 3,1 | 100 |
+| EMA | 1.198 | 5.693 | 76,6 | 5,3 | 100 |
+| TEL | 880 | 9.619 | 73,3 | 7,5 | 100 |
+| **DIR** | 2.276 | 27.667 | **60,3** | 10 | 100 |
+
+**CEL, que en la muestra sesgada salia el PEOR (3,1%), es el MEJOR del universo.**
+Los empates se concentran en los rankings larguisimos, que no son personas: son
+entidades con sedes identicas, y puntajes iguales para insumos iguales es lo
+correcto.
+
+**UN SESGO MAS, Y VALE PARA CUALQUIER COMPARACION ENTRE CANALES:** el porcentaje
+**baja solo con la longitud del ranking**, aunque el modelo sea perfecto, porque
+los puntajes salen de un conjunto finito. DIR promedia **12,2** datos por
+ranking y CEL **4,9**, de modo que el 60,3 y el 93,3 **no son directamente
+comparables**. Lo comparable es que los cuatro caen entre 60 y 93: el modelo
+distingue en todos.
+
+**EL DATO QUE CAMBIA LA LECTURA DE LA SESION: el ranking se ejercita en una
+MINORIA.** De las 57.813 personas de QA, solo **2.276** tienen mas de una
+direccion y **1.050** mas de un celular. Para el resto no hay nada que ordenar:
+tienen un dato y el lugar 1 es ese. Es la misma forma del hallazgo de las 1,33
+ubicaciones de media, y no debilita el argumento: **el valor del Ordenamiento no
+esta en ordenar 291 sedes de un municipio, sino en acertar el lugar 1 de cada
+persona.**
+
+**LA LECCION, QUE ES LA CUARTA DE LA MISMA FAMILIA EN ESTA BITACORA: una muestra
+elegida por el extremo de una variable no mide la poblacion.** Los veinte
+rankings mas largos son, por construccion, los mas propensos a empatar. Medir
+ahi la capacidad de discriminar es como medir la variedad de un catalogo mirando
+solo los duplicados. Las otras tres: los padres del #310, el hermano sin sellar
+de la brecha R2, y el propio `lugar_max`.
