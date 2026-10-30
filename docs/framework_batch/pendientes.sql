@@ -6,8 +6,9 @@
 -- alcance por decision, la (5) es un dato del otro motor que trae el
 -- presentador, y la (3) necesita DOS consultas y no una.
 --
--- Quedan, entonces, TRES celdas que este archivo llena -- (1), (2) y (3) --
--- y UNA que depende de alguien de fuera.
+-- LAS TRES QUE ESTE ARCHIVO LLENABA YA ESTAN MEDIDAS (2026-10-30) y sus
+-- valores quedan anotados en cada seccion. Queda UNA sola celda abierta, la
+-- (5), que depende de alguien de fuera.
 --
 -- Base dba_rncr_batch, no dba (DBeaver abre en dba).
 -- =====================================================================
@@ -20,7 +21,16 @@
 -- captura_qa_real.sql, ya corregido. Se repite aqui para no tener que
 -- abrir el otro archivo.
 --
--- Mock ya esta: 92.800, del bloque 1 de captura_mock.sql.
+-- MEDIDO 2026-10-30 -- Mock 92.800 | DEV 58.878 | QA 57.813.
+--
+-- Y la salida trajo dos cosas que no se buscaban:
+--   - ubicaciones_fisicas salio MENOR que el total en los dos ambientes
+--     (114.703 de 299.575 en DEV, 120.452 de 302.112 en QA), que es la
+--     confirmacion de que cod_dw_ubic era la columna correcta.
+--   - el reparto de DEV SE MOVIO desde el #491: mismo total 299.575, pero
+--     221.195 bloqueadas y 78.380 entrando, 188 relaciones de diferencia.
+--     Cambio el blockreason en origen. La pagina conserva las cifras del
+--     #491 porque esa columna es UNA corrida.
 --
 -- OJO A ubicaciones_fisicas, que es la correccion que lleva dentro:
 -- antes contaba cod_dw_persona_ubic -- la llave del CONTACTO
@@ -38,6 +48,15 @@ FROM   bdm_tempo.v_xpm_relacion_persona_ubicacion;
 
 -- ---------------------------------------------------------------------
 -- (3)  LA CADENA COMPLETA -- columna MOCK
+--
+-- MEDIDO 2026-10-30 -- 219 s: unificacion 121 + ordenamiento 43 + novedades 55,
+-- en el ciclo FULL (lote 1356601). La consulta (b) da cadena_s = 272, que es el
+-- intervalo de punta a punta: los 53 s de diferencia son los gates y los
+-- evaluadores de certificacion, que la via real NO corre. A la pagina va 219,
+-- que es lo que compara con los 263 de DEV y los 365 de QA.
+--
+-- Y de paso salio que el DELTA del Ordenamiento mock tarda 303 s y 568 s contra
+-- los 43 del FULL, haciendo el 98% del trabajo. Esta en los CLAUDE.md.
 --
 -- Contra DEV, que es donde corre la bateria mock (en QA solo han corrido
 -- las vias reales). Son los bloques 5 y 6 de captura_mock.sql.
