@@ -22,10 +22,24 @@
 --    Las tres cifras tienen que sumar. Si no suman, hay una tercera rama
 --    y hay que mirarla antes de presentar nada.
 -- ---------------------------------------------------------------------
+--    Y DOS CORRECCIONES (2026-10-30):
+--
+--    personas: se anade. Es la fila "Personas distintas" de la tabla de tres
+--    vertientes; el bloque 1 de captura_mock.sql ya la traia, de modo que las
+--    tres columnas se miden con la misma consulta.
+--
+--    ubicaciones_fisicas CONTABA LA COLUMNA EQUIVOCADA. Usaba
+--    cod_dw_persona_ubic, que es la llave del CONTACTO
+--    (02_vistas_insumo_edf_views.sql:77, FNV_HASH(id || ':' || index)); la
+--    ubicacion fisica es cod_dw_ubic (:76). Por eso en QA dio 302.112 -- igual
+--    que el total de filas -- y no era comparable con las 114.703 de DEV.
+--    Si vuelve a salir igual al total, cod_dw_ubic tampoco es lo que creemos
+--    y ESO es un hallazgo, no un detalle.
 SELECT COUNT(*)                                                 AS relaciones_total,
        SUM(CASE WHEN COALESCE(bloqueado,0) = 1 THEN 1 ELSE 0 END) AS caen_por_bloqueada,
        SUM(CASE WHEN COALESCE(bloqueado,0) = 0 THEN 1 ELSE 0 END) AS entran,
-       COUNT(DISTINCT cod_dw_persona_ubic)                      AS ubicaciones_fisicas
+       COUNT(DISTINCT id_buro_persona)                          AS personas,
+       COUNT(DISTINCT cod_dw_ubic)                              AS ubicaciones_fisicas
 FROM   bdm_tempo.v_xpm_relacion_persona_ubicacion;
 
 
