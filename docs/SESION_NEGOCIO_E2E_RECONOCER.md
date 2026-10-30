@@ -205,13 +205,14 @@ cambios*, no la eficiencia. Si alguien la pide, ésa es la respuesta.
 
 ---
 
-## Las tres preguntas difíciles, y su respuesta
+## Las preguntas difíciles, y su respuesta
 
 | Pregunta | Respuesta corta |
 |---|---|
 | *"¿Están botando el 74% del buró?"* | No: vienen **bloqueadas del buró**, y Teradata las excluye igual. En desarrollo ese bloqueo recae casi todo sobre empresas — 106 NIT concentran 134.357 relaciones. En QA el mismo filtro sólo saca el 9,5%: **no filtramos por tipo de documento.** |
 | *"Diecinueve unificaciones parece nada."* | 78.188 de las que entraron eran direcciones únicas: no había con quién emparejarlas. De las que sí tenían candidato, **ninguna quedó sin resolver**. No es que no resolviera; es que no había qué resolver. |
 | *"¿Por qué dos tablas en cero?"* | Dependen del georreferenciador externo, que todavía no procesa. Está documentado y es dependencia de terceros, no código faltante. |
+| *"¿Hay criterios que no cumplen?"* | **Ninguno falla.** De los 121 en alcance, 119 cumplen. Los dos restantes no son defectos: uno es una **decisión funcional abierta** — el documento dice que una característica del correo mide recencia y el proceso de Teradata mide la longitud del buzón, y además **no entra en la suma del puntaje** — y el otro es un **caso que el laboratorio no siembra**, así que ninguna fila lo ejercita. Y el cero no hay que creerlo de palabra: **un criterio en fallo tumba el despliegue.** |
 | *"¿El incremental sirve de algo?"* | El control incremental es diseño nuevo: el proceso de Teradata nunca lo tuvo. Funciona y **está certificado con datos de laboratorio**, que es donde se pueden provocar los cambios que lo prueban. Con dato real el alcance acordado es la carga completa. |
 
 ---
@@ -237,6 +238,15 @@ no la regla**: en QA el mismo filtro sólo saca el 9,5%. **Las empresas no
 bloqueadas sí entran al proceso**, y por eso la Regla 2 tiene que discriminarlas
 después. Decir "no entran las empresas" se entiende mal y ya costó una
 aclaración; la página dice ahora "bloqueadas en origen".
+
+**Y UNA CIFRA QUE ESTÁ POR DEBAJO DE LA REALIDAD, por si alguien la audita al
+alza:** el alcance de Ordenamiento está clavado en **45 de sus 90** criterios.
+El `WHERE` del titular (`validacion_certificacion_ord.sql:37-39`) cuenta sólo
+`FASE4` + `CA_FUNC` más nueve transversales y **excluye FASE1, FASE2 y FASE3** —
+29 criterios que hoy ya están certificados sobre laboratorio (F1 seis de ocho,
+F2 diez de diez, F3 nueve de once). El 121/119 de la página es, por tanto,
+**conservador**. No se ensanchó el alcance antes de la sesión porque mueve el
+tablero y el gate de Ordenamiento no está encendido.
 
 **Un aviso sobre una cifra:** el alcance de Unificación (50) es un literal escrito
 a mano en el tablero, no un conteo. Los de Ordenamiento (45) y Novedades (26) sí

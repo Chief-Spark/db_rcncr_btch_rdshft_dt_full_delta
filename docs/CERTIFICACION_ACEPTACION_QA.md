@@ -83,6 +83,25 @@ lo que el criterio exige**, y por eso sale PASSED.
 
 ## Resumen
 
+> **ESTE RESUMEN ESTÁ DESFASADO (verificado el 2026-10-30) y la tabla de abajo
+> no se ha regenerado.** Dice **183** criterios y **115** cerrados, y los
+> catálogos van hoy por **189** — 51 en `cert_criterio`
+> (`13_ddl_cert_criterios.sql:101`), 90 en `cert_criterio_ord`
+> (`20_ddl_cert_criterios_ord.sql:120`) y 48 en `cert_criterio_nov`
+> (`33_ddl_cert_criterios_nov.sql:91`). Peor: sigue llamando *"no portada"* a
+> las **Fases 1, 2 y 3** del Ordenamiento, que están portadas y certificadas
+> sobre mock — F1 seis de ocho, F2 diez de diez, F3 nueve de once.
+>
+> **La cabecera de este documento promete que ningún número está escrito a
+> mano, y esta tabla lo está.** Se regenera con la consulta (1) de
+> `framework_batch/criterios_estado.sql`, que lee los tres catálogos y las tres
+> tablas de resultado. Hasta entonces, el dato que vale es el de esa consulta,
+> no el de aquí.
+>
+> Lo que **sí** sigue siendo cierto y no depende de la tabla: **cero FAILED**.
+> El gate sólo cuenta FAILED (`sp_cert_asercion_final.sql:92-133`), de modo que
+> un build verde ya lo prueba.
+
 | Bloque | Criterios | Cerrados |
 |---|---|---|
 | Regla 1 - unificacion por CIIU y entidades reportantes | 8 | **8** |
