@@ -88,19 +88,55 @@ la pagina queda con el numero que el desglose reproduce.
 
 ## D. Las siete tablas de entrega
 
-| Tabla | DEV filas | DEV personas | QA filas | QA personas |
-|---|---|---|---|---|
-| actividad economica | 124.267 | 58.512 | 121.220 | 57.581 |
-| ubicacion | 60.493 | 55.264 | 74.237 | 51.703 |
-| contactabilidad | 60.485 | -- | 74.237 | -- |
-| ubicacion agregada | 59.314 | 55.264 | 69.231 | 51.703 |
-| info basica | 58.878 | 58.809 | 57.813 | 57.813 |
-| punto de interes | **0** | -- | **0** | -- |
-| movilidad | **0** | 0 | **0** | 0 |
-| **Total** | **363.437** | | **396.738** | |
+| Tabla | Mock filas | DEV filas | DEV personas | QA filas | QA personas |
+|---|---|---|---|---|---|
+| actividad economica | 73.000 | 124.267 | 58.512 | 121.220 | 57.581 |
+| ubicacion | 88.800 | 60.493 | 55.264 | 74.237 | 51.703 |
+| contactabilidad | 88.800 | 60.485 | -- | 74.237 | -- |
+| ubicacion agregada | 89.800 | 59.314 | 55.264 | 69.231 | 51.703 |
+| info basica | 92.800 | 58.878 | 58.809 | 57.813 | 57.813 |
+| punto de interes | **20.000** | **0** | -- | **0** | -- |
+| movilidad | **1.000** | **0** | 0 | **0** | 0 |
+| **Total** | **454.200** | **363.437** | | **396.738** | |
 
-El total de QA cuadra **exacto** con el que ya estaba en la pagina. Falta la
-columna del mock: es el bloque `D2`, que no se ha corrido.
+El total de QA cuadra **exacto** con el que ya estaba en la pagina.
+
+**PUNTO DE INTERES NO ESTA EN CERO EN MOCK: DA 20.000.** El ciclo GEO mock
+simula la respuesta de ArcGIS y escribe `geo_distancias_mock`, de modo que la
+regla SI se ejercita. En los dos ambientes reales el cero es por el proveedor
+externo, no por codigo que falte.
+
+**Y EL 1.000 DE MOVILIDAD NO SALE DE LA TABLA: SALE DE LA TRAZA.**
+`mat_info_movilidad_mock` es la unica de las siete que es tabla de EVENTOS y
+`sp_novedades_movilidad_mock.sql:122` la **trunca al empezar**, de modo que su
+`COUNT(*)` mide la ULTIMA corrida y no la bateria. Medida ahi da **0** y eso
+hizo escribir en la pagina que a Movilidad le faltaba un caso, que es falso.
+El conteo bueno lo guarda el ciclo (`sp_novedades_mock_ciclo.sql:299-310`):
+
+```sql
+SELECT lote, etapa, estado, relaciones_entrada, personas_distintas
+FROM   bdm_datos.nov_control_etapa_mock
+WHERE  etapa = 'movilidad' ORDER BY lote;
+```
+
+| Lote | Cuando | Eventos |
+|---|---|---|
+| 1356601 FULL | 2026-10-23 | 0 -- correcto: no hay foto previa |
+| 1356602 DELTA1 | 2026-10-23 | 0 |
+| **1356604 DELTA2** | 2026-10-23 | **1.000 / 1.000 personas** |
+| **7001 manual** | **2026-10-29** | **0 -- la que dejo la tabla vacia** |
+
+Los 1.000 son el **ARQ 97**: el paso 3b del e2e le cambia el texto de la
+direccion antes del DELTA2 (`run_reconocer_e2e_mock_full_delta.sql:264-267`).
+Comparadas las dos fotos del mismo `cod_dw_persona_ubic`, **las 1.000 cambiaron
+`dato`** (`TEXTO ORIGINAL` -> `TEXTO MUTADO`) y ni una cambio `ciudad`,
+`codigo_dane` ni `estrato`.
+
+**LA LECCION, Y ES LA TERCERA VEZ QUE LA MISMA CORRIDA 7001 ENGANA UNA MEDIDA**
+-- ya lo hizo con `unificacion_direccion` y con `mock_ord_control`, arriba en
+este mismo archivo --: **una tabla que cada corrida trunca no se mide por su
+`COUNT(*)`, se mide en la traza de control.** El estado actual de DEV no es el
+de la bateria.
 
 **Dos ceros que no son codigo que falte**, y valen para los dos ambientes:
 punto de interes arranca `FROM bdm_datos.geo_distancias`, que solo escribe el
