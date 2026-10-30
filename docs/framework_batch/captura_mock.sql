@@ -85,20 +85,42 @@ ORDER  BY corrida_id;
 
 
 -- ---------------------------------------------------------------------
--- 5. LA CADENA DEL CICLO FULL, que es la fila de tiempo
+-- 5. ORDENAMIENTO DEL MOCK: sus TIEMPOS
+--    Los scores salen del bloque 3, pero el tiempo no: hay que ir a
+--    ord_control, la tabla REAL, acotada a la banda de lote del mock.
+--    (Si sale vacia, el ciclo mock no escribe traza de ordenamiento y la
+--    cadena del bloque 6 se queda sin ese sumando: hay que decirlo en vez
+--    de estimarlo.)
+-- ---------------------------------------------------------------------
+SELECT corrida_id, lote, modo, bootstrap, estado,
+       personas_entrada, contactos_entrada, scores_generados,
+       DATEDIFF(second, fecha_hora_inicio, fecha_hora_fin) AS segundos
+FROM   bdm_datos.ord_control
+WHERE  lote BETWEEN 1356500 AND 1356699
+ORDER  BY corrida_id;
+
+
+-- ---------------------------------------------------------------------
+-- 6. LA CADENA DEL CICLO FULL, que es la fila de tiempo
+--
+--    SE UNE POR LOTE Y NO POR corrida_id: cada proceso lleva su PROPIA
+--    secuencia de corrida_id -- en la corrida medida, Unificacion iba por
+--    la 22 y Novedades por la 10 --, de modo que unir por el par
+--    (lote, corrida_id) no casa NUNCA y la consulta sale vacia. Ya se
+--    pago una vez.
+--
 --    Acotada a UNA corrida: sumar los cuatro ciclos daria un numero que
---    no compara con nada. (Es el error que ya cometio el bloque 7 de
+--    no compara con nada. (Es el error del bloque 7 de
 --    captura_qa_real.sql, donde MIN..MAX sobre todas las corridas dio
 --    tres dias.)
 -- ---------------------------------------------------------------------
 SELECT u.lote,
-       u.corrida_id                                            AS corrida_unif,
        DATEDIFF(second, u.fecha_hora_inicio, u.fecha_hora_fin) AS unificacion_s,
+       DATEDIFF(second, o.fecha_hora_inicio, o.fecha_hora_fin) AS ordenamiento_s,
        DATEDIFF(second, n.fecha_hora_inicio, n.fecha_hora_fin) AS novedades_s,
        DATEDIFF(second, u.fecha_hora_inicio, n.fecha_hora_fin) AS cadena_s
-FROM   bdm_datos.unif_control_mock u
-JOIN   bdm_datos.nov_control_mock  n
-  ON   n.lote = u.lote
- AND   n.corrida_id = u.corrida_id
+FROM       bdm_datos.unif_control_mock u
+LEFT JOIN  bdm_datos.ord_control       o ON o.lote = u.lote
+JOIN       bdm_datos.nov_control_mock  n ON n.lote = u.lote
 WHERE  u.bootstrap = TRUE
-ORDER  BY u.corrida_id;
+ORDER  BY u.lote;
