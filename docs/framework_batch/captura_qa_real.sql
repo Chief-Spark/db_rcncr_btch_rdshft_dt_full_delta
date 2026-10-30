@@ -133,6 +133,27 @@ ORDER  BY filas DESC;
 --             cadena 263 s
 --    Las tres tablas de control llevan el inicio y el fin de cada corrida.
 -- ---------------------------------------------------------------------
+--
+--    Y ES TAMBIEN LA COMPARACION FULL CONTRA DELTA, SIN CONSULTA NUEVA: esta
+--    consulta ya trae una fila por corrida con su 'modo' y sus segundos, de modo
+--    que disparando el .val de FULL y detras el de DELTA (mismo nombre, cambia
+--    'full' por 'delta') las dos filas salen aqui. El watermark se lee como
+--    MAX(watermark_nuevo) WHERE estado='completado', SIN filtrar por lote
+--    (16_sp_unificacion_ciclo.sql:160-169), asi que el DELTA si ve la frontera
+--    que dejo el FULL aunque el lote del Framework sea otro.
+--
+--    OJO AL LEER LA DIFERENCIA, QUE ES LA TRAMPA: un DELTA lanzado detras del
+--    FULL sobre dato que no se movio mide EL SUELO -- lo que cuesta confirmar
+--    que no hay cambios --, no la eficiencia de una incremental real. Sin
+--    cambios en origen solo entra la rama 'fecha IS NULL'. Presentarlo como
+--    "el DELTA es N veces mas rapido" es la leccion de NOV-UB-12 otra vez: un
+--    DELTA en cero no prueba que no haya cambios. La cifra de la incremental
+--    CON cambios necesita que el datashare se mueva, y eso no lo controlamos.
+--
+--    Razon estructural por la que el DELTA es mas barato, independiente del
+--    volumen: el FULL trunca unificacion_direccion en su paso 6
+--    (16_sp_unificacion_ciclo.sql:204-214) y el DELTA no.
+-- ---------------------------------------------------------------------
 SELECT 'unificacion' AS proceso, corrida_id, lote, modo,
        fecha_inicio, fecha_fin,
        DATEDIFF(second, fecha_inicio, fecha_fin) AS segundos
