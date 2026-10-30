@@ -111,3 +111,67 @@ y en la primera corrida no hay foto.
 para 58.809 personas distintas. Sesenta y nueve filas comparten par
 `(tipo_identificacion, numero_identificacion)`. En QA el par es unico. No se
 abre trabajo por esto hasta saber si son documentos repetidos en origen.
+
+## El `lugar_max` NO mide que el ranking discrimine (2026-10-30)
+
+**Y esta seccion existe porque la pagina lo afirmaba y era FALSO.** Decia
+*"la ultima fila es la que prueba que el ranking discrimina: en QA hay una
+persona con 291 datos de contacto ordenados del mejor al peor"*. Abierto el
+ranking de 291 entero, el reparto de puntajes es este:
+
+| Puestos | Puntaje | Que son |
+|---|---|---|
+| 1 a 6 | 931,53 / 843,36 / 756,22 / 683,61 / 632,78 / 560,17 | seis valores distintos |
+| 7 a 11 | **552,9046** | cinco empatados |
+| **12 a 290** | **521,7842** | **279 empatados** |
+| 291 | 509,3361 | uno |
+
+**De 291 puestos solo hay OCHO puntajes distintos, y 279 filas comparten uno.**
+El orden dentro de ese bloque no lo decide el puntaje: lo decide el desempate.
+`lugar_max` mide **cuantas filas tiene esa persona en ese canal**, no hasta
+donde el modelo sabe distinguir.
+
+**No es un defecto del port**, y conviene decirlo en la misma frase: el dueno de
+ese ranking es el **MUNICIPIO DE ACHI, BOLIVAR** (NIT 811.154.757), y sus 291
+celulares son sedes con exactamente los mismos reportes. Puntajes identicos para
+insumos identicos es lo correcto.
+
+**LOS DIEZ RANKINGS MAS LARGOS DE QA SON NUEVE NIT Y UN CC:**
+
+| Canal | Datos | Tipo | Quien |
+|---|---|---|---|
+| CEL | 291 | NIT | MUNICIPIO DE ACHI, BOLIVAR |
+| TEL | 227 | NIT | MUNICIPIO DE BUENAVENTURA |
+| DIR | 158 | NIT | COVINOC S A |
+| DIR | 119 | NIT | MPS MAYORISTA DE COLOMBIA S A |
+| DIR | 117 | NIT | MUNICIPIO DE MANIZALES |
+| DIR | 113 | NIT | MUNICIPIO DE ARMENIA |
+| DIR | 112 | NIT | EL PAIS S A |
+| DIR | 103 | NIT | PROALIMENTOS LIBER S A S |
+| CEL | 102 | NIT | BISMARK COLOMBIA SAS |
+| DIR | 93 | **CC** | una persona natural |
+
+**Eso cierra de paso la pregunta del bloqueo**: el filtro de origen **no saca a
+todas las empresas**, y las que pasan son justo las que producen los rankings
+largos. Es coherente con que QA bloquee nueve veces menos que DEV.
+
+**LA MEDIDA CORRECTA ES OTRA, Y HAY QUE MEDIRLA ANTES DE VOLVER A AFIRMAR
+NADA:** puntajes **distintos** por ranking, no longitud del ranking.
+
+```sql
+SELECT canal, id_buro_persona,
+       COUNT(*)                        AS datos,
+       COUNT(DISTINCT score)           AS scores_distintos,
+       ROUND(COUNT(DISTINCT score) * 100.0 / COUNT(*), 1) AS pct_distintos
+FROM   bdm_datos.score_ordenamiento
+WHERE  id_buro_persona NOT BETWEEN 9000000 AND 9999999
+GROUP  BY 1, 2
+HAVING COUNT(*) >= 10
+ORDER  BY datos DESC
+LIMIT  20;
+```
+
+**La leccion, y ya va tres veces en esta bitacora: una medida de observabilidad
+tambien se equivoca.** `lugar_max` parecia la prueba de que el canal rankea y
+solo dice cuantas filas hay. Las otras dos fueron la brecha de la R2 inflada por
+los padres (#310) y por el hermano sin sellar (2026-10-30).
