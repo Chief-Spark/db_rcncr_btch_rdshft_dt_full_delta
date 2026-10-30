@@ -219,3 +219,39 @@ rankings mas largos son, por construccion, los mas propensos a empatar. Medir
 ahi la capacidad de discriminar es como medir la variedad de un catalogo mirando
 solo los duplicados. Las otras tres: los padres del #310, el hermano sin sellar
 de la brecha R2, y el propio `lugar_max`.
+
+## El ranking mas largo de cada canal, por dentro (QA, 2026-10-30)
+
+Los cuatro duenos son entidades, no personas naturales.
+
+| | DIR | EMA | TEL | CEL |
+|---|---|---|---|---|
+| Datos en el ranking | 158 | 82 | 227 | **291** |
+| Puntajes distintos | **56** | 8 | 17 | 9 |
+| Puesto 1 | 565,59 | 500,74 | 580,28 | **931,54** |
+| Ultimo | 297,85 | 156,01 | **-45,64** | 509,34 |
+| Mayor bloque empatado | 28 (100-127) | 56 (13-68) | **199** (17-215) | **279** (12-290) |
+
+**DIR afina incluso en el peor caso**: reparte 158 datos en 56 puntajes. TEL y
+CEL colapsan en un bloque enorme -- 199 y 279 puestos con el mismo valor --
+porque son sedes de un municipio con reportes identicos.
+
+**EL PUNTAJE NEGATIVO NO ES UN DEFECTO, y conviene tenerlo verificado antes de
+que alguien lo pregunte en la sesion.** El ultimo telefono vale **-45,6398**, y
+sale de que **seis de las 47 betas son negativas** en la calibracion oficial
+RITM5226589 (`02_carga_betas_ritm5226589.sql:19,20,43,52,53,68`):
+
+| Caracteristica | Beta |
+|---|---|
+| `CO01TEL003` | -130,39934800 |
+| `CO01EMA014` | -130,80018340 |
+| `CO01EMA003` | -106,96276680 |
+| `CO01TEL002` | -81,49959250 |
+| `CO01DIR009` | -51,61290323 |
+| `CO01EMA017` | -30,56079051 |
+
+Son penalizaciones del modelo del buro, no un signo invertido nuestro. Un dato
+suficientemente malo queda por debajo de cero, y el orden sigue siendo correcto.
+
+La consulta que produce estas escaleras esta en la seccion anterior; devuelve
+una fila por puntaje distinto con su rango de puestos, en vez de las 291 filas.
