@@ -57,10 +57,11 @@ Dos o tres frases por bloque. Escrito para decirse en voz alta.
 > De cada cien relaciones persona-ubicación que trae el buró, entran al proceso
 > veintiséis.
 >
-> **Y aquí está lo importante: las que no entran son empresas.** Ciento seis NIT
-> concentran ciento treinta y cuatro mil relaciones: compañías con cientos de
-> sedes. El proceso actual de Teradata las excluye exactamente igual. No es
-> pérdida, es el universo correcto.
+> **Y aquí está lo importante: las que no entran vienen bloqueadas del propio
+> buró**, y el proceso actual de Teradata las excluye exactamente igual. En
+> desarrollo esos bloqueos recaen casi todos sobre empresas: ciento seis NIT
+> concentran ciento treinta y cuatro mil relaciones, compañías con cientos de
+> sedes. No es pérdida, es el universo correcto.
 >
 > Con lo que queda, Unificación resolvió diecinueve duplicados, Ordenamiento
 > puntuó ciento ochenta y cinco mil datos de contacto, y Novedades entregó
@@ -208,7 +209,7 @@ cambios*, no la eficiencia. Si alguien la pide, ésa es la respuesta.
 
 | Pregunta | Respuesta corta |
 |---|---|
-| *"¿Están botando el 74% del buró?"* | No. Son empresas con cientos de sedes; Teradata las excluye igual. 106 NIT concentran 134.357 relaciones. |
+| *"¿Están botando el 74% del buró?"* | No: vienen **bloqueadas del buró**, y Teradata las excluye igual. En desarrollo ese bloqueo recae casi todo sobre empresas — 106 NIT concentran 134.357 relaciones. En QA el mismo filtro sólo saca el 9,5%: **no filtramos por tipo de documento.** |
 | *"Diecinueve unificaciones parece nada."* | 78.188 de las que entraron eran direcciones únicas: no había con quién emparejarlas. De las que sí tenían candidato, **ninguna quedó sin resolver**. No es que no resolviera; es que no había qué resolver. |
 | *"¿Por qué dos tablas en cero?"* | Dependen del georreferenciador externo, que todavía no procesa. Está documentado y es dependencia de terceros, no código faltante. |
 | *"¿El incremental sirve de algo?"* | El control incremental es diseño nuevo: el proceso de Teradata nunca lo tuvo. Funciona y **está certificado con datos de laboratorio**, que es donde se pueden provocar los cambios que lo prueban. Con dato real el alcance acordado es la carga completa. |
@@ -222,6 +223,20 @@ cambios*, no la eficiencia. Si alguien la pide, ésa es la respuesta.
 | Correr el e2e real en QA y capturar cifras | **pendiente** — consultas en `framework_batch/captura_qa_real.sql` |
 | Tiempo de la malla actual en Teradata | **pendiente** — lo consigue el presentador |
 | Compartir el artefacto con los asistentes | **pendiente** — menú Share de la página |
+
+**Y UNA DISTINCIÓN QUE SE PREGUNTÓ Y HAY QUE TENER CLARA: son dos filtros
+distintos, y el de la entrada NO mira el tipo de documento.**
+
+| | Qué mira | Dónde |
+|---|---|---|
+| Filtro de **entrada** | `blockreason` del **suscriptor** | `02_vistas_insumo_edf_views.sql:219-220` |
+| **Regla 2, escenario 3** | excluye `tipo_identificacion = 2`, que es NIT | `sp_unificacion_r2_esc3_sin_nit_misma_nomenclatura.sql:1-2` |
+
+Que lo bloqueado en DEV sean casi todos NIT **es un hallazgo de esa población,
+no la regla**: en QA el mismo filtro sólo saca el 9,5%. **Las empresas no
+bloqueadas sí entran al proceso**, y por eso la Regla 2 tiene que discriminarlas
+después. Decir "no entran las empresas" se entiende mal y ya costó una
+aclaración; la página dice ahora "bloqueadas en origen".
 
 **Un aviso sobre una cifra:** el alcance de Unificación (50) es un literal escrito
 a mano en el tablero, no un conteo. Los de Ordenamiento (45) y Novedades (26) sí
