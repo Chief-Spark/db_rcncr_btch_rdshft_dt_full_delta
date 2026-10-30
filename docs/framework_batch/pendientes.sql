@@ -1,8 +1,13 @@
 -- =====================================================================
 -- LAS CELDAS QUE SIGUEN EN "POR MEDIR", Y LA CONSULTA DE CADA UNA
 --
--- Una seccion por celda de la pagina. Dos de las cinco NO son consultas
--- y conviene saberlo antes de buscarlas aqui.
+-- Una seccion por celda de la pagina. TRES de las cinco no se llenan con
+-- una consulta, y conviene saberlo antes de buscarla aqui: la (4) salio de
+-- alcance por decision, la (5) es un dato del otro motor que trae el
+-- presentador, y la (3) necesita DOS consultas y no una.
+--
+-- Quedan, entonces, TRES celdas que este archivo llena -- (1), (2) y (3) --
+-- y UNA que depende de alguien de fuera.
 --
 -- Base dba_rncr_batch, no dba (DBeaver abre en dba).
 -- =====================================================================
