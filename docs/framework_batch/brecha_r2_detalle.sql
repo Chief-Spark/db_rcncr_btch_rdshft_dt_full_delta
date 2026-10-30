@@ -138,3 +138,163 @@ JOIN ( SELECT DISTINCT id_buro_persona, texto_ubicacion,
 GROUP  BY 1, 2
 ORDER  BY filas_del_grupo DESC, 1
 LIMIT  40;
+
+
+-- =====================================================================
+-- (C) EL VEREDICTO: ¿defecto del port, o defecto de la MEDIDA?
+--
+-- Lanzado el bloque B en QA, los 35 grupos salieron TODOS con la misma
+-- forma: dos filas con el MISMO complemento y una vacia. Eso NO es el
+-- sitio 2 ('A6') ni el desempate de esc6 ('E6'): es exactamente lo que
+-- esc1 -- complemento vacio -- existe para resolver, y esc1 SI esta
+-- portado (resolvio 18.695 en el censo de QA).
+--
+-- PERO HAY UNA EXPLICACION ALTERNATIVA, Y LA PRODUCE LA PROPIA MEDIDA.
+-- Grupo de tres: A con 'AP 208', B con 'AP 208', C vacia. Si esc1 unifica
+-- C -> A, entonces C es hija (el censo la excluye por su sello) y A es
+-- padre (lo excluye la rama PADRE), pero B NO ES NINGUNA DE LAS DOS. B
+-- sigue en un grupo con dos complementos distintos, de modo que el CASE
+-- del censo (sp_unificacion_regla2.sql:148-165) la clasifica
+-- SIN_RESOLVER sin que nada haya fallado.
+--
+-- Es el hermano del defecto que ese mismo comentario ya documenta: en el
+-- job #310 los PADRES inflaron la brecha de ~6.000 a 31.000 y por eso se
+-- anadio la rama PADRE. Falto el HERMANO del padre.
+--
+-- COMO SE LEE EL RESULTADO:
+--   todo en 'el grupo SI se unifico'  -> la medida sobra, el port esta
+--                                        limpio, y hay que corregir el
+--                                        CASE del censo, no la Regla 2.
+--   algo en 'el grupo NO se unifico'  -> esc1 se salto esos grupos. Eso
+--                                        es un defecto real y el bloque D
+--                                        dice cuales son.
+--
+-- Base dba_rncr_batch, no dba.
+-- =====================================================================
+
+WITH insumo AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir, ubi.texto_ubicacion,
+         df.complemento, ubi.cod_dw_ciudad AS cod_dw_municipio
+  FROM   bdm_tempo.v_xpm_relacion_persona_ubicacion rpu
+  JOIN   bdm_tempo.v_xpm_ubicacion_estandarizada ubi
+    ON   rpu.cod_dw_ubic = ubi.cod_dw_ubic
+  LEFT JOIN bdm_tempo.v_xpm_direccion_fisica df
+    ON   rpu.cod_dw_direccion_fisica = df.cod_dw_direccion_fisica
+  WHERE  COALESCE(rpu.bloqueado, 0) = 0
+),
+grupo AS (
+  SELECT i.cod_dw_persona_ubic, i.id_buro_persona, i.texto_ubicacion,
+         i.cod_dw_tipo_ubicacion_dir, i.cod_dw_municipio,
+         MIN(COALESCE(i.complemento, '')) OVER (
+           PARTITION BY i.id_buro_persona, i.texto_ubicacion,
+                        i.cod_dw_tipo_ubicacion_dir, i.cod_dw_municipio) AS comp_min,
+         MAX(COALESCE(i.complemento, '')) OVER (
+           PARTITION BY i.id_buro_persona, i.texto_ubicacion,
+                        i.cod_dw_tipo_ubicacion_dir, i.cod_dw_municipio) AS comp_max
+  FROM   insumo i
+),
+grupos_brecha AS (
+  SELECT DISTINCT g.id_buro_persona, g.texto_ubicacion,
+         g.cod_dw_tipo_ubicacion_dir, g.cod_dw_municipio
+  FROM   grupo g
+  LEFT JOIN ( SELECT DISTINCT cod_dw_persona_ubic
+                FROM bdm_datos.unificacion_direccion )        hija
+    ON   hija.cod_dw_persona_ubic = g.cod_dw_persona_ubic
+  LEFT JOIN ( SELECT DISTINCT cod_dw_direccion_unificada
+                FROM bdm_datos.unificacion_direccion )        padre
+    ON   padre.cod_dw_direccion_unificada = g.cod_dw_persona_ubic
+  WHERE  g.comp_min <> g.comp_max
+    AND  hija.cod_dw_persona_ubic         IS NULL
+    AND  padre.cod_dw_direccion_unificada IS NULL
+),
+por_grupo AS (
+  SELECT b.id_buro_persona,
+         b.texto_ubicacion,
+         MAX(CASE WHEN u.cod_dw_persona_ubic IS NOT NULL THEN 1 ELSE 0 END) AS unificado
+  FROM   insumo i
+  JOIN   grupos_brecha b
+    ON   b.id_buro_persona           = i.id_buro_persona
+   AND   b.texto_ubicacion           = i.texto_ubicacion
+   AND   b.cod_dw_tipo_ubicacion_dir = i.cod_dw_tipo_ubicacion_dir
+   AND   b.cod_dw_municipio          = i.cod_dw_municipio
+  LEFT JOIN bdm_datos.unificacion_direccion u
+    ON   u.cod_dw_persona_ubic = i.cod_dw_persona_ubic
+  GROUP  BY 1, 2
+)
+SELECT CASE WHEN unificado = 1
+            THEN 'el grupo SI se unifico -> sobra la medida, no hay defecto'
+            ELSE 'el grupo NO se unifico -> defecto real en esc1'
+       END      AS veredicto,
+       COUNT(*) AS grupos
+FROM   por_grupo
+GROUP  BY 1
+ORDER  BY grupos DESC;
+
+
+-- =====================================================================
+-- (D) SOLO SI EL BLOQUE C SACA ALGO EN 'NO se unifico': cuales son.
+--     Es la lista que habria que llevar a un ticket.
+-- =====================================================================
+
+WITH insumo AS (
+  SELECT rpu.cod_dw_persona_ubic, rpu.id_buro_persona,
+         rpu.cod_dw_tipo_ubicacion_dir, ubi.texto_ubicacion,
+         df.complemento, ubi.cod_dw_ciudad AS cod_dw_municipio
+  FROM   bdm_tempo.v_xpm_relacion_persona_ubicacion rpu
+  JOIN   bdm_tempo.v_xpm_ubicacion_estandarizada ubi
+    ON   rpu.cod_dw_ubic = ubi.cod_dw_ubic
+  LEFT JOIN bdm_tempo.v_xpm_direccion_fisica df
+    ON   rpu.cod_dw_direccion_fisica = df.cod_dw_direccion_fisica
+  WHERE  COALESCE(rpu.bloqueado, 0) = 0
+),
+grupo AS (
+  SELECT i.cod_dw_persona_ubic, i.id_buro_persona, i.texto_ubicacion,
+         i.cod_dw_tipo_ubicacion_dir, i.cod_dw_municipio,
+         MIN(COALESCE(i.complemento, '')) OVER (
+           PARTITION BY i.id_buro_persona, i.texto_ubicacion,
+                        i.cod_dw_tipo_ubicacion_dir, i.cod_dw_municipio) AS comp_min,
+         MAX(COALESCE(i.complemento, '')) OVER (
+           PARTITION BY i.id_buro_persona, i.texto_ubicacion,
+                        i.cod_dw_tipo_ubicacion_dir, i.cod_dw_municipio) AS comp_max
+  FROM   insumo i
+),
+grupos_brecha AS (
+  SELECT DISTINCT g.id_buro_persona, g.texto_ubicacion,
+         g.cod_dw_tipo_ubicacion_dir, g.cod_dw_municipio
+  FROM   grupo g
+  LEFT JOIN ( SELECT DISTINCT cod_dw_persona_ubic
+                FROM bdm_datos.unificacion_direccion )        hija
+    ON   hija.cod_dw_persona_ubic = g.cod_dw_persona_ubic
+  LEFT JOIN ( SELECT DISTINCT cod_dw_direccion_unificada
+                FROM bdm_datos.unificacion_direccion )        padre
+    ON   padre.cod_dw_direccion_unificada = g.cod_dw_persona_ubic
+  WHERE  g.comp_min <> g.comp_max
+    AND  hija.cod_dw_persona_ubic         IS NULL
+    AND  padre.cod_dw_direccion_unificada IS NULL
+),
+detalle AS (
+  SELECT b.id_buro_persona,
+         b.texto_ubicacion,
+         i.cod_dw_persona_ubic,
+         i.complemento,
+         MAX(CASE WHEN u.cod_dw_persona_ubic IS NOT NULL THEN 1 ELSE 0 END)
+           OVER (PARTITION BY b.id_buro_persona, b.texto_ubicacion) AS grupo_unificado
+  FROM   insumo i
+  JOIN   grupos_brecha b
+    ON   b.id_buro_persona           = i.id_buro_persona
+   AND   b.texto_ubicacion           = i.texto_ubicacion
+   AND   b.cod_dw_tipo_ubicacion_dir = i.cod_dw_tipo_ubicacion_dir
+   AND   b.cod_dw_municipio          = i.cod_dw_municipio
+  LEFT JOIN bdm_datos.unificacion_direccion u
+    ON   u.cod_dw_persona_ubic = i.cod_dw_persona_ubic
+)
+SELECT id_buro_persona,
+       texto_ubicacion,
+       COUNT(*) AS filas_del_grupo,
+       LISTAGG(COALESCE(complemento, '(vacio)'), '  |  ')
+         WITHIN GROUP (ORDER BY complemento) AS complementos
+FROM   detalle
+WHERE  grupo_unificado = 0
+GROUP  BY 1, 2
+ORDER  BY 1;
