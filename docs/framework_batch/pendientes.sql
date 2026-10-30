@@ -65,10 +65,16 @@ ORDER  BY u.lote;
 
 
 -- ---------------------------------------------------------------------
--- (4)  INCREMENTAL CONTRA CARGA COMPLETA -- NO ES UNA CONSULTA
+-- (4)  INCREMENTAL CONTRA CARGA COMPLETA -- FUERA DE ALCANCE POR DECISION
 --
--- Es una CORRIDA que falta, no un dato que no hayamos consultado. Hay que
--- disparar el .val de DELTA detras del de FULL:
+-- DECISION DEL USUARIO (2026-10-30): "para datos reales solo tenemos datos de
+-- FULL y eso esta bien". Deja de ser un pendiente: con dato real el alcance es
+-- la carga completa, y el modo incremental queda certificado con el mock, que
+-- es donde se pueden provocar los cambios que lo prueban.
+--
+-- LO QUE SIGUE AQUI NO ES TRABAJO ABIERTO: es lo que ahorra la vuelta entera
+-- el dia que se retome. Seria una corrida, no una consulta -- disparar el .val
+-- de DELTA detras del de FULL:
 --   reconocerdeltaval1-20261028-2610.val
 --
 -- Los tiempos salen solos del bloque 7 de captura_qa_real.sql, que ya

@@ -171,20 +171,20 @@ al lado de los 263 segundos.
 > La ventana operativa la definimos con el volumen real del buró, que todavía no
 > hemos medido. Lo que sí está medido es que corre sin intervención manual.
 
-**Y aquí va un compromiso, porque es la pregunta que sigue:** cuánto ahorra la
-carga incremental frente a la completa, con dato real, todavía no lo sabemos.
+**Y el alcance, por si preguntan (decisión del equipo, 2026-10-30):** con dato
+real hemos corrido la **carga completa**, y es lo que se presenta. El modo
+incremental está certificado con los datos de laboratorio, que es donde se puede
+ejercitar de verdad: allí se le cambian datos a propósito y se comprueba que los
+detecta.
 
-> Lo vamos a medir, y lo vamos a medir en dos partes, porque son dos cosas
-> distintas. Una es cuánto cuesta confirmar que no hubo cambios: eso lo podemos
-> medir ya. La otra es cuánto cuesta procesar los cambios de verdad, y para eso
-> necesitamos que el origen se mueva.
+> El proceso sabe hacer las dos cosas. Con el dato real hemos ejercitado la carga
+> completa; el incremental está probado en laboratorio, donde podemos provocar
+> los cambios que hacen falta para probarlo.
 
-**Cuidado con presentar una sola cifra aquí, y es la trampa del bloque.** Un
-incremental lanzado justo detrás de la carga completa, sobre dato que no se
-movió, sale rapidísimo **porque no tiene nada que hacer**, no porque sea
-eficiente. Es la misma lección que ya nos costó un criterio: *un delta en cero no
-prueba que no haya cambios*. Si se dice "el incremental es N veces más rápido"
-con ese número, se está diciendo algo que no se midió.
+**Lo que no se dice es "el incremental es N veces más rápido".** No lo hemos
+medido con dato real, y la cifra fácil —lanzarlo detrás de una carga completa
+sobre datos que no se movieron— mide lo que cuesta *confirmar que no hay
+cambios*, no la eficiencia. Si alguien la pide, ésa es la respuesta.
 
 ### 9 · La decisión
 
@@ -204,7 +204,7 @@ con ese número, se está diciendo algo que no se midió.
 | *"¿Están botando el 74% del buró?"* | No. Son empresas con cientos de sedes; Teradata las excluye igual. 106 NIT concentran 134.357 relaciones. |
 | *"Diecinueve unificaciones parece nada."* | 78.188 de las que entraron eran direcciones únicas: no había con quién emparejarlas. De las que sí tenían candidato, **ninguna quedó sin resolver**. No es que no resolviera; es que no había qué resolver. |
 | *"¿Por qué dos tablas en cero?"* | Dependen del georreferenciador externo, que todavía no procesa. Está documentado y es dependencia de terceros, no código faltante. |
-| *"¿El incremental sirve de algo?"* | El control incremental es diseño nuevo: el proceso de Teradata nunca lo tuvo. Funciona y está certificado con datos de laboratorio. **Cuánto ahorra con dato real es lo siguiente que medimos**, y no vamos a dar una cifra antes de tenerla. |
+| *"¿El incremental sirve de algo?"* | El control incremental es diseño nuevo: el proceso de Teradata nunca lo tuvo. Funciona y **está certificado con datos de laboratorio**, que es donde se pueden provocar los cambios que lo prueban. Con dato real el alcance acordado es la carga completa. |
 
 ---
 
@@ -214,7 +214,6 @@ con ese número, se está diciendo algo que no se midió.
 |---|---|
 | Correr el e2e real en QA y capturar cifras | **pendiente** — consultas en `framework_batch/captura_qa_real.sql` |
 | Tiempo de la malla actual en Teradata | **pendiente** — lo consigue el presentador |
-| Medir incremental contra carga completa con dato real | **pendiente** — disparar `reconocerfullval...` y detrás `reconocerdeltaval...`; los tiempos salen del bloque 7 de `framework_batch/captura_qa_real.sql` |
 | Compartir el artefacto con los asistentes | **pendiente** — menú Share de la página |
 
 **Un aviso sobre una cifra:** el alcance de Unificación (50) es un literal escrito
