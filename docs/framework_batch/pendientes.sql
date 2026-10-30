@@ -46,15 +46,18 @@ FROM   bdm_tempo.v_xpm_relacion_persona_ubicacion;
 --   - se une por LOTE y no por corrida_id: cada proceso lleva su propia
 --     secuencia -- en la corrida medida Unificacion iba por la 22 y
 --     Novedades por la 10 --, de modo que unir por el par no casa nunca.
---   - el tiempo del Ordenamiento del mock NO esta en una tabla _mock: no
---     existe ord_control_mock. Esta en ord_control, la real, acotada a la
---     banda de lote del mock.
+--   - el tiempo del Ordenamiento del mock SI tiene su propia tabla, y la
+--     primera version de este archivo decia lo contrario: es
+--     bdm_stage.mock_ord_control (12_ddl_ord_control.sql:48), que escribe
+--     sp_ordenamiento_ejecucion_mock.sql:121 y :349. No lleva el sufijo
+--     _mock de los otros control -- va con prefijo mock_ y en bdm_stage --,
+--     y de ahi salio el error. Leer la tabla real acotada por banda de lote
+--     devuelve VACIO.
 -- ---------------------------------------------------------------------
 SELECT corrida_id, lote, modo, bootstrap, estado,
        personas_entrada, contactos_entrada, scores_generados,
        DATEDIFF(second, fecha_hora_inicio, fecha_hora_fin) AS segundos
-FROM   bdm_datos.ord_control
-WHERE  lote BETWEEN 1356500 AND 1356699
+FROM   bdm_stage.mock_ord_control
 ORDER  BY corrida_id;
 
 SELECT u.lote,
@@ -63,7 +66,7 @@ SELECT u.lote,
        DATEDIFF(second, n.fecha_hora_inicio, n.fecha_hora_fin) AS novedades_s,
        DATEDIFF(second, u.fecha_hora_inicio, n.fecha_hora_fin) AS cadena_s
 FROM       bdm_datos.unif_control_mock u
-LEFT JOIN  bdm_datos.ord_control       o ON o.lote = u.lote
+JOIN       bdm_stage.mock_ord_control  o ON o.lote = u.lote
 JOIN       bdm_datos.nov_control_mock  n ON n.lote = u.lote
 WHERE  u.bootstrap = TRUE
 ORDER  BY u.lote;

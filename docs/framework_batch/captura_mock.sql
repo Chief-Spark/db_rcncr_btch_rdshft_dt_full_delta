@@ -53,11 +53,20 @@ ORDER  BY 1;
 -- ---------------------------------------------------------------------
 -- 3. ORDENAMIENTO: da la fila "Datos puntuados"
 --
---    NO HAY ord_control_mock NI score_ordenamiento_mock, y conviene
---    saberlo antes de buscarlos: el mock REUTILIZA los SP reales de
---    scoring y consolidacion, de modo que sus scores caen en la tabla
---    REAL bdm_datos.score_ordenamiento. Lo que los separa es la banda de
---    id del mock: id_buro_persona = 9000000 + ARQ * 10000 + i.
+--    LOS SCORES DEL MOCK CAEN EN LA TABLA REAL, y conviene saberlo antes
+--    de buscar una tabla mock: el mock REUTILIZA los SP reales de scoring
+--    y consolidacion, que escriben bdm_datos.score_ordenamiento. Lo que
+--    separa sus filas es la banda de id del mock:
+--    id_buro_persona = 9000000 + ARQ * 10000 + i.
+--
+--    EXISTE bdm_stage.mock_ord_score y NO SIRVE: nadie la escribe -- solo
+--    la truncan reset_mock.sql:68 y el e2e --, igual que
+--    mock_ord_prioridad. Mirarla da cero y no es un hallazgo.
+--
+--    (Esta nota decia antes que no habia ord_control_mock ni
+--    score_ordenamiento_mock. De esos dos nombres el segundo no existe
+--    pero mock_ord_score si, y del PRIMERO la conclusion era falsa: ver
+--    el bloque 5.)
 -- ---------------------------------------------------------------------
 SELECT canal,
        COUNT(*)                        AS filas,
@@ -86,17 +95,23 @@ ORDER  BY corrida_id;
 
 -- ---------------------------------------------------------------------
 -- 5. ORDENAMIENTO DEL MOCK: sus TIEMPOS
---    Los scores salen del bloque 3, pero el tiempo no: hay que ir a
---    ord_control, la tabla REAL, acotada a la banda de lote del mock.
---    (Si sale vacia, el ciclo mock no escribe traza de ordenamiento y la
---    cadena del bloque 6 se queda sin ese sumando: hay que decirlo en vez
---    de estimarlo.)
+--    Los scores salen del bloque 3; el tiempo sale de AQUI, y la tabla es
+--    bdm_stage.mock_ord_control.
+--
+--    ESTE BLOQUE ESTABA MAL Y HABRIA SALIDO VACIO: leia la tabla real
+--    acotada por banda de lote. El ciclo mock SI tiene su propia traza --
+--    la declara 12_ddl_ord_control.sql:48 y la escribe
+--    sp_ordenamiento_ejecucion_mock.sql:121 (abre) y :349 (cierra) --, y
+--    lo que hizo creer que no existia es el nombre: no lleva el sufijo
+--    _mock de los otros control, va con prefijo mock_ y en bdm_stage.
+--
+--    Por eso aqui no hace falta acotar por lote: la tabla es solo del
+--    mock. Salen los cuatro ciclos, uno por fila.
 -- ---------------------------------------------------------------------
 SELECT corrida_id, lote, modo, bootstrap, estado,
        personas_entrada, contactos_entrada, scores_generados,
        DATEDIFF(second, fecha_hora_inicio, fecha_hora_fin) AS segundos
-FROM   bdm_datos.ord_control
-WHERE  lote BETWEEN 1356500 AND 1356699
+FROM   bdm_stage.mock_ord_control
 ORDER  BY corrida_id;
 
 
@@ -120,7 +135,7 @@ SELECT u.lote,
        DATEDIFF(second, n.fecha_hora_inicio, n.fecha_hora_fin) AS novedades_s,
        DATEDIFF(second, u.fecha_hora_inicio, n.fecha_hora_fin) AS cadena_s
 FROM       bdm_datos.unif_control_mock u
-LEFT JOIN  bdm_datos.ord_control       o ON o.lote = u.lote
+JOIN       bdm_stage.mock_ord_control  o ON o.lote = u.lote
 JOIN       bdm_datos.nov_control_mock  n ON n.lote = u.lote
 WHERE  u.bootstrap = TRUE
 ORDER  BY u.lote;
