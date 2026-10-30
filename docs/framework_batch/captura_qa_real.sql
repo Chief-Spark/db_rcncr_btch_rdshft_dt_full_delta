@@ -67,10 +67,12 @@ ORDER  BY 1;
 --    antes de la sesion.
 -- ---------------------------------------------------------------------
 SELECT escenario,
-       SUM(casos) AS casos
+       n_id,
+       SUM(direcciones) AS direcciones,
+       SUM(personas)    AS personas
 FROM   bdm_datos.unif_escenario_censo
-GROUP  BY 1
-ORDER  BY casos DESC;
+GROUP  BY 1, 2
+ORDER  BY direcciones DESC;
 
 
 -- ---------------------------------------------------------------------
@@ -104,7 +106,7 @@ FROM   bdm_datos.score_ordenamiento;
 --    contarla.
 -- ---------------------------------------------------------------------
 SELECT 'actividad economica' AS dominio, COUNT(*) AS filas,
-       COUNT(DISTINCT id_buro_persona) AS personas
+       COUNT(DISTINCT numero_identificacion) AS personas
   FROM bdm_datos.mat_info_actividad_economica
 UNION ALL
 SELECT 'ubicacion',            COUNT(*), COUNT(DISTINCT info_basica)
@@ -155,28 +157,28 @@ ORDER  BY filas DESC;
 --    (16_sp_unificacion_ciclo.sql:204-214) y el DELTA no.
 -- ---------------------------------------------------------------------
 SELECT 'unificacion' AS proceso, corrida_id, lote, modo,
-       fecha_inicio, fecha_fin,
-       DATEDIFF(second, fecha_inicio, fecha_fin) AS segundos
+       fecha_hora_inicio, fecha_hora_fin,
+       DATEDIFF(second, fecha_hora_inicio, fecha_hora_fin) AS segundos
   FROM bdm_datos.unif_control
 UNION ALL
-SELECT 'ordenamiento', corrida_id, lote, modo, fecha_inicio, fecha_fin,
-       DATEDIFF(second, fecha_inicio, fecha_fin)
+SELECT 'ordenamiento', corrida_id, lote, modo, fecha_hora_inicio, fecha_hora_fin,
+       DATEDIFF(second, fecha_hora_inicio, fecha_hora_fin)
   FROM bdm_datos.ord_control
 UNION ALL
-SELECT 'novedades',    corrida_id, lote, modo, fecha_inicio, fecha_fin,
-       DATEDIFF(second, fecha_inicio, fecha_fin)
+SELECT 'novedades',    corrida_id, lote, modo, fecha_hora_inicio, fecha_hora_fin,
+       DATEDIFF(second, fecha_hora_inicio, fecha_hora_fin)
   FROM bdm_datos.nov_control
-ORDER  BY fecha_inicio;
+ORDER  BY fecha_hora_inicio;
 
 -- La cadena completa: del primer inicio al ultimo fin.
-SELECT MIN(fecha_inicio)                                  AS arranque,
-       MAX(fecha_fin)                                     AS cierre,
-       DATEDIFF(second, MIN(fecha_inicio), MAX(fecha_fin)) AS cadena_segundos
-FROM ( SELECT fecha_inicio, fecha_fin FROM bdm_datos.unif_control
+SELECT MIN(fecha_hora_inicio)                                  AS arranque,
+       MAX(fecha_hora_fin)                                     AS cierre,
+       DATEDIFF(second, MIN(fecha_hora_inicio), MAX(fecha_hora_fin)) AS cadena_segundos
+FROM ( SELECT fecha_hora_inicio, fecha_hora_fin FROM bdm_datos.unif_control
        UNION ALL
-       SELECT fecha_inicio, fecha_fin FROM bdm_datos.ord_control
+       SELECT fecha_hora_inicio, fecha_hora_fin FROM bdm_datos.ord_control
        UNION ALL
-       SELECT fecha_inicio, fecha_fin FROM bdm_datos.nov_control ) t;
+       SELECT fecha_hora_inicio, fecha_hora_fin FROM bdm_datos.nov_control ) t;
 
 
 -- ---------------------------------------------------------------------
@@ -185,9 +187,12 @@ FROM ( SELECT fecha_inicio, fecha_fin FROM bdm_datos.unif_control
 --    Una etapa en 'fallido' con la tabla poblada es peor que un error:
 --    el verde no lo dice.
 -- ---------------------------------------------------------------------
-SELECT etapa, estado, filas_altas, fase_fallo, ultimo_error
+SELECT corrida_id, etapa, estado,
+       relaciones_entrada, personas_distintas,
+       filas_altas, filas_cambios, filas_bajas,
+       DATEDIFF(second, fecha_hora_inicio, fecha_hora_fin) AS segundos
 FROM   bdm_datos.nov_control_etapa
-ORDER  BY etapa;
+ORDER  BY corrida_id, fecha_hora_inicio;
 
 -- GEO corre en su propio bloque de excepcion y NO tumba la corrida.
 -- Si el Lote queda en 'fallido', hay que decirlo en la sesion.
@@ -198,13 +203,24 @@ LIMIT  5;
 
 
 -- =====================================================================
--- NOMBRES DE COLUMNA QUE HAY QUE VERIFICAR ANTES DE CORRER
+-- NOMBRES DE COLUMNA: VERIFICADOS CONTRA EL DDL (2026-10-30)
 --
--- Los bloques 4, 7 y 8 usan nombres tomados de la bitacora, no leidos del
--- DDL en este momento: 'escenario' y 'casos' de unif_escenario_censo;
--- 'fecha_inicio'/'fecha_fin'/'modo' de las tres tablas de control; y las
--- columnas de nov_control_etapa. Si alguno no existe, el error dice cual
--- y se corrige en el acto con:
+-- Este pie decia antes que los bloques 4, 7 y 8 usaban nombres tomados de la
+-- bitacora y no leidos del DDL. Lo eran, y los TRES estaban mal: el bloque 4
+-- murio en QA con 42703 ('casos' no existe en unif_escenario_censo) y los
+-- otros dos habrian muerto detras. Corregidos contra el DDL:
+--
+--   unif_escenario_censo    casos        -> direcciones / personas
+--   las tres *_control      fecha_inicio -> fecha_hora_inicio
+--                           fecha_fin    -> fecha_hora_fin
+--   nov_control_etapa       no tiene fase_fallo ni ultimo_error; lleva
+--                           filas_altas / filas_cambios / filas_bajas
+--   mat_info_actividad_economica   no tiene id_buro_persona; la persona es
+--                           numero_identificacion
+--
+-- LA LECCION, Y ES LA MISMA DE SIEMPRE: un nombre de columna copiado de la
+-- bitacora es una hipotesis. El motor para en el primer error, de modo que
+-- un 42703 tapa a los tres que vienen detras. Se leen del DDL de una vez:
 --
 --   SELECT column_name, data_type FROM information_schema.columns
 --    WHERE table_schema = 'bdm_datos' AND table_name = '<la tabla>'
