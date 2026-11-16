@@ -8,13 +8,50 @@
 # ALPHA (dba_batch, cuenta 651706752126) y la llamada falla con
 # "procedure bdm_datos.sp_unificacion_ciclo does not exist".
 #
-# LOS TRES NIVELES SON SECUENCIALES A PROPOSITO:
-#   nivel 1 -> Unificacion escribe unificacion_direccion
-#   nivel 2 -> Ordenamiento LEE esa salida (solo puntua lo no unificado)
-#   nivel 3 -> Novedades LEE el orden_prioridad que produce el nivel 2
+# QUE ES SECUENCIAL Y QUE ES PARALELO
 # El Framework ejecuta en PARALELO los procedimientos del MISMO nivel y en
-# SERIE los niveles entre si. Meter dos de estos tres en un nivel no los
-# acelera: los deja compitiendo por una dependencia que no esta lista.
+# SERIE los niveles entre si (cada nivel se compila a un estado Parallel con
+# una rama por procedimiento).
+#
+#   CADENA SECUENCIAL A PROPOSITO -- son dependencias de dato, no un orden
+#   arbitrario:
+#     Unificacion (1) escribe unificacion_direccion
+#       -> Ordenamiento (2-4) LEE esa salida: solo puntua lo no unificado
+#         -> Novedades (5) LEE el orden_prioridad que produce el Ordenamiento
+#   Meter dos de esos tres en un nivel no los acelera: los deja compitiendo
+#   por una dependencia que no esta lista.
+#
+#   PARALELO REAL -- el NIVEL 3, los cuatro canales de contactabilidad.
+#   DIR, TEL, CEL y EMA se pueden puntuar a la vez porque cada uno escribe
+#   una particion DISJUNTA de score_ordenamiento: antes de insertar borra
+#   solo la suya, con DELETE ... WHERE canal = 'XXX'. Ninguno pisa a otro.
+#   El insumo comun lo deja el nivel 2 en las bdm_tempo.stg_*, que son
+#   tablas PERMANENTES y por eso sobreviven de un nivel al siguiente aunque
+#   cada rama sea otra sesion del Data API.
+#
+# POR QUE EL ORDENAMIENTO SON TRES NIVELES Y NO UNO
+# bdm_datos.sp_ordenamiento_ciclo sigue existiendo y NO se toca: lo usan
+# deploy.par, la bateria mock y la via manual. Para el Framework se reparten
+# sus etapas en tres wrappers, porque el scoring por canal esta declarado sin
+# parametros y el Framework siempre invoca con SEIS argumentos posicionales.
+# Los wrappers viven en bdm_stage y llevan la firma del Framework, igual que
+# los de GEO.
+#
+# LA TRAZA DE CONTROL NO CAMBIA. El reparto en niveles no cuesta una sola
+# fila de observabilidad:
+#   ord_control        -> una corrida por lote: la abre el nivel 2 y la
+#                         cierra el nivel 4, con watermark y conteos
+#   ord_control_etapa  -> las nueve etapas de siempre, con sus mismos
+#                         literales: preparar, cuentas, ubicaciones,
+#                         scoring_dir/tel/cel/ema, consolidacion, cleanup
+#   ord_alcance_censo  -> una fila por corrida, escrita en cleanup ANTES del
+#                         drop del staging. Los criterios F1-01..08 dependen
+#                         de ella
+# Los niveles 3 y 4 recuperan la corrida por LOTE, porque corrida_id es
+# variable local y cada nivel es otra sesion.
+#
+# PARA MANDAR UN DELTA solo cambia el nombre del .val: fw_resolver_param
+# decide el MODO por lo que el mnemotecnico CONTIENE. Este YAML no se toca.
 # =====================================================================
 procesos:
   pipeline: RECONOCER
@@ -28,12 +65,33 @@ procesos:
           step_procedure: bdm_datos.sp_unificacion_ciclo
           step_description: "Orquestador de Unificacion. Resuelve MODO/LOTE/FECHA con fw_resolver_param y corre R1, R2 (seis escenarios y cuatro motores), GEO y R3"
     - nivel: 2
-      descripcion: "Ordenamiento: alcance, cuentas, ubicaciones y scoring de los cuatro canales"
+      descripcion: "Ordenamiento, parte 1: abre la corrida y deja el insumo listo (alcance, cuentas, ubicaciones)"
       procedimientos:
-        - step_name: "ordenamiento_ciclo"
-          step_procedure: bdm_datos.sp_ordenamiento_ciclo
-          step_description: "Orquestador de Ordenamiento. Fases 1 a 4; el scoring de DIR, TEL, CEL y EMA corre dentro de este SP"
+        - step_name: "ordenamiento_preparar"
+          step_procedure: bdm_stage.sp_ordenamiento_preparar
+          step_description: "Abre ord_control, resuelve watermark y bootstrap, y corre las etapas preparar, cuentas y ubicaciones. Deja el staging bdm_tempo.stg_* en pie para el nivel 3"
     - nivel: 3
+      descripcion: "Ordenamiento, parte 2: LOS CUATRO CANALES EN PARALELO. Particiones disjuntas de score_ordenamiento por canal"
+      procedimientos:
+        - step_name: "scoring_dir"
+          step_procedure: bdm_stage.sp_ordenamiento_scoring_dir
+          step_description: "Scoring del canal DIR (direcciones). Borra e inserta solo canal = 'DIR'"
+        - step_name: "scoring_tel"
+          step_procedure: bdm_stage.sp_ordenamiento_scoring_tel
+          step_description: "Scoring del canal TEL (telefonos). Borra e inserta solo canal = 'TEL'"
+        - step_name: "scoring_cel"
+          step_procedure: bdm_stage.sp_ordenamiento_scoring_cel
+          step_description: "Scoring del canal CEL (celulares). Borra e inserta solo canal = 'CEL'"
+        - step_name: "scoring_ema"
+          step_procedure: bdm_stage.sp_ordenamiento_scoring_ema
+          step_description: "Scoring del canal EMA (correos). Borra e inserta solo canal = 'EMA'"
+    - nivel: 4
+      descripcion: "Ordenamiento, parte 3: consolida el ranking, levanta el censo de alcance y cierra la corrida"
+      procedimientos:
+        - step_name: "ordenamiento_cerrar"
+          step_procedure: bdm_stage.sp_ordenamiento_cerrar
+          step_description: "Etapas consolidacion y cleanup: rpu_orden_prioridad, censo ord_alcance_censo antes del drop del staging, residuales F1-05, watermark nuevo y cierre de ord_control"
+    - nivel: 5
       descripcion: "Novedades: las siete tablas dominio"
       procedimientos:
         - step_name: "novedades_ciclo"
