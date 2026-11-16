@@ -62,10 +62,7 @@ TRUNCATE TABLE bdm_stage.mock_unif_ca_result;
 TRUNCATE TABLE bdm_stage.mock_unif_convergencia;
 
 -- Salidas de Ordenamiento mock
-TRUNCATE TABLE bdm_stage.mock_ord_score;
 TRUNCATE TABLE bdm_stage.mock_ord_prioridad;
-TRUNCATE TABLE bdm_stage.mock_ord_rpu;
-TRUNCATE TABLE bdm_stage.mock_ord_escenario;
 TRUNCATE TABLE bdm_stage.mock_ord_control_etapa;
 TRUNCATE TABLE bdm_stage.mock_ord_control;
 -- SLCOPRBA-1355: el censo de alcance de la Fase 1. Entra aqui en el MISMO
