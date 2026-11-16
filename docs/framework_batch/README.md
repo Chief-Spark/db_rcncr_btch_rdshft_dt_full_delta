@@ -7,7 +7,9 @@ Los archivos de la cadena real lanzada **desde el Framework** (no desde
 | Archivo | Donde va | Para que |
 |---|---|---|
 | `PE1353.yml` | **raiz** de `<stage>-<cuenta>-fwdynbtch-dynamic-batch-definition-repository` | los CINCO niveles, con los cuatro canales de scoring en paralelo en el nivel 3 |
-| `reconocerfullval1-20261028-2610.val` | carpeta `PE1353/` de `...-dynamic-batch-source-repository` | es el disparador, y su NOMBRE lleva los parametros |
+| `reconocerfullval1-20261116-2611.val` | carpeta `PE1353/` de `...-dynamic-batch-source-repository` | **dispara FULL**. Su NOMBRE lleva los parametros; el cuerpo no lo lee nadie |
+| `reconocerdeltaval1-20261117-2611.val` | la misma carpeta | **dispara DELTA**. Lo unico que cambia es el nombre |
+| `mnemotecnicos_filas_reconocer.csv` | **dos filas que se AGREGAN** a `mnemotecnicos.csv` en la raiz del bucket de definiciones | sin ellas el Builder muere con `NITNotFoundError`. **Leer `MNEMOTECNICOS_LEEME.md` antes de subirlo** |
 | `drilldown_qa.sql` | no se sube: se corre en DBeaver | nueve consultas de Niveles 0/1/2 con la cifra de DEV al lado para comparar |
 | `ddl_7_mat_real.sql` | no se sube: es referencia | el DDL de las siete MAT tal como quedaron en Redshift real |
 
@@ -18,9 +20,32 @@ Step Function.
 carpeta y tiene que casar con el nombre del YAML: si el codigo oficial es otro,
 se renombran los dos a la vez.
 
-**Para mandar un DELTA solo cambia el nombre del `.val`**
-(`reconocerdeltaval2-20261029-2610.val`): `fw_resolver_param` decide el MODO por
-lo que el mnemotecnico CONTIENE. El YAML no se toca.
+## Como se leen los dos nombres
+
+```
+reconocerfullval 1 - 20261116 - 2611 .val
+|______________| |   |______|   |__|
+ mnemotecnico    |    LOTE      YYMM
+                 solicitud (no se usa)
+```
+
+| Trozo | Slot del CALL | Resuelve a |
+|---|---|---|
+| `reconocerfullval` / `reconocerdeltaval` | 4, `in_nemotecnico` | **MODO = FULL / DELTA** |
+| `1` | 1, `in_solicitud` | no se usa |
+| `20261116` / `20261117` | 5, `in_id_facturacion` | **LOTE** |
+| `2611` | 6, `in_fecha_ejecucion` | **FECHA = 2026-11-01** |
+
+Medido con la funcion real: `fw_resolver_param` devuelve `FULL`/`DELTA`, el lote
+tal cual y `2026-11-01`. **El FULL y el DELTA llevan lote distinto a proposito**,
+para que `ord_control` quede con una corrida inequivoca por cada uno.
+
+**La fecha es YYMM y no MMYY** -- `0826` da cadena vacia porque el mes 26 no
+existe --, y `[\D]+` no admite digitos antes de `val`: `reconocer1val` no casa.
+
+**Para mandar un DELTA solo cambia el nombre del `.val`**: `fw_resolver_param`
+decide el MODO por lo que el mnemotecnico CONTIENE, mirando `DELTA` antes que
+`FULL`. **El YAML no se toca, y los SP tampoco.**
 
 ## Los cinco niveles, y por que el 3 va en paralelo
 
