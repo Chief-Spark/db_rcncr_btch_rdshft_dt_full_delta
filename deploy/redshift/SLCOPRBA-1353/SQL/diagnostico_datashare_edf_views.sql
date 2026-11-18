@@ -90,10 +90,10 @@ SELECT COUNT(*)                                                      AS filas,
   FROM (
     SELECT
       CASE WHEN NULLIF(TRIM(cp."counterparties.val.counterpartyidnumber"::VARCHAR), '') ~ '^[0-9]+$'
-            AND CAST(NULLIF(TRIM(cp."counterparties.val.counterpartyidnumber"::VARCHAR), '') AS BIGINT) <= 2147483647
+            AND LEN(NULLIF(TRIM(cp."counterparties.val.counterpartyidnumber"::VARCHAR), '')) <= 9
            THEN 1 ELSE 0 END AS cp_ok,
       CASE WHEN NULLIF(TRIM(loc."location.val.counterpartyidnumber"::VARCHAR), '') ~ '^[0-9]+$'
-            AND CAST(NULLIF(TRIM(loc."location.val.counterpartyidnumber"::VARCHAR), '') AS BIGINT) <= 2147483647
+            AND LEN(NULLIF(TRIM(loc."location.val.counterpartyidnumber"::VARCHAR), '')) <= 9
            THEN 1 ELSE 0 END AS loc_ok
     FROM      ds_dba_rncr_batch.edf_views.xpm                                   xpm
     JOIN      ds_dba_rncr_batch.edf_views.xpm_location                          loc
