@@ -18,8 +18,9 @@
 #     Unificacion (1) escribe unificacion_direccion
 #       -> Ordenamiento (2-4) LEE esa salida: solo puntua lo no unificado
 #         -> Novedades (5) LEE el orden_prioridad que produce el Ordenamiento
-#   Meter dos de esos tres en un nivel no los acelera: los deja compitiendo
-#   por una dependencia que no esta lista.
+#           -> UNLOAD (6) LEE las siete mat_* que Novedades acaba de dejar
+#   Meter dos de esos en un nivel no los acelera: los deja compitiendo por una
+#   dependencia que no esta lista.
 #
 #   PARALELO REAL -- el NIVEL 3, los cuatro canales de contactabilidad.
 #   DIR, TEL, CEL y EMA se pueden puntuar a la vez porque cada uno escribe
@@ -50,8 +51,18 @@
 # Los niveles 3 y 4 recuperan la corrida por LOTE, porque corrida_id es
 # variable local y cada nivel es otra sesion.
 #
+# EL NIVEL 6 SALE DE OTRO PAQUETE, Y ES LA UNICA DEPENDENCIA EXTERNA DE ESTE
+# YAML. sp_novedades_exportar_7_tablas vive en SLCOPRBA-1820, en los repos
+# a_rcncr_ln_rdshft_{strct,pgm}, NO en el deploy.par de Reconocer. Si ese
+# paquete no esta desplegado en el cluster, el nivel 6 muere con
+# "procedure bdm_datos.sp_novedades_exportar_7_tablas does not exist" y el
+# resto de la cadena ya habra corrido. No necesita wrapper: ese SP ya declara
+# los seis VARCHAR del Framework, igual que los orquestadores.
+#
 # PARA MANDAR UN DELTA solo cambia el nombre del .val: fw_resolver_param
 # decide el MODO por lo que el mnemotecnico CONTIENE. Este YAML no se toca.
+# El nivel 6 lo respeta: con DELTA exporta solo lo nuevo, y sin frontera
+# previa cae a FULL marcando bootstrap.
 # =====================================================================
 procesos:
   pipeline: RECONOCER
@@ -97,6 +108,12 @@ procesos:
         - step_name: "novedades_ciclo"
           step_procedure: bdm_datos.sp_novedades_ciclo_edf
           step_description: "Orquestador de Novedades. Ubicacion primero por ser productor puro, luego los seis dominios restantes"
+    - nivel: 6
+      descripcion: "UNLOAD a S3: las siete tablas dominio en CSV, para DynamoDB y el Redshift productor"
+      procedimientos:
+        - step_name: "novedades_exportar_7_tablas"
+          step_procedure: bdm_datos.sp_novedades_exportar_7_tablas
+          step_description: "Exporta las siete mat_* a S3 en CSV HEADER GZIP y escribe el CTL 7_tablas_finish.json. En DELTA solo sale lo nuevo, por frontera propia en nov_export_control"
   archivos:
     obligatorios:
       - .val
