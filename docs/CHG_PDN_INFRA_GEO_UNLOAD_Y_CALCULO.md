@@ -268,10 +268,10 @@ Nota operativa: si el pipeline presenta un error de conexion, se recomienda
 redesplegar.
 
 Verificacion: ejecutar la consulta de inventario entregada con este cambio,
-que comprueba la existencia de los 273 objetos que el calculo necesita
-(103 tablas, 34 vistas y 136 procedimientos y funciones) y que los catalogos
-de parametrizacion tienen filas. El resultado esperado es
-273 esperados / 0 faltantes / COMPLETO.
+que comprueba la existencia de los 268 objetos que el calculo necesita
+(101 tablas, 34 vistas y 133 procedimientos y funciones) y que los 22
+catalogos de parametrizacion tienen filas. El resultado esperado es
+268 esperados / 0 faltantes / COMPLETO.
 
 Rollback: rollback.par y la carpeta RevSQL/ del propio paquete, ejecutados
 por el pipeline en orden inverso: data, program, struct.
