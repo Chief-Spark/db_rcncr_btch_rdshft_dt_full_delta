@@ -351,5 +351,5 @@ UNION ALL SELECT 'mat_info_actividad_economica', COUNT(*) FROM bdm_datos.mat_inf
 UNION ALL SELECT 'mat_info_punto_interes',       COUNT(*) FROM bdm_datos.mat_info_punto_interes
 UNION ALL SELECT 'mat_info_movilidad',           COUNT(*) FROM bdm_datos.mat_info_movilidad;
 
-SELECT run_id, ambiente, modo, estado, filas_totales, watermark_anterior, watermark_nuevo
+SELECT run_id, ambiente, modo, estado, registros_total, bootstrap, watermark_anterior, watermark_nuevo
   FROM bdm_datos.nov_export_control ORDER BY 1 DESC LIMIT 5;
