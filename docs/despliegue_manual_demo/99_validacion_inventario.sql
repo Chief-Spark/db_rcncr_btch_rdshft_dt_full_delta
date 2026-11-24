@@ -1,7 +1,12 @@
 -- ============================================================================
 --  VALIDACION DE INVENTARIO - calculo Reconocer (SLCOPRBA-1353 + SLCOPRBA-1820)
 --  Se ejecuta DESPUES de las carpetas 01 a 05, en la misma base y usuario.
---  Resultado esperado: esperados = 273, faltantes = 0, titular COMPLETO.
+--  Resultado esperado: esperados = 279, faltantes = 0, titular COMPLETO.
+--  Los 279 salen de los propios paquetes (109 tablas + 34 vistas + 136
+--  rutinas), derivados de los CREATE/DROP de los paquetes y no escritos a mano.
+--  Simulando el orden de deploy.par: bdm_datos.relacion_persona_
+--  ubicacion se crea en 01_ddl_ordenamiento y la BORRA 04_vistas_insumo_
+--  ordenamiento, de modo que no debe estar aqui.
 -- ============================================================================
 
 -- ---------------------------------------------------------------- CONSULTA 1
@@ -10,6 +15,7 @@
 -- y el CAST de la PRIMERA rama fija el tipo del nodo (trampa ya documentada).
 WITH esperado AS (
   SELECT 'TABLA'::VARCHAR(10) AS tipo, 'bdm_datos'::VARCHAR(64) AS esquema, 'beta_ordenamiento'::VARCHAR(128) AS objeto
+  UNION ALL SELECT 'TABLA','bdm_datos','catalogo_divipola_cabecera'
   UNION ALL SELECT 'TABLA','bdm_datos','catalogo_fuente'
   UNION ALL SELECT 'TABLA','bdm_datos','catalogo_fuente_dato'
   UNION ALL SELECT 'TABLA','bdm_datos','catalogo_gestion_registro'
@@ -32,6 +38,8 @@ WITH esperado AS (
   UNION ALL SELECT 'TABLA','bdm_datos','cert_resultado_ord'
   UNION ALL SELECT 'TABLA','bdm_datos','cuenta_atributo_hash'
   UNION ALL SELECT 'TABLA','bdm_datos','cuenta_atributo_hash_mock'
+  UNION ALL SELECT 'TABLA','bdm_datos','diccionario_complementos'
+  UNION ALL SELECT 'TABLA','bdm_datos','diccionario_via'
   UNION ALL SELECT 'TABLA','bdm_datos','direccion_fisica_generada'
   UNION ALL SELECT 'TABLA','bdm_datos','direccion_fisica_generada_mock'
   UNION ALL SELECT 'TABLA','bdm_datos','geo_atributos'
@@ -68,7 +76,6 @@ WITH esperado AS (
   UNION ALL SELECT 'TABLA','bdm_datos','ord_alcance_censo'
   UNION ALL SELECT 'TABLA','bdm_datos','ord_control'
   UNION ALL SELECT 'TABLA','bdm_datos','ord_control_etapa'
-  UNION ALL SELECT 'TABLA','bdm_datos','relacion_persona_ubicacion'
   UNION ALL SELECT 'TABLA','bdm_datos','rpu_generada'
   UNION ALL SELECT 'TABLA','bdm_datos','rpu_generada_mock'
   UNION ALL SELECT 'TABLA','bdm_datos','rpu_orden_prioridad'
@@ -91,8 +98,11 @@ WITH esperado AS (
   UNION ALL SELECT 'TABLA','bdm_stage','diccionario_complementos'
   UNION ALL SELECT 'TABLA','bdm_stage','diccionario_via'
   UNION ALL SELECT 'TABLA','bdm_stage','direccion_fisica'
+  UNION ALL SELECT 'TABLA','bdm_stage','mock_comportamiento_cta'
+  UNION ALL SELECT 'TABLA','bdm_stage','mock_cuenta'
   UNION ALL SELECT 'TABLA','bdm_stage','mock_geo_distancias'
   UNION ALL SELECT 'TABLA','bdm_stage','mock_geo_respuesta'
+  UNION ALL SELECT 'TABLA','bdm_stage','mock_numeros'
   UNION ALL SELECT 'TABLA','bdm_stage','mock_ord_alcance_censo'
   UNION ALL SELECT 'TABLA','bdm_stage','mock_ord_ca_result'
   UNION ALL SELECT 'TABLA','bdm_stage','mock_ord_control'
@@ -101,6 +111,7 @@ WITH esperado AS (
   UNION ALL SELECT 'TABLA','bdm_stage','mock_unif_ca_result'
   UNION ALL SELECT 'TABLA','bdm_stage','mock_unif_convergencia'
   UNION ALL SELECT 'TABLA','bdm_stage','nomenclatura'
+  UNION ALL SELECT 'TABLA','bdm_stage','relacion_persona_ubicacion'
   UNION ALL SELECT 'TABLA','bdm_stage','reporte_relacion_persona_ubica'
   UNION ALL SELECT 'TABLA','bdm_stage','tipo_ubicacion_dir'
   UNION ALL SELECT 'TABLA','bdm_stage','ubicacion_estandarizada'
@@ -284,7 +295,9 @@ WITH esperado AS (
   UNION ALL SELECT 'RUTINA','bdm_stage','sp_ordenamiento_scoring_tel'
 ),
 real_ AS (
-  SELECT 'TABLA'::VARCHAR(10) AS tipo, schemaname::VARCHAR(64) AS esquema, tablename::VARCHAR(128) AS objeto
+  -- DISTINCT: un nombre de rutina sobrecargado trae varias filas en pg_proc y
+  -- duplicaria el cruce, inflando el conteo por encima del alcance.
+  SELECT DISTINCT 'TABLA'::VARCHAR(10) AS tipo, schemaname::VARCHAR(64) AS esquema, tablename::VARCHAR(128) AS objeto
     FROM pg_tables  WHERE schemaname IN ('bdm_datos','bdm_tempo','bdm_stage')
   UNION ALL
   SELECT 'VISTA', schemaname::VARCHAR(64), viewname::VARCHAR(128)

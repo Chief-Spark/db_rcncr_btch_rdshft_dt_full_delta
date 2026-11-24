@@ -79,12 +79,12 @@ control que avisa al consumidor de que la entrega está completa.
 
 ## 6 — La comprobación (1 archivo, tres consultas)
 
-**Consulta 1 — el inventario.** Comprueba que estén los **273 objetos** que el
+**Consulta 1 — el inventario.** Comprueba que estén los **279 objetos** que el
 cálculo y el exportador necesitan (103 tablas, 34 vistas y 136 procedimientos
 y funciones). Lo que se espera:
 
 ```
-TITULAR   COMPLETO - el calculo Reconocer y el exportador tienen todos sus objetos   273   0
+TITULAR   COMPLETO - el calculo Reconocer y el exportador tienen todos sus objetos   279   0
 ```
 
 Si dice `INCOMPLETO`, las filas `FALTANTE` dicen qué objeto falta y en qué
