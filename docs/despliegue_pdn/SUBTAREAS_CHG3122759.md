@@ -50,19 +50,34 @@ Recursos que esta tarea debe dejar creados:
   - bucket de triggers del exportador
   - rol IAM de Redshift para el UNLOAD
 
-ESTADO: la mitad de esta tarea YA ESTA HECHA. El apply de TF_RCNCR_WS5_INFRA
-en PROD/TERRAFORM del 2026-11-25 salio '10 added, 0 changed' y creo el bucket y
-el rol de GEO. FALTA el apply de tf_rcncr_linea_ws5_infra, que es el que trae
-el rol del UNLOAD y el bucket de triggers.
+ESTADO: TAREA COMPLETA. Los dos apply corrieron el 2026-11-25 y los cuatro
+recursos estan creados en la cuenta 696708350333:
 
-Y DEJO MEDIDO EL TOKEN DE LA CUENTA DE PRODUCCION, que es 'pro':
+  TF_RCNCR_WS5_INFRA         10 added   bucket y rol de GEO
+  tf_rcncr_linea_ws5_infra  135 added   rol de UNLOAD, de COPY x-account,
+                                        buckets de triggers, staging y lotes,
+                                        lambdas, Glue, Step Functions y API
 
-  geo_bucket_name       = "pro-696708350333-rcncr-ws5-geo"
-  geo_redshift_role_arn = "arn:aws:iam::696708350333:role/BURoleFor-pro-...-redshift-geo"
+Nombres reales, medidos en la salida de los dos apply:
 
-La cuenta lleva CUATRO etiquetas y manda la cuarta: Jenkins la llama PROD, su
-alias de AWS termina en 'prod', su tag Environment es 'prd' y lo que la IaC
-crea lleva 'pro'.
+  pro-696708350333-rcncr-ws5-geo
+  arn:aws:iam::696708350333:role/BURoleFor-pro-696708350333-rcncr-ws5-redshift-geo
+  pro-696708350333-rcncr-ws5-triggers-reconocer-s3
+  arn:aws:iam::696708350333:role/BURoleFor-pro-696708350333-rcncr-ws5-redshift-unload
+
+EL TOKEN DE LA CUENTA ES 'pro'. Lleva CUATRO etiquetas y manda la cuarta:
+Jenkins la llama PROD, su alias de AWS termina en 'prod', su tag Environment es
+'prd' y lo que la IaC crea lleva 'pro'. El paquete SQL ya va corregido a 'pro'
+en sus cuatro literales, asi que la tarea 4 no necesita ningun ajuste previo.
+
+DOS COSAS DEL SEGUNDO APPLY QUE EL CHG DEBERIA RECOGER:
+
+1. El bucket de triggers quedo CON NOTIFICACION CABLEADA, de modo que la cadena
+   del consumidor queda ARMADA en produccion: lo que el UNLOAD escriba dispara
+   lambdas, Step Functions, Glue y la carga a DynamoDB.
+2. Ese bucket va cifrado con KMS, no con AES256 como el de GEO. Si el UNLOAD
+   fallara con AccessDenied, el sitio a mirar es el permiso kms:GenerateDataKey
+   del rol, no el nombre del bucket.
 
 EVIDENCIA QUE DEBE DEVOLVER ESTA TAREA, Y ES LA QUE HABILITA LA TAREA 4:
 la salida del 'terraform apply' con los NOMBRES REALES de los cuatro recursos.
@@ -161,13 +176,11 @@ para PROD, y el token de la cuenta es 'pro', MEDIDO en el apply del 2026-11-25:
 
   geo_config  PROD  bucket           pro-696708350333-rcncr-ws5-geo                       MEDIDO
   geo_config  PROD  iam_role         ...:role/BURoleFor-pro-...-rcncr-ws5-redshift-geo    MEDIDO
-  nov_config  PROD  triggers_bucket  pro-696708350333-rcncr-ws5-triggers-reconocer-s3     POR CONFIRMAR
-  nov_config  PROD  unload_iam_role  ...:role/BURoleFor-pro-...-rcncr-ws5-redshift-unload POR CONFIRMAR
+  nov_config  PROD  triggers_bucket  pro-696708350333-rcncr-ws5-triggers-reconocer-s3     MEDIDO
+  nov_config  PROD  unload_iam_role  ...:role/BURoleFor-pro-...-rcncr-ws5-redshift-unload MEDIDO
 
-Los dos ultimos los crea el otro repositorio de Terraform, que aun no ha
-corrido en PROD: hay que compararlos con la salida de ese apply antes de
-ejecutar. Si no coinciden, se corrigen esas dos cadenas y no hay cambio de
-logica. Atencion a que las dos tablas NO se
+Los cuatro quedaron confirmados contra la salida de los dos apply del
+2026-11-25: el paquete no necesita ningun ajuste antes de ejecutarse. Atencion a que las dos tablas NO se
 corrigen igual: nov_config se re-siembra sola porque su carga es DELETE+INSERT;
 geo_config lleva WHERE NOT EXISTS y ademas hay que tocar sus dos UPDATE de
 reconciliacion.
