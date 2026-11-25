@@ -50,6 +50,20 @@ Recursos que esta tarea debe dejar creados:
   - bucket de triggers del exportador
   - rol IAM de Redshift para el UNLOAD
 
+ESTADO: la mitad de esta tarea YA ESTA HECHA. El apply de TF_RCNCR_WS5_INFRA
+en PROD/TERRAFORM del 2026-11-25 salio '10 added, 0 changed' y creo el bucket y
+el rol de GEO. FALTA el apply de tf_rcncr_linea_ws5_infra, que es el que trae
+el rol del UNLOAD y el bucket de triggers.
+
+Y DEJO MEDIDO EL TOKEN DE LA CUENTA DE PRODUCCION, que es 'pro':
+
+  geo_bucket_name       = "pro-696708350333-rcncr-ws5-geo"
+  geo_redshift_role_arn = "arn:aws:iam::696708350333:role/BURoleFor-pro-...-redshift-geo"
+
+La cuenta lleva CUATRO etiquetas y manda la cuarta: Jenkins la llama PROD, su
+alias de AWS termina en 'prod', su tag Environment es 'prd' y lo que la IaC
+crea lleva 'pro'.
+
 EVIDENCIA QUE DEBE DEVOLVER ESTA TAREA, Y ES LA QUE HABILITA LA TAREA 4:
 la salida del 'terraform apply' con los NOMBRES REALES de los cuatro recursos.
 En DEMO la salida fue de esta forma:
@@ -142,17 +156,18 @@ El paquete y su instructivo van adjuntos: RECONOCER_PDN.zip, 180 archivos de
 estructura y programas mas la ejecucion y la validacion, en el orden de sus
 carpetas. El documento 00_LEEME_PASO_A_PASO.md trae el procedimiento completo.
 
-DEPENDE DE LAS TAREAS 1, 2 Y 3. Antes de ejecutar la carpeta 01 hay que
-comparar los nombres reales que devolvio la tarea 2 con los cuatro literales
-que el paquete siembra para PROD:
+DEPENDE DE LAS TAREAS 1, 2 Y 3. El paquete siembra estos cuatro literales
+para PROD, y el token de la cuenta es 'pro', MEDIDO en el apply del 2026-11-25:
 
-  geo_config  PROD  bucket           prod-696708350333-rcncr-ws5-geo
-  geo_config  PROD  iam_role         ...:role/BURoleFor-prod-696708350333-rcncr-ws5-redshift-geo
-  nov_config  PROD  triggers_bucket  prod-696708350333-rcncr-ws5-triggers-reconocer-s3
-  nov_config  PROD  unload_iam_role  ...:role/BURoleFor-prod-696708350333-rcncr-ws5-redshift-unload
+  geo_config  PROD  bucket           pro-696708350333-rcncr-ws5-geo                       MEDIDO
+  geo_config  PROD  iam_role         ...:role/BURoleFor-pro-...-rcncr-ws5-redshift-geo    MEDIDO
+  nov_config  PROD  triggers_bucket  pro-696708350333-rcncr-ws5-triggers-reconocer-s3     POR CONFIRMAR
+  nov_config  PROD  unload_iam_role  ...:role/BURoleFor-pro-...-rcncr-ws5-redshift-unload POR CONFIRMAR
 
-Si no coinciden, se corrigen esos cuatro literales antes de ejecutar. Son
-cuatro cadenas y no hay cambio de logica. Atencion a que las dos tablas NO se
+Los dos ultimos los crea el otro repositorio de Terraform, que aun no ha
+corrido en PROD: hay que compararlos con la salida de ese apply antes de
+ejecutar. Si no coinciden, se corrigen esas dos cadenas y no hay cambio de
+logica. Atencion a que las dos tablas NO se
 corrigen igual: nov_config se re-siembra sola porque su carga es DELETE+INSERT;
 geo_config lleva WHERE NOT EXISTS y ademas hay que tocar sus dos UPDATE de
 reconciliacion.
