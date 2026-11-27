@@ -18,6 +18,15 @@
 -- Las columnas llevan la ruta completa de la estructura anidada
 -- ("location.val.contactinformations.val.contacttype"): el catalogo las
 -- guarda asi, con el punto dentro del nombre.
+--
+--   3. SVV_REDSHIFT_COLUMNS NO TIENE character_maximum_length. Esa columna es
+--      de SVV_ALL_COLUMNS y de information_schema; pedirsela da
+--      42703: column c.character_maximum_length does not exist.
+--      No hace falta: su data_type ya trae el ancho dentro, p.ej.
+--      'character varying(256)'. Las columnas que SI tiene son
+--      database_name, schema_name, table_name, column_name,
+--      ordinal_position, data_type, column_default, is_nullable,
+--      encoding, distkey, sortkey, column_acl y remarks.
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -123,8 +132,7 @@ SELECT
     e.relacion,
     e.columna,
     CASE WHEN c.column_name IS NULL THEN 'FALTA' ELSE 'OK' END AS estado,
-    c.data_type,
-    c.character_maximum_length AS ancho
+    c.data_type
 FROM esperado e
 LEFT JOIN svv_redshift_columns c
        ON c.database_name = 'ds_dba_rncr_batch'
