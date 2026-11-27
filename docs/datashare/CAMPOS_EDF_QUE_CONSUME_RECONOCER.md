@@ -19,37 +19,57 @@ De ahi salen **94 columnas distintas sobre nueve relaciones**: 71 de dato y
 23 de navegacion (las llaves `id` / `index` y los arreglos que solo se
 recorren para desanidar).
 
-## Que etapa lee que vista
+## Que proceso lee que vista
 
-Es el mapa que conviene mirar primero: una columna le importa a una etapa
-solo si la etapa lee la vista que la expone.
+**MEDIDO SOBRE EL CODIGO, DESCARTANDO LOS COMENTARIOS, Y RESOLVIENDO LA CADENA
+ENTERA:** columna -> vista que la lee del datashare -> vistas derivadas ->
+procedimientos que las consultan. Lo de abajo corrige tres filas que una version
+anterior de esta tabla daba por buenas y salian de un `grep` que contaba
+menciones en comentarios.
 
-| Etapa | Vistas del datashare que consume |
+| Vista | Procesos que la consumen |
 |---|---|
-| Unificacion R1 | `v_xpm_relacion_persona_ubicacion`, `v_xpm_ubicacion_estandarizada`, `v_xpm_direccion_fisica`, `v_xpm_reporte_relacion_persona_ubica`, `v_xpm_ciiu_persona` |
-| Unificacion R2 | `v_xpm_relacion_persona_ubicacion`, `v_xpm_ubicacion_estandarizada`, `v_xpm_direccion_fisica`, `v_xpm_reporte_relacion_persona_ubica` |
-| Unificacion R3 | las mismas cuatro de la R2 |
-| GEO | `v_xpm_ubicacion_estandarizada` (exportar insumo y cargar resultados) |
-| Ordenamiento F1 y F3 | `v_xpm_contacto_direccion`, `v_xpm_contacto_canal`, `v_xpm_relacion_persona_ubicacion`, `v_xpm_ubicacion_estandarizada`, `v_xpm_reporte_relacion_persona_ubica` |
-| Ordenamiento F2 | `v_xpm_cuenta`, `v_xpm_comportamiento_cta` |
-| Ordenamiento F4 (scoring) | **ninguna directamente**: lee las `bdm_tempo.stg_insumo_*` que arma `preparar_insumos` |
-| Novedades Ubicacion | `v_xpm_contacto_canal`, `v_xpm_relacion_persona_ubicacion`, `v_xpm_ubicacion_estandarizada`, `v_xpm_direccion_fisica`, `v_xpm_reporte_relacion_persona_ubica` |
-| Novedades Actividad economica | `v_xpm_actividad_economica_persona`, `v_xpm_ciiu_persona`, `v_xpm_relacion_persona_ubicacion`, `v_xpm_reporte_relacion_persona_ubica` |
-| Novedades Info basica | `v_xpm_persona_basica` |
-| Novedades Contactabilidad | `v_xpm_relacion_persona_ubicacion`, `v_xpm_reporte_relacion_persona_ubica` |
-| Novedades Ubicacion agregada | `v_xpm_contacto_canal` |
-| Novedades Movilidad y Punto de interes | **ninguna**: trabajan sobre tablas nuestras ya materializadas |
-| Exportador UNLOAD (SLCOPRBA-1820) | **ninguna**: lee las siete `bdm_datos.mat_*` |
+| `v_xpm_contacto_direccion` | GEO + Novedades + Ordenamiento + Unificacion |
+| `v_xpm_relacion_persona_ubicacion` | GEO + Novedades + Ordenamiento + Unificacion |
+| `v_xpm_ubicacion_estandarizada` | GEO + Novedades + Ordenamiento + Unificacion |
+| `v_xpm_reporte_relacion_persona_ubica` | GEO + Novedades + Ordenamiento + Unificacion |
+| `v_xpm_cuenta_bloqueada` | GEO + Novedades + Ordenamiento + Unificacion (por el anti-join de `contacto_direccion` y `contacto_canal`) |
+| `v_xpm_direccion_fisica` | GEO + Novedades + Unificacion |
+| `v_xpm_contacto_canal` | **Ordenamiento, y solo Ordenamiento** |
+| `v_xpm_cuenta`, `v_xpm_comportamiento_cta` | Ordenamiento (Fase 2) |
+| `v_xpm_ciiu_persona` | **Unificacion, y solo Unificacion** (`sp_unificacion_r1_preparar_insumo.sql:87`) |
+| `v_xpm_actividad_economica_persona` | Novedades |
+| `v_xpm_persona_basica` | Novedades |
+| `v_xpm_persona_dir_ganadora`, `v_rpu_post_unificacion`, `v_relacion_persona_ubicacion_ord`, los cuatro `insumo_*` | **nadie** |
 
-**Dos vistas se declaran y hoy no las lee nadie fuera de las propias vistas:**
-`v_xpm_cuenta_bloqueada` y `v_relacion_persona_ubicacion_ord`. Se dejan
-anotadas; declarar una vista no prueba que alguien la consuma.
+**TRES FILAS QUE ESTA TABLA DABA MAL, y las tres por la misma causa -- un
+`grep` que no descarta comentarios:**
 
-## Campos del datashare EDF que lee el calculo Reconocer
+| Decia | Dice el codigo |
+|---|---|
+| Novedades Ubicacion y Ubi agregada leen `v_xpm_contacto_canal` | **falso**: la unica lectura real es `sp_ordenamiento_preparar_insumos_edf.sql:352`; en Novedades aparece una sola vez y es un comentario que dice justo lo contrario -- *"SE PROBO DERIVARLO DE v_xpm_contacto_canal Y ESTA MAL"* (`sp_novedades_ubicacion_edf.sql:169`) |
+| Novedades Actividad economica lee `v_xpm_ciiu_persona` | **falso**: la lee la Regla 1 de Unificacion |
+| Novedades Ubicacion lee `v_rpu_post_unificacion` | **falso**, y el propio SP lo dice: *"NO se usa v_rpu_post_unificacion aunque exista"* (`:99`) |
 
-Extraido de las tres vistas de `strct` que tocan `ds_dba_rncr_batch.edf_views`.
-`N` marca las columnas de NAVEGACION (llaves de join y arreglos que solo se
-recorren); el resto son columnas de DATO.
+**LA ATRIBUCION ES POR VISTA, NO POR USO COLUMNA A COLUMNA.** Si un proceso lee
+la vista, se le atribuyen sus columnas. GEO, por ejemplo, solo necesita
+coordenadas y texto, pero las recibe dentro de `v_xpm_ubicacion_estandarizada`,
+que deriva de `v_xpm_contacto_direccion`: por eso sus 21 columnas salen con los
+cuatro procesos. Afinar mas exigiria leer el `SELECT` de cada SP columna a
+columna, y no cambia que el campo haya que pedirlo.
+
+| Proceso | Columnas |
+|---|---|
+| GEO + Novedades + Ordenamiento + Unificacion | **47** |
+| Novedades | **35** |
+| Ordenamiento | **11** |
+| Novedades + Unificacion | **1** |
+
+**Y EL UNLOAD (SLCOPRBA-1820) NO LEE NI UNA COLUMNA DEL DATASHARE:** parte de
+las siete `bdm_datos.mat_*` que deja Novedades. Tampoco leen el datashare
+Movilidad ni Punto de interes, que trabajan sobre tablas nuestras ya
+materializadas, ni la Fase 4 del Ordenamiento, que consume las
+`bdm_tempo.stg_insumo_*` que arma `preparar_insumos`.
 
 
 ### `xpm` -- 17 columnas (11 de dato, 6 de navegacion)
