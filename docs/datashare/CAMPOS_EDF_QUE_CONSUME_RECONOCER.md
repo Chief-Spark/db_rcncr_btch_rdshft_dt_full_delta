@@ -213,6 +213,49 @@ materializadas, ni la Fase 4 del Ordenamiento, que consume las
 
 **TOTAL: 94 columnas distintas -- 71 de dato y 23 de navegacion.**
 
+## VERIFICADO CONTRA DEV: 94 de 94 existen (2026-11-27)
+
+**Medido con `docs/datashare/verificar_campos_edf.sql` contra el CONSUMIDOR**
+-- el cluster de Reconocer, que es donde el datashare se monta como
+`ds_dba_rncr_batch` --, no contra el productor de EDF. Las nueve relaciones
+dieron `faltan = 0` y las nueve se dejan ejecutar, de 699.626 a 1.730.942
+filas: el enmascaramiento que tumbo el job #453 no bloquea ninguna.
+
+**LEEMOS EL 27% DE LO QUE EDF PUBLICA: 94 columnas de 351.**
+
+| Relacion | Declara | Usamos |
+|---|---|---|
+| `xpm_bestaccounts` | **94** | 13 |
+| `xpm` | 51 | 17 |
+| `xpm_personalinformation` | 50 | 7 |
+| `xpm_chamberofcommerce` | 41 | 7 |
+| `xpm_bestaccounts_val_frequentbehaviour` | 39 | 6 |
+| `xpm_location_val_contactinformations` | 27 | 21 |
+| `xpm_bestidentifications` | 21 | 9 |
+| `xpm_location` | 19 | 11 |
+| `xpm_counterparties` | 9 | 3 |
+
+No es un problema, es margen: si hace falta una caracteristica mas, el dato
+probablemente ya esta en la relacion y no hay que pedirlo.
+
+**Y TODA COLUMNA DE TEXTO LLEGA COMO `character varying(16383)`.** Ninguna trae
+el ancho de su dominio. **Eso convierte en REGLA lo que parecia una anecdota de
+`info_basica`:** cualquier columna de texto del datashare puede desbordar un
+destino mas estrecho, los once `CAST` de `v_xpm_persona_basica` no son
+opcionales, y toda columna nueva que se traiga necesita el mismo trato.
+
+**Dos lecturas del tipo que conviene no olvidar:**
+
+| Columna | Tipo real | Consecuencia |
+|---|---|---|
+| `contactasstandardizedscore` | `character varying` | **no es numerico**: por eso la vista lo protege con el regex antes del `CAST` a `DECIMAL(5,4)`. El codigo ya estaba bien |
+| `contacttype` | **`bigint`** | la guarda `LEN(...) <= 9` se le aplica igual y descartaria en silencio un valor de 10 digitos o mas. **No es trabajo abierto** -- un codigo de tipo de contacto de 10 digitos no existe --, pero la guarda se puso pensando en un VARCHAR |
+
+Las tres guardas que de verdad importan de la clase D-DEMO-01 caen sobre
+columnas `character varying(16383)` -- `standardizednumeropuerta`,
+`standardizeddanecode` y `counterpartyidnumber` --, de modo que el `LEN` esta
+donde tiene que estar.
+
 ## Tres cosas que conviene saber antes de usar esta lista
 
 **Una columna se nombra con su ruta completa y entre comillas dobles.** El
